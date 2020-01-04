@@ -52,4 +52,4 @@ endif (NOT BUILD_SHARED_LIBS)
 add_subdirectory("vierkant")
 
 #sample
-add_subdirectory("sample")
+add_subdirectory("samples")
