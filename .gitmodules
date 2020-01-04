@@ -1,0 +1,3 @@
+[submodule "vierkant"]
+	path = vierkant
+	url = git@github.com:crocdialer/vierkant.git
