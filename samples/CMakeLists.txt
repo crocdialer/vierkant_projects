@@ -1,4 +1,4 @@
-# add our sample(s)
+# add our samples(s)
 FILE(GLOB FOLDER_CONTENT *)
 
 include_directories(${vierkant_INCLUDE_DIRS})
@@ -13,8 +13,8 @@ FOREACH(folderItem ${FOLDER_CONTENT})
         if(NOT(${itemName} STREQUAL ".git"))
             MESSAGE("adding sample: '${itemName}'")
 
-            # include optional CMakeLists.txt in sample folder
-            # FILE(GLOB CMAKELISTS_EXIST "${folderItem}/CMakeLists.txt")
+            # include optional CMakeLists.txt in samples folder
+             FILE(GLOB CMAKELISTS_EXIST "${folderItem}/CMakeLists.txt")
 
             if(CMAKELISTS_EXIST)
                 message("using CMakeLists.txt for sample '${itemName}'")

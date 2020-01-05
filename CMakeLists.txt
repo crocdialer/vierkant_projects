@@ -51,5 +51,5 @@ endif (NOT BUILD_SHARED_LIBS)
 #vierkant
 add_subdirectory("vierkant")
 
-#sample
+#samples
 add_subdirectory("samples")
