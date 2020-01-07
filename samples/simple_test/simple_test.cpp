@@ -44,7 +44,8 @@ void HelloTriangleApplication::create_context_and_window()
 
         m_arcball.screen_size = {w, h};
     };
-    m_window->window_delegates["main"] = window_delegate;
+    window_delegate.close_fn = [this](){ set_running(false); };
+    m_window->window_delegates[name()] = window_delegate;
 
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
@@ -55,7 +56,7 @@ void HelloTriangleApplication::create_context_and_window()
             if(e.code() == vk::Key::_ESCAPE){ set_running(false); }
         }
     };
-    m_window->key_delegates["main"] = key_delegate;
+    m_window->key_delegates[name()] = key_delegate;
 
     // create a draw context
     m_draw_context = vierkant::DrawContext(m_device);
@@ -187,8 +188,6 @@ void HelloTriangleApplication::update(double time_delta)
 
     // issue top-level draw-command
     m_window->draw();
-
-    set_running(running() && !m_window->should_close());
 }
 
 std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::WindowPtr &w)
