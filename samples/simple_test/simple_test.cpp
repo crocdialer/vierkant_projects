@@ -201,12 +201,6 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
     inheritance.framebuffer = framebuffer.handle();
     inheritance.renderPass = framebuffer.renderpass().get();
 
-    for(auto renderer : {&m_image_renderer, &m_renderer, &m_gui_renderer})
-    {
-        renderer->viewport.width = width;
-        renderer->viewport.height = height;
-    }
-
     auto render_images = [this, width, height, &inheritance]() -> VkCommandBuffer
     {
         m_draw_context.draw_image(m_image_renderer, m_texture);
