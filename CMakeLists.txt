@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.3)
 
 ## define our project
-project(vierkant)
+project(vierkant_projects)
 
 ## request C++17
 set(CMAKE_CXX_STANDARD 17)
@@ -20,18 +20,11 @@ if(${CMAKE_BUILD_TYPE} IN_LIST RELEASE_BUILDS)
     list(APPEND CXX_FLAGS "-O3")
 endif()
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
-# option(BUILD_TESTS "Build Tests" ON)
-
-set(LIB_TYPE SHARED)
-if (NOT BUILD_SHARED_LIBS)
-    set(LIB_TYPE STATIC)
-    set(Boost_USE_STATIC_LIBS ON)
-endif (NOT BUILD_SHARED_LIBS)
-
-#vierkant
+# vierkant
+option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+option(BUILD_TESTS "Build Tests" OFF)
 add_subdirectory("vierkant")
 set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 
-#samples
-add_subdirectory("samples")
+# projects
+add_subdirectory("projects")
