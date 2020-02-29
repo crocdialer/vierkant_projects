@@ -12,7 +12,7 @@
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
 const bool V_SYNC = true;
-bool DEMO_GUI = true;
+bool DEMO_GUI = false;
 
 ////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
 
@@ -26,6 +26,12 @@ const char *g_texture_url = "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32
 
 const char *g_font_path = "/usr/local/share/fonts/Courier New Bold.ttf";
 
+VkFormat vk_format(const crocore::ImagePtr &img, bool compress = true);
+
+vierkant::MaterialPtr create_material(const vierkant::assimp::material_t &mat);
+
+void render_scene(vierkant::Renderer& renderer, vierkant::ScenePtr scene, vierkant::CameraPtr camera);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 class HelloTriangleApplication : public crocore::Application
@@ -33,7 +39,7 @@ class HelloTriangleApplication : public crocore::Application
 
 public:
 
-    explicit HelloTriangleApplication(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv) {};
+    explicit HelloTriangleApplication(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
 private:
 
@@ -53,7 +59,7 @@ private:
 
     void create_texture_image();
 
-    void load_model();
+    void load_model(const std::string &path = "");
 
     bool m_use_msaa = true;
 
@@ -78,7 +84,7 @@ private:
 
     vk::MaterialPtr m_material = vk::Material::create();
 
-    vk::Renderer::drawable_t m_drawable;
+    std::vector<vk::Renderer::drawable_t> m_drawables;
 
     vk::Renderer m_image_renderer, m_renderer, m_gui_renderer;
 

@@ -2,8 +2,40 @@
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
 #include <vierkant/imgui/imgui_util.h>
+#include <vierkant/assimp.hpp>
+#include <vierkant/Visitor.hpp>
 
 #include "simple_test.hpp"
+
+VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
+{
+    VkFormat ret;
+
+    switch(img->num_components())
+    {
+        case 1:
+            ret = VK_FORMAT_R8_UNORM;
+            break;
+        case 2:
+            ret = VK_FORMAT_R8G8_UNORM;
+            break;
+        case 3:
+            ret = VK_FORMAT_R8G8B8_UNORM;
+            break;
+        case 4:
+            ret = VK_FORMAT_R8G8B8A8_UNORM;
+            break;
+    }
+    return ret;
+}
+
+void render_scene(vierkant::Renderer &renderer, vierkant::ScenePtr scene, vierkant::CameraPtr camera)
+{
+    // proof-of API, keep it simple here ...
+    vierkant::SelectVisitor<vierkant::Mesh> select_visitor;
+    scene->root()->accept(select_visitor);
+
+}
 
 void HelloTriangleApplication::setup()
 {
@@ -104,6 +136,14 @@ void HelloTriangleApplication::create_context_and_window()
     // attach arcball mouse delegate
     m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
 
+    // attach drag/drop mouse-delegate
+    vierkant::mouse_delegate_t file_drop_delegate = {};
+    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
+    {
+        load_model(files.back());
+    };
+    m_window->mouse_delegates["filedrop"] = file_drop_delegate;
+
     m_animation = crocore::Animation::create(&m_scale, 0.5f, 1.5f, 2.);
     m_animation.set_ease_function(crocore::easing::EaseOutBounce());
     m_animation.set_loop_type(crocore::Animation::LOOP_BACK_FORTH);
@@ -151,15 +191,54 @@ void HelloTriangleApplication::create_texture_image()
     }
 }
 
-void HelloTriangleApplication::load_model()
+void HelloTriangleApplication::load_model(const std::string &path)
 {
-    auto geom = vk::Geometry::Box(glm::vec3(.5f));
-    geom->normals.clear();
-    m_mesh = vk::Mesh::create_from_geometry(m_device, geom);
-    m_material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
-    m_material->images = {m_texture};
+    m_drawables.clear();
 
-    m_drawable = vk::Renderer::create_drawable(m_device, m_mesh, m_material);
+    if(!path.empty())
+    {
+        auto mesh_assets = vierkant::assimp::load_model(path);
+        m_mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries);
+
+        m_mesh->materials.resize(m_mesh->entries.size());
+
+        for(uint32_t i = 0; i < m_mesh->materials.size(); ++i)
+        {
+            auto &material = m_mesh->materials[i];
+            material = vierkant::Material::create();
+
+            auto color_img = mesh_assets.materials[i].img_diffuse;
+
+            if(color_img)
+            {
+                vk::Image::Format fmt;
+                fmt.format = vk_format(color_img);
+                fmt.extent = {color_img->width(), color_img->height(), 1};
+                fmt.use_mipmap = true;
+                auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
+                material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
+                material->images = {color_tex};
+            }
+            else
+            {
+                material->shader_type = vk::ShaderType::UNLIT_COLOR;
+                material->images = {};
+            }
+        }
+
+        // scale
+        float scale = 1.f / glm::length(m_mesh->aabb().halfExtents());
+        m_mesh->set_scale(scale);
+
+        m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, m_mesh->materials);
+    }
+    else
+    {
+        m_mesh = vk::Mesh::create_from_geometries(m_device, {vk::Geometry::Box(glm::vec3(.5f))});
+        m_material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
+        m_material->images = {m_texture};
+        m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, {m_material});
+    }
 }
 
 void HelloTriangleApplication::update(double time_delta)
@@ -180,11 +259,17 @@ void HelloTriangleApplication::update(double time_delta)
     m_animation.update();
 
     // update matrices for this frame
-    m_drawable.matrices.model = glm::rotate(glm::scale(glm::mat4(1), glm::vec3(m_scale)),
-                                            (float) application_time() * glm::radians(30.0f),
-                                            glm::vec3(0.0f, 1.0f, 0.0f));
-    m_drawable.matrices.view = m_camera->view_matrix();
-    m_drawable.matrices.projection = m_camera->projection_matrix();
+//    m_drawable.matrices.model = glm::rotate(glm::scale(glm::mat4(1), glm::vec3(m_scale)),
+//                                            (float) application_time() * glm::radians(30.0f),
+//                                            glm::vec3(0.0f, 1.0f, 0.0f));
+//    m_drawable.matrices.model = m_mesh->transform();
+
+
+    for(auto &drawable : m_drawables)
+    {
+        drawable.matrices.view = m_camera->view_matrix();
+        drawable.matrices.projection = m_camera->projection_matrix();
+    }
 
     // issue top-level draw-command
     m_window->draw();
@@ -211,10 +296,15 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
 
     auto render_mesh = [this, &inheritance]() -> VkCommandBuffer
     {
-        m_renderer.stage_drawable(m_drawable);
-        m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
-                                        m_drawable.matrices.view * m_drawable.matrices.model,
-                                        m_drawable.matrices.projection);
+        for(auto &drawable : m_drawables)
+        {
+            m_renderer.stage_drawable(drawable);
+
+            m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
+                                            drawable.matrices.view * drawable.matrices.model,
+                                            drawable.matrices.projection);
+        }
+
         m_draw_context.draw_grid(m_renderer, 10.f, 100, m_camera->view_matrix(), m_camera->projection_matrix());
         return m_renderer.render(&inheritance);
     };
@@ -232,7 +322,7 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
     {
         // submit and wait for all command-creation tasks to complete
         std::vector<std::future<VkCommandBuffer>> cmd_futures;
-        cmd_futures.push_back(background_queue().post(render_images));
+//        cmd_futures.push_back(background_queue().post(render_images));
         cmd_futures.push_back(background_queue().post(render_mesh));
         cmd_futures.push_back(background_queue().post(render_gui));
         crocore::wait_all(cmd_futures);
