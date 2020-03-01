@@ -9,7 +9,7 @@
 
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
 {
-    VkFormat ret;
+    VkFormat ret = VK_FORMAT_UNDEFINED;
 
     switch(img->num_components())
     {
@@ -85,7 +85,20 @@ void HelloTriangleApplication::create_context_and_window()
     {
         if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard))
         {
-            if(e.code() == vk::Key::_ESCAPE){ set_running(false); }
+            switch(e.code())
+            {
+                case vk::Key::_ESCAPE:
+                    set_running(false);
+                    break;
+                case vk::Key::_G:
+                    m_draw_grid = !m_draw_grid;
+                    break;
+                case vk::Key::_B:
+                    m_draw_aabb = !m_draw_aabb;
+                    break;
+                default:
+                    break;
+            }
         }
     };
     m_window->key_delegates[name()] = key_delegate;
@@ -135,6 +148,10 @@ void HelloTriangleApplication::create_context_and_window()
 
     // attach arcball mouse delegate
     m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
+    m_window->mouse_delegates["zoom"].mouse_wheel = [this](const vierkant::MouseEvent &e)
+    {
+        m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
+    };
 
     // attach drag/drop mouse-delegate
     vierkant::mouse_delegate_t file_drop_delegate = {};
@@ -152,14 +169,18 @@ void HelloTriangleApplication::create_context_and_window()
     m_animation.set_duration(3.);
 
     m_font = vk::Font::create(m_device, g_font_path, 64);
+
+    m_pipeline_cache = vk::PipelineCache::create(m_device);
 }
 
 void HelloTriangleApplication::create_graphics_pipeline()
 {
+    m_pipeline_cache->clear();
+
     auto &framebuffers = m_window->swapchain().framebuffers();
-    m_renderer = vk::Renderer(m_device, framebuffers);
-    m_image_renderer = vk::Renderer(m_device, framebuffers);
-    m_gui_renderer = vk::Renderer(m_device, framebuffers);
+    m_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
+    m_image_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
+    m_gui_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
 }
 
 void HelloTriangleApplication::create_texture_image()
@@ -236,7 +257,7 @@ void HelloTriangleApplication::load_model(const std::string &path)
         }
 
         // scale
-        float scale = 1.f / glm::length(m_mesh->aabb().halfExtents());
+        float scale = 5.f / glm::length(m_mesh->aabb().halfExtents());
         m_mesh->set_scale(scale);
 
         m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, m_mesh->materials);
@@ -255,10 +276,10 @@ void HelloTriangleApplication::update(double time_delta)
     m_arcball.enabled = !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
 
     auto look_at = glm::vec3(0);
-    float cam_distance = 4.f;
+
     glm::mat4 rotation = glm::mat4_cast(m_arcball.rotation());
 
-    auto tmp = glm::translate(glm::mat4(1), look_at + glm::vec3(0, 0, cam_distance));
+    auto tmp = glm::translate(glm::mat4(1), look_at + glm::vec3(0, 0, m_cam_distance));
     auto cam_transform = rotation * tmp;
     m_camera->set_global_transform(cam_transform);
 
@@ -268,14 +289,14 @@ void HelloTriangleApplication::update(double time_delta)
     m_animation.update();
 
     // update matrices for this frame
-//    m_drawable.matrices.model = glm::rotate(glm::scale(glm::mat4(1), glm::vec3(m_scale)),
-//                                            (float) application_time() * glm::radians(30.0f),
-//                                            glm::vec3(0.0f, 1.0f, 0.0f));
-//    m_drawable.matrices.model = m_mesh->transform();
+//    m_mesh->transform() = glm::rotate(glm::scale(glm::mat4(1), glm::vec3(m_mesh->scale())),
+//                                          (float) application_time() * glm::radians(30.0f),
+//                                          glm::vec3(0.0f, 1.0f, 0.0f));
 
 
     for(auto &drawable : m_drawables)
     {
+        drawable.matrices.model = m_mesh->transform();
         drawable.matrices.view = m_camera->view_matrix();
         drawable.matrices.projection = m_camera->projection_matrix();
     }
@@ -305,16 +326,18 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
 
     auto render_mesh = [this, &inheritance]() -> VkCommandBuffer
     {
-        for(auto &drawable : m_drawables)
+        for(auto &drawable : m_drawables){ m_renderer.stage_drawable(drawable); }
+
+        if(m_draw_aabb)
         {
-            m_renderer.stage_drawable(drawable);
-
             m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
-                                            drawable.matrices.view * drawable.matrices.model,
-                                            drawable.matrices.projection);
+                                            m_camera->view_matrix() * m_mesh->transform(),
+                                            m_camera->projection_matrix());
         }
-
-        m_draw_context.draw_grid(m_renderer, 10.f, 100, m_camera->view_matrix(), m_camera->projection_matrix());
+        if(m_draw_grid)
+        {
+            m_draw_context.draw_grid(m_renderer, 10.f, 100, m_camera->view_matrix(), m_camera->projection_matrix());
+        }
         return m_renderer.render(&inheritance);
     };
 

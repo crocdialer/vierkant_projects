@@ -65,6 +65,12 @@ private:
 
     bool m_fullscreen = false;
 
+    bool m_draw_grid = true;
+
+    bool m_draw_aabb = true;
+
+    float m_cam_distance = 20.f;
+
     // bundles basic Vulkan assets
     vierkant::Instance m_instance;
 
@@ -85,6 +91,8 @@ private:
     vk::MaterialPtr m_material = vk::Material::create();
 
     std::vector<vk::Renderer::drawable_t> m_drawables;
+
+    vk::PipelineCachePtr m_pipeline_cache;
 
     vk::Renderer m_image_renderer, m_renderer, m_gui_renderer;
 
