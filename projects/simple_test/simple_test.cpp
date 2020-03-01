@@ -202,9 +202,12 @@ void HelloTriangleApplication::load_model(const std::string &path)
 
         m_mesh->materials.resize(m_mesh->entries.size());
 
-        for(uint32_t i = 0; i < m_mesh->materials.size(); ++i)
+        std::vector<vierkant::MaterialPtr> materials_tmp(mesh_assets.materials.size());
+
+
+        for(uint32_t i = 0; i < materials_tmp.size(); ++i)
         {
-            auto &material = m_mesh->materials[i];
+            auto &material = materials_tmp[i];
             material = vierkant::Material::create();
 
             auto color_img = mesh_assets.materials[i].img_diffuse;
@@ -224,6 +227,12 @@ void HelloTriangleApplication::load_model(const std::string &path)
                 material->shader_type = vk::ShaderType::UNLIT_COLOR;
                 material->images = {};
             }
+        }
+
+        // correct material indices
+        for(uint32_t i = 0; i < m_mesh->entries.size(); ++i)
+        {
+            m_mesh->materials[i] = materials_tmp[mesh_assets.material_indices[i]];
         }
 
         // scale
