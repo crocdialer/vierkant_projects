@@ -231,6 +231,11 @@ void HelloTriangleApplication::load_model(const std::string &path)
             auto &material = materials_tmp[i];
             material = vierkant::Material::create();
 
+            material->color = mesh_assets.materials[i].diffuse;
+            material->emission = mesh_assets.materials[i].emission;
+            material->roughness = mesh_assets.materials[i].roughness;
+            material->blending = mesh_assets.materials[i].blending;
+
             auto color_img = mesh_assets.materials[i].img_diffuse;
 
             if(color_img)
@@ -239,6 +244,8 @@ void HelloTriangleApplication::load_model(const std::string &path)
                 fmt.format = vk_format(color_img);
                 fmt.extent = {color_img->width(), color_img->height(), 1};
                 fmt.use_mipmap = true;
+                fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+                fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                 auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
                 material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
                 material->images = {color_tex};
