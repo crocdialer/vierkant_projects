@@ -116,20 +116,38 @@ void HelloTriangleApplication::create_context_and_window()
     // textures window
     m_gui_context.delegates["textures"] = [this]{ vk::gui::draw_images_ui({m_texture, m_texture_font}); };
 
-//    // animations window
-//    m_gui_context.delegates["animations"] = [this]
-//    {
-//        ImGui::Begin("animations");
-//        float duration = m_animation.duration();
-//        float current_time = m_animation.progress() * duration;
-//
-//        // animation current time / duration
-//        if(ImGui::InputFloat("duration", &duration)){ m_animation.set_duration(duration); }
-//        ImGui::ProgressBar(m_animation.progress(), ImVec2(-1, 0),
-//                           crocore::format("%.2f/%.2f s", current_time, duration).c_str());
-//        ImGui::Separator();
-//        ImGui::End();
-//    };
+    // animations window
+    m_gui_context.delegates["animation"] = [this]
+    {
+        if(m_mesh && m_mesh->root_bone)
+        {
+            auto &animation = m_mesh->bone_animations[m_mesh->bone_animation_index];
+
+            ImGui::Begin("animation");
+            float duration = animation.duration;
+            float current_time = animation.current_time;
+
+            float progress = duration != 0.f ? current_time / duration : 0;
+
+            int animation_index = m_mesh->bone_animation_index;
+            if(ImGui::InputInt("animation index", &animation_index))
+            {
+                if(animation_index >= 0 && static_cast<size_t>(animation_index) < m_mesh->bone_animations.size())
+                {
+                    m_mesh->bone_animation_index = animation_index;
+                }
+            }
+
+            // animation current time / duration
+            ImGui::InputFloat("ticks / sec", &animation.ticks_per_sec, 0.f, 0.f, 2,
+                              ImGuiInputTextFlags_EnterReturnsTrue);
+
+            ImGui::ProgressBar(progress, ImVec2(-1, 0),
+                               crocore::format("%.2f/%.2f s", current_time, duration).c_str());
+            ImGui::Separator();
+            ImGui::End();
+        }
+    };
 
     // imgui demo window
     m_gui_context.delegates["demo"] = []{ if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }};
@@ -221,10 +239,12 @@ void HelloTriangleApplication::load_model(const std::string &path)
         auto mesh_assets = vierkant::assimp::load_model(path);
         m_mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries);
 
+        // skin + bones
+        m_mesh->root_bone = mesh_assets.root_bone;
+        m_mesh->bone_animations = std::move(mesh_assets.animations);
+
         m_mesh->materials.resize(m_mesh->entries.size());
-
         std::vector<vierkant::MaterialPtr> materials_tmp(mesh_assets.materials.size());
-
 
         for(uint32_t i = 0; i < materials_tmp.size(); ++i)
         {
@@ -247,12 +267,14 @@ void HelloTriangleApplication::load_model(const std::string &path)
                 fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                 fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                 auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
-                material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
+                material->shader_type = m_mesh->root_bone ? vk::ShaderType::UNLIT_TEXTURE_SKIN
+                                                          : vk::ShaderType::UNLIT_TEXTURE;
                 material->images = {color_tex};
             }
             else
             {
-                material->shader_type = vk::ShaderType::UNLIT_COLOR;
+                material->shader_type = m_mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
+                                                          : vk::ShaderType::UNLIT_COLOR;
                 material->images = {};
             }
         }
@@ -293,6 +315,13 @@ void HelloTriangleApplication::update(double time_delta)
 //    m_camera_handle->set_rotation(m_arcball.rotation());
 //    m_arcball.update(time_delta);
 
+    if(m_mesh && m_mesh->bone_animation_index < m_mesh->bone_animations.size())
+    {
+        auto &anim = m_mesh->bone_animations[m_mesh->bone_animation_index];
+        anim.current_time = fmodf(anim.current_time + time_delta * anim.ticks_per_sec, anim.duration);
+        anim.current_time += anim.current_time < 0.f ? anim.duration : 0.f;
+    }
+
     m_animation.update();
 
     // update matrices for this frame
@@ -301,6 +330,7 @@ void HelloTriangleApplication::update(double time_delta)
 //                                          glm::vec3(0.0f, 1.0f, 0.0f));
 
 
+    // TODO: creating / updating those will be moved to a CullVisitor
     for(auto &drawable : m_drawables)
     {
         drawable.matrices.model = m_mesh->transform();
