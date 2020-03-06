@@ -124,26 +124,29 @@ void HelloTriangleApplication::create_context_and_window()
             auto &animation = m_mesh->bone_animations[m_mesh->bone_animation_index];
 
             ImGui::Begin("animation");
-            float duration = animation.duration;
-            float current_time = animation.current_time;
 
-            float progress = duration != 0.f ? current_time / duration : 0;
-
+            // animation index
             int animation_index = m_mesh->bone_animation_index;
-            if(ImGui::InputInt("animation index", &animation_index))
+            if(ImGui::SliderInt("index", &animation_index, 0, m_mesh->bone_animations.size() - 1))
             {
-                if(animation_index >= 0 && static_cast<size_t>(animation_index) < m_mesh->bone_animations.size())
-                {
-                    m_mesh->bone_animation_index = animation_index;
-                }
+                m_mesh->bone_animation_index = animation_index;
             }
 
-            // animation current time / duration
-            ImGui::InputFloat("ticks / sec", &animation.ticks_per_sec, 0.f, 0.f, 2,
-                              ImGuiInputTextFlags_EnterReturnsTrue);
+            // animation speed
+            if(ImGui::SliderFloat("speed", &m_mesh->bone_animation_speed, -3.f, 3.f))
+            {
+            }
 
-            ImGui::ProgressBar(progress, ImVec2(-1, 0),
-                               crocore::format("%.2f/%.2f s", current_time, duration).c_str());
+            float current_time = animation.current_time / animation.ticks_per_sec;
+            float duration = animation.duration / animation.ticks_per_sec;
+
+            // animation current time / max time
+            if(ImGui::SliderFloat(("/ " + crocore::to_string(duration, 2) + " s").c_str(),
+                                  &current_time, 0.f, duration))
+            {
+                animation.current_time = current_time * animation.ticks_per_sec;
+            }
+
             ImGui::Separator();
             ImGui::End();
         }
@@ -318,7 +321,8 @@ void HelloTriangleApplication::update(double time_delta)
     if(m_mesh && m_mesh->bone_animation_index < m_mesh->bone_animations.size())
     {
         auto &anim = m_mesh->bone_animations[m_mesh->bone_animation_index];
-        anim.current_time = fmodf(anim.current_time + time_delta * anim.ticks_per_sec, anim.duration);
+        anim.current_time = fmodf(anim.current_time + time_delta * anim.ticks_per_sec * m_mesh->bone_animation_speed,
+                                  anim.duration);
         anim.current_time += anim.current_time < 0.f ? anim.duration : 0.f;
     }
 
