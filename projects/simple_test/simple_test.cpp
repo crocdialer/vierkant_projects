@@ -337,8 +337,7 @@ void HelloTriangleApplication::update(double time_delta)
     // TODO: creating / updating those will be moved to a CullVisitor
     for(auto &drawable : m_drawables)
     {
-        drawable.matrices.model = m_mesh->transform();
-        drawable.matrices.view = m_camera->view_matrix();
+        drawable.matrices.modelview = m_camera->view_matrix() * m_mesh->transform();
         drawable.matrices.projection = m_camera->projection_matrix();
     }
 
