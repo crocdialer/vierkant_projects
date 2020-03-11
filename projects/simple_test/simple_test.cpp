@@ -240,7 +240,7 @@ void HelloTriangleApplication::load_model(const std::string &path)
     if(!path.empty())
     {
         auto mesh_assets = vierkant::assimp::load_model(path);
-        m_mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries);
+        m_mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms);
 
         // skin + bones
         m_mesh->root_bone = mesh_assets.root_bone;
@@ -299,6 +299,7 @@ void HelloTriangleApplication::load_model(const std::string &path)
         m_mesh = vk::Mesh::create_from_geometries(m_device, {vk::Geometry::Box(glm::vec3(.5f))});
         m_material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
         m_material->images = {m_texture};
+        m_mesh->materials = {m_material};
         m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, {m_material});
     }
 }
@@ -328,16 +329,12 @@ void HelloTriangleApplication::update(double time_delta)
 
     m_animation.update();
 
-    // update matrices for this frame
-//    m_mesh->transform() = glm::rotate(glm::scale(glm::mat4(1), glm::vec3(m_mesh->scale())),
-//                                          (float) application_time() * glm::radians(30.0f),
-//                                          glm::vec3(0.0f, 1.0f, 0.0f));
-
-
     // TODO: creating / updating those will be moved to a CullVisitor
+    m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, m_mesh->materials, m_pipeline_cache);
+
     for(auto &drawable : m_drawables)
     {
-        drawable.matrices.modelview = m_camera->view_matrix() * m_mesh->transform();
+        drawable.matrices.modelview = m_camera->view_matrix() * drawable.matrices.modelview;
         drawable.matrices.projection = m_camera->projection_matrix();
     }
 
