@@ -182,13 +182,6 @@ void HelloTriangleApplication::create_context_and_window()
     };
     m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 
-    m_animation = crocore::Animation::create(&m_scale, 0.5f, 1.5f, 2.);
-    m_animation.set_ease_function(crocore::easing::EaseOutBounce());
-    m_animation.set_loop_type(crocore::Animation::LOOP_BACK_FORTH);
-    m_animation.start();
-
-    m_animation.set_duration(3.);
-
     m_font = vk::Font::create(m_device, g_font_path, 64);
 
     m_pipeline_cache = vk::PipelineCache::create(m_device);
@@ -200,7 +193,6 @@ void HelloTriangleApplication::create_graphics_pipeline()
 
     auto &framebuffers = m_window->swapchain().framebuffers();
     m_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
-    m_image_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
     m_gui_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
 }
 
@@ -329,8 +321,6 @@ void HelloTriangleApplication::update(double time_delta)
         if(anim.current_time > anim.duration){ anim.current_time -= anim.duration; }
         anim.current_time += anim.current_time < 0.f ? anim.duration : 0.f;
     }
-
-    m_animation.update();
 
     // TODO: creating / updating those will be moved to a CullVisitor
     m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, m_mesh->materials, m_pipeline_cache);

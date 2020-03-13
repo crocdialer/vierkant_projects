@@ -5,8 +5,6 @@
 #pragma once
 
 #include <crocore/Application.hpp>
-#include <crocore/Animation.hpp>
-
 #include <vierkant/vierkant.hpp>
 
 const int WIDTH = 1920;
@@ -94,11 +92,7 @@ private:
 
     vk::PipelineCachePtr m_pipeline_cache;
 
-    vk::Renderer m_image_renderer, m_renderer, m_gui_renderer;
-
-    float m_scale = 1.f;
-
-    crocore::Animation m_animation;
+    vk::Renderer m_renderer, m_gui_renderer;
 
     vierkant::FontPtr m_font;
 
