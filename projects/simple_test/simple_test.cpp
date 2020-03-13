@@ -235,64 +235,68 @@ void HelloTriangleApplication::create_texture_image()
 
 void HelloTriangleApplication::load_model(const std::string &path)
 {
-    m_drawables.clear();
-
     if(!path.empty())
     {
-        auto mesh_assets = vierkant::assimp::load_model(path);
-        m_mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms);
-
-        // skin + bones
-        m_mesh->root_bone = mesh_assets.root_bone;
-        m_mesh->bone_animations = std::move(mesh_assets.animations);
-
-        m_mesh->materials.resize(m_mesh->entries.size());
-        std::vector<vierkant::MaterialPtr> materials_tmp(mesh_assets.materials.size());
-
-        for(uint32_t i = 0; i < materials_tmp.size(); ++i)
+        auto loading_task = [this, path]()
         {
-            auto &material = materials_tmp[i];
-            material = vierkant::Material::create();
+            auto mesh_assets = vierkant::assimp::load_model(path);
+            auto mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms);
 
-            material->color = mesh_assets.materials[i].diffuse;
-            material->emission = mesh_assets.materials[i].emission;
-            material->roughness = mesh_assets.materials[i].roughness;
-            material->blending = mesh_assets.materials[i].blending;
+            // skin + bones
+            mesh->root_bone = mesh_assets.root_bone;
+            mesh->bone_animations = std::move(mesh_assets.animations);
 
-            auto color_img = mesh_assets.materials[i].img_diffuse;
+            mesh->materials.resize(mesh->entries.size());
+            std::vector<vierkant::MaterialPtr> materials_tmp(mesh_assets.materials.size());
 
-            if(color_img)
+            for(uint32_t i = 0; i < materials_tmp.size(); ++i)
             {
-                vk::Image::Format fmt;
-                fmt.format = vk_format(color_img);
-                fmt.extent = {color_img->width(), color_img->height(), 1};
-                fmt.use_mipmap = true;
-                fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
-                material->shader_type = m_mesh->root_bone ? vk::ShaderType::UNLIT_TEXTURE_SKIN
-                                                          : vk::ShaderType::UNLIT_TEXTURE;
-                material->images = {color_tex};
+                auto &material = materials_tmp[i];
+                material = vierkant::Material::create();
+
+                material->color = mesh_assets.materials[i].diffuse;
+                material->emission = mesh_assets.materials[i].emission;
+                material->roughness = mesh_assets.materials[i].roughness;
+                material->blending = mesh_assets.materials[i].blending;
+
+                auto color_img = mesh_assets.materials[i].img_diffuse;
+
+                if(color_img)
+                {
+                    vk::Image::Format fmt;
+                    fmt.format = vk_format(color_img);
+                    fmt.extent = {color_img->width(), color_img->height(), 1};
+                    fmt.use_mipmap = true;
+                    fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+                    fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+                    auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
+                    material->shader_type = mesh->root_bone ? vk::ShaderType::UNLIT_TEXTURE_SKIN
+                                                            : vk::ShaderType::UNLIT_TEXTURE;
+                    material->images = {color_tex};
+                }
+                else
+                {
+                    material->shader_type = m_mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
+                                                              : vk::ShaderType::UNLIT_COLOR;
+                    material->images = {};
+                }
             }
-            else
+
+            // correct material indices
+            for(uint32_t i = 0; i < mesh->entries.size(); ++i)
             {
-                material->shader_type = m_mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
-                                                          : vk::ShaderType::UNLIT_COLOR;
-                material->images = {};
+                mesh->materials[i] = materials_tmp[mesh_assets.material_indices[i]];
             }
-        }
 
-        // correct material indices
-        for(uint32_t i = 0; i < m_mesh->entries.size(); ++i)
-        {
-            m_mesh->materials[i] = materials_tmp[mesh_assets.material_indices[i]];
-        }
+            // scale
+            float scale = 5.f / glm::length(mesh->aabb().halfExtents());
+            mesh->set_scale(scale);
 
-        // scale
-        float scale = 5.f / glm::length(m_mesh->aabb().halfExtents());
-        m_mesh->set_scale(scale);
+            main_queue().post([this, mesh](){ m_mesh = mesh; });
+        };
 
-        m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, m_mesh->materials);
+        loading_task();
+//        background_queue().post(loading_task);
     }
     else
     {
@@ -300,7 +304,6 @@ void HelloTriangleApplication::load_model(const std::string &path)
         m_material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
         m_material->images = {m_texture};
         m_mesh->materials = {m_material};
-        m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, {m_material});
     }
 }
 
@@ -322,8 +325,8 @@ void HelloTriangleApplication::update(double time_delta)
     if(m_mesh && m_mesh->bone_animation_index < m_mesh->bone_animations.size())
     {
         auto &anim = m_mesh->bone_animations[m_mesh->bone_animation_index];
-        anim.current_time = fmodf(anim.current_time + time_delta * anim.ticks_per_sec * m_mesh->bone_animation_speed,
-                                  anim.duration);
+        anim.current_time = anim.current_time + time_delta * anim.ticks_per_sec * m_mesh->bone_animation_speed;
+        if(anim.current_time > anim.duration){ anim.current_time -= anim.duration; }
         anim.current_time += anim.current_time < 0.f ? anim.duration : 0.f;
     }
 
@@ -346,20 +349,11 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
 {
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
-    int32_t width = m_window->swapchain().extent().width, height = m_window->swapchain().extent().height;
 
     VkCommandBufferInheritanceInfo inheritance = {};
     inheritance.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
     inheritance.framebuffer = framebuffer.handle();
     inheritance.renderPass = framebuffer.renderpass().get();
-
-    auto render_images = [this, width, height, &inheritance]() -> VkCommandBuffer
-    {
-        m_draw_context.draw_image(m_image_renderer, m_texture);
-        m_draw_context.draw_image(m_image_renderer, m_texture, {width / 4, height / 4, width / 2, height / 2});
-        m_draw_context.draw_image(m_image_renderer, m_texture_font, {width / 4, height / 4, width / 2, height / 2});
-        return m_image_renderer.render(&inheritance);
-    };
 
     auto render_mesh = [this, &inheritance]() -> VkCommandBuffer
     {
@@ -385,21 +379,14 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
         return m_gui_renderer.render(&inheritance);
     };
 
-    bool concurrant_draw = true;
+    // submit and wait for all command-creation tasks to complete
+    std::vector<std::future<VkCommandBuffer>> cmd_futures;
+    cmd_futures.push_back(background_queue().post(render_mesh));
+    cmd_futures.push_back(background_queue().post(render_gui));
+    crocore::wait_all(cmd_futures);
 
-    if(concurrant_draw)
-    {
-        // submit and wait for all command-creation tasks to complete
-        std::vector<std::future<VkCommandBuffer>> cmd_futures;
-//        cmd_futures.push_back(background_queue().post(render_images));
-        cmd_futures.push_back(background_queue().post(render_mesh));
-        cmd_futures.push_back(background_queue().post(render_gui));
-        crocore::wait_all(cmd_futures);
-
-        // get values from completed futures
-        std::vector<VkCommandBuffer> command_buffers;
-        for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
-        return command_buffers;
-    }
-    return {render_images(), render_mesh(), render_gui()};
+    // get values from completed futures
+    std::vector<VkCommandBuffer> command_buffers;
+    for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
+    return command_buffers;
 }
