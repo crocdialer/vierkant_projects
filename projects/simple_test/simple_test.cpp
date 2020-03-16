@@ -268,8 +268,8 @@ void HelloTriangleApplication::load_model(const std::string &path)
                 }
                 else
                 {
-                    material->shader_type = m_mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
-                                                              : vk::ShaderType::UNLIT_COLOR;
+                    material->shader_type = mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
+                                                            : vk::ShaderType::UNLIT_COLOR;
                     material->images = {};
                 }
             }
@@ -284,7 +284,11 @@ void HelloTriangleApplication::load_model(const std::string &path)
             float scale = 5.f / glm::length(mesh->aabb().halfExtents());
             mesh->set_scale(scale);
 
-            main_queue().post([this, mesh](){ m_mesh = mesh; });
+            // center aabb
+            mesh->set_position(-mesh->aabb().transform(mesh->transform()).center());
+
+            m_mesh = mesh;
+//            main_queue().post([this, mesh](){ m_mesh = mesh; });
         };
 
         loading_task();
