@@ -121,19 +121,19 @@ void HelloTriangleApplication::create_context_and_window()
     {
         if(m_mesh && m_mesh->root_bone)
         {
-            auto &animation = m_mesh->bone_animations[m_mesh->bone_animation_index];
+            auto &animation = m_mesh->bone_animations[m_mesh->animation_index];
 
             ImGui::Begin("animation");
 
             // animation index
-            int animation_index = m_mesh->bone_animation_index;
+            int animation_index = m_mesh->animation_index;
             if(ImGui::SliderInt("index", &animation_index, 0, m_mesh->bone_animations.size() - 1))
             {
-                m_mesh->bone_animation_index = animation_index;
+                m_mesh->animation_index = animation_index;
             }
 
             // animation speed
-            if(ImGui::SliderFloat("speed", &m_mesh->bone_animation_speed, -3.f, 3.f))
+            if(ImGui::SliderFloat("speed", &m_mesh->animation_speed, -3.f, 3.f))
             {
             }
 
@@ -236,7 +236,10 @@ void HelloTriangleApplication::load_model(const std::string &path)
 
             // skin + bones
             mesh->root_bone = mesh_assets.root_bone;
-            mesh->bone_animations = std::move(mesh_assets.animations);
+            mesh->bone_animations = std::move(mesh_assets.bone_animations);
+
+            // entry animations
+            mesh->entry_animations = std::move(mesh_assets.entry_animations);
 
             mesh->materials.resize(mesh->entries.size());
             std::vector<vierkant::MaterialPtr> materials_tmp(mesh_assets.materials.size());
@@ -285,7 +288,8 @@ void HelloTriangleApplication::load_model(const std::string &path)
             mesh->set_scale(scale);
 
             // center aabb
-            mesh->set_position(-mesh->aabb().transform(mesh->transform()).center());
+            auto aabb = mesh->aabb().transform(mesh->transform());
+            mesh->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
 
             m_mesh = mesh;
 //            main_queue().post([this, mesh](){ m_mesh = mesh; });
@@ -318,12 +322,30 @@ void HelloTriangleApplication::update(double time_delta)
 //    m_camera_handle->set_rotation(m_arcball.rotation());
 //    m_arcball.update(time_delta);
 
-    if(m_mesh && m_mesh->bone_animation_index < m_mesh->bone_animations.size())
+    if(m_mesh)
     {
-        auto &anim = m_mesh->bone_animations[m_mesh->bone_animation_index];
-        anim.current_time = anim.current_time + time_delta * anim.ticks_per_sec * m_mesh->bone_animation_speed;
-        if(anim.current_time > anim.duration){ anim.current_time -= anim.duration; }
-        anim.current_time += anim.current_time < 0.f ? anim.duration : 0.f;
+        if(m_mesh->root_bone && m_mesh->animation_index < m_mesh->bone_animations.size())
+        {
+            // bone animation
+            vierkant::update_animation(m_mesh->bone_animations[m_mesh->animation_index],
+                                       static_cast<float>(time_delta),
+                                       m_mesh->animation_speed);
+        }
+        else if(!m_mesh->entry_animations.empty() && m_mesh->animation_index < m_mesh->entry_animations.size())
+        {
+            // entry animation (submesh)
+            vierkant::update_animation(m_mesh->entry_animations[m_mesh->animation_index],
+                                       static_cast<float>(time_delta),
+                                       m_mesh->animation_speed);
+
+            auto &anim = m_mesh->entry_animations[m_mesh->animation_index];
+
+            for(auto &[index, keys] : anim.keys)
+            {
+                auto &entry = m_mesh->entries[index];
+                vierkant::create_animation_transform(keys, anim.current_time, anim.duration, entry.transform);
+            }
+        }
     }
 
     // TODO: creating / updating those will be moved to a CullVisitor
