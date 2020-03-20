@@ -119,15 +119,15 @@ void HelloTriangleApplication::create_context_and_window()
     // animations window
     m_gui_context.delegates["animation"] = [this]
     {
-        if(m_mesh && m_mesh->root_bone)
+        if(m_mesh && !m_mesh->node_animations.empty())
         {
-            auto &animation = m_mesh->bone_animations[m_mesh->animation_index];
+            auto &animation = m_mesh->node_animations[m_mesh->animation_index];
 
             ImGui::Begin("animation");
 
             // animation index
             int animation_index = m_mesh->animation_index;
-            if(ImGui::SliderInt("index", &animation_index, 0, m_mesh->bone_animations.size() - 1))
+            if(ImGui::SliderInt("index", &animation_index, 0, m_mesh->node_animations.size() - 1))
             {
                 m_mesh->animation_index = animation_index;
             }
@@ -232,14 +232,17 @@ void HelloTriangleApplication::load_model(const std::string &path)
         auto loading_task = [this, path]()
         {
             auto mesh_assets = vierkant::assimp::load_model(path);
-            auto mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms);
+            auto mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms,
+                                                         mesh_assets.node_indices);
 
             // skin + bones
             mesh->root_bone = mesh_assets.root_bone;
-            mesh->bone_animations = std::move(mesh_assets.bone_animations);
 
-            // entry animations
-            mesh->entry_animations = std::move(mesh_assets.entry_animations);
+            // node hierarchy
+            mesh->root_node = mesh_assets.root_node;
+
+            // node animations
+            mesh->node_animations = std::move(mesh_assets.node_animations);
 
             mesh->materials.resize(mesh->entries.size());
             std::vector<vierkant::MaterialPtr> materials_tmp(mesh_assets.materials.size());
@@ -322,29 +325,22 @@ void HelloTriangleApplication::update(double time_delta)
 //    m_camera_handle->set_rotation(m_arcball.rotation());
 //    m_arcball.update(time_delta);
 
-    if(m_mesh)
+    if(m_mesh && m_mesh->animation_index < m_mesh->node_animations.size())
     {
-        if(m_mesh->root_bone && m_mesh->animation_index < m_mesh->bone_animations.size())
-        {
-            // bone animation
-            vierkant::update_animation(m_mesh->bone_animations[m_mesh->animation_index],
-                                       static_cast<float>(time_delta),
-                                       m_mesh->animation_speed);
-        }
-        else if(!m_mesh->entry_animations.empty() && m_mesh->animation_index < m_mesh->entry_animations.size())
-        {
-            // entry animation (submesh)
-            vierkant::update_animation(m_mesh->entry_animations[m_mesh->animation_index],
-                                       static_cast<float>(time_delta),
-                                       m_mesh->animation_speed);
+        // update node animation
+        vierkant::update_animation(m_mesh->node_animations[m_mesh->animation_index],
+                                   static_cast<float>(time_delta),
+                                   m_mesh->animation_speed);
 
-            auto &anim = m_mesh->entry_animations[m_mesh->animation_index];
+        // entry animation transforms
+        std::vector<glm::mat4> node_matrices;
+        vierkant::nodes::build_node_matrices(m_mesh->root_node,
+                                             m_mesh->node_animations[m_mesh->animation_index],
+                                             node_matrices);
 
-            for(auto &[index, keys] : anim.keys)
-            {
-                auto &entry = m_mesh->entries[index];
-                vierkant::create_animation_transform(keys, anim.current_time, anim.duration, entry.transform);
-            }
+        for(auto &entry : m_mesh->entries)
+        {
+            entry.transform = node_matrices[entry.node_index];
         }
     }
 
