@@ -338,10 +338,7 @@ void HelloTriangleApplication::update(double time_delta)
                                              m_mesh->node_animations[m_mesh->animation_index],
                                              node_matrices);
 
-        for(auto &entry : m_mesh->entries)
-        {
-            entry.transform = node_matrices[entry.node_index];
-        }
+        for(auto &entry : m_mesh->entries){ entry.transform = node_matrices[entry.node_index]; }
     }
 
     // TODO: creating / updating those will be moved to a CullVisitor
