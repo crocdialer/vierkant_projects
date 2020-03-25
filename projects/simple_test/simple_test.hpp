@@ -32,12 +32,12 @@ void render_scene(vierkant::Renderer& renderer, vierkant::ScenePtr scene, vierka
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-class HelloTriangleApplication : public crocore::Application
+class Vierkant3DViewer : public crocore::Application
 {
 
 public:
 
-    explicit HelloTriangleApplication(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
+    explicit Vierkant3DViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
 private:
 
@@ -59,6 +59,10 @@ private:
 
     void load_model(const std::string &path = "");
 
+    void create_offscreen_assets();
+
+    void render_offscreen();
+
     bool m_use_msaa = true;
 
     bool m_fullscreen = false;
@@ -78,7 +82,7 @@ private:
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
 
-    vierkant::ImagePtr m_texture, m_texture_font;
+    vierkant::ImagePtr m_texture, m_texture_font, m_texture_offscreen;
 
     vk::PerspectiveCameraPtr m_camera;
 
@@ -88,21 +92,22 @@ private:
 
     vk::MaterialPtr m_material = vk::Material::create();
 
-    std::vector<vk::Renderer::drawable_t> m_drawables;
+    std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
 
     vk::PipelineCachePtr m_pipeline_cache;
 
-    vk::Renderer m_renderer, m_gui_renderer;
+    vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
 
     vierkant::FontPtr m_font;
 
     vierkant::gui::Context m_gui_context;
 
     vierkant::DrawContext m_draw_context;
+
 };
 
 int main(int argc, char *argv[])
 {
-    auto app = std::make_shared<HelloTriangleApplication>(argc, argv);
+    auto app = std::make_shared<Vierkant3DViewer>(argc, argv);
     return app->run();
 }

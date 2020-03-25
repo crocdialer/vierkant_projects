@@ -37,7 +37,7 @@ void render_scene(vierkant::Renderer &renderer, vierkant::ScenePtr scene, vierka
 
 }
 
-void HelloTriangleApplication::setup()
+void Vierkant3DViewer::setup()
 {
     crocore::g_logger.set_severity(crocore::Severity::DEBUG);
 
@@ -45,20 +45,21 @@ void HelloTriangleApplication::setup()
     create_texture_image();
     load_model();
     create_graphics_pipeline();
+    create_offscreen_assets();
 }
 
-void HelloTriangleApplication::teardown()
+void Vierkant3DViewer::teardown()
 {
     LOG_INFO << "ciao " << name();
     vkDeviceWaitIdle(m_device->handle());
 }
 
-void HelloTriangleApplication::poll_events()
+void Vierkant3DViewer::poll_events()
 {
     glfwPollEvents();
 }
 
-void HelloTriangleApplication::create_context_and_window()
+void Vierkant3DViewer::create_context_and_window()
 {
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
     m_window = vk::Window::create(m_instance.handle(), WIDTH, HEIGHT, name(), m_fullscreen);
@@ -68,7 +69,7 @@ void HelloTriangleApplication::create_context_and_window()
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
-    window_delegate.draw_fn = std::bind(&HelloTriangleApplication::draw, this, std::placeholders::_1);
+    window_delegate.draw_fn = std::bind(&Vierkant3DViewer::draw, this, std::placeholders::_1);
     window_delegate.resize_fn = [this](uint32_t w, uint32_t h)
     {
         create_graphics_pipeline();
@@ -114,7 +115,10 @@ void HelloTriangleApplication::create_context_and_window()
     };
 
     // textures window
-    m_gui_context.delegates["textures"] = [this]{ vk::gui::draw_images_ui({m_texture, m_texture_font}); };
+    m_gui_context.delegates["textures"] = [this]
+    {
+        vk::gui::draw_images_ui({m_texture_offscreen, m_texture, m_texture_font});
+    };
 
     // animations window
     m_gui_context.delegates["animation"] = [this]
@@ -133,9 +137,9 @@ void HelloTriangleApplication::create_context_and_window()
             }
 
             // animation speed
-            if(ImGui::SliderFloat("speed", &m_mesh->animation_speed, -3.f, 3.f))
-            {
-            }
+            if(ImGui::SliderFloat("speed", &m_mesh->animation_speed, -3.f, 3.f)){}
+            ImGui::SameLine();
+            if(ImGui::Checkbox("play", &animation.playing)){}
 
             float current_time = animation.current_time / animation.ticks_per_sec;
             float duration = animation.duration / animation.ticks_per_sec;
@@ -171,7 +175,10 @@ void HelloTriangleApplication::create_context_and_window()
     m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
     m_window->mouse_delegates["zoom"].mouse_wheel = [this](const vierkant::MouseEvent &e)
     {
-        m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
+        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
+        {
+            m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
+        }
     };
 
     // attach drag/drop mouse-delegate
@@ -187,16 +194,58 @@ void HelloTriangleApplication::create_context_and_window()
     m_pipeline_cache = vk::PipelineCache::create(m_device);
 }
 
-void HelloTriangleApplication::create_graphics_pipeline()
+void Vierkant3DViewer::create_graphics_pipeline()
 {
     m_pipeline_cache->clear();
 
-    auto &framebuffers = m_window->swapchain().framebuffers();
-    m_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
-    m_gui_renderer = vk::Renderer(m_device, framebuffers, m_pipeline_cache);
+    const auto &framebuffers = m_window->swapchain().framebuffers();
+    auto fb_extent = framebuffers.front().extent();
+
+    vierkant::Renderer::create_info_t create_info = {};
+    create_info.num_frames_in_flight = framebuffers.size();
+    create_info.sample_count = m_window->swapchain().sample_count();
+    create_info.viewport.width = fb_extent.width;
+    create_info.viewport.height = fb_extent.height;
+    create_info.viewport.maxDepth = fb_extent.depth;
+    create_info.pipeline_cache = m_pipeline_cache;
+    create_info.renderpass = m_window->swapchain().framebuffers().front().renderpass();
+
+    m_renderer = vk::Renderer(m_device, create_info);
+    m_renderer_gui = vk::Renderer(m_device, create_info);
 }
 
-void HelloTriangleApplication::create_texture_image()
+void Vierkant3DViewer::create_offscreen_assets()
+{
+    glm::uvec2 size(1024, 1024);
+
+    m_framebuffers_offscreen.resize(m_window->swapchain().images().size());
+
+    vierkant::Framebuffer::create_info_t fb_info = {};
+    fb_info.color_attachment_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    fb_info.size = {size.x, size.y, 1};
+    fb_info.depth = true;
+
+    vierkant::RenderPassPtr renderpass;
+
+    for(auto &frambuffer : m_framebuffers_offscreen)
+    {
+        frambuffer = vierkant::Framebuffer(m_device, fb_info, renderpass);
+        frambuffer.clear_color = {0.f, 0.f, 0.f, 0.f};
+        renderpass = frambuffer.renderpass();
+    }
+
+    vierkant::Renderer::create_info_t create_info = {};
+    create_info.num_frames_in_flight = m_window->swapchain().images().size();
+    create_info.sample_count = fb_info.color_attachment_format.sample_count;
+    create_info.viewport.width = size.x;
+    create_info.viewport.height = size.y;
+    create_info.viewport.maxDepth = 1;
+    create_info.pipeline_cache = m_pipeline_cache;
+    create_info.renderpass = renderpass;
+    m_renderer_offscreen = vierkant::Renderer(m_device, create_info);
+}
+
+void Vierkant3DViewer::create_texture_image()
 {
     // try to fetch cool image
     auto http_resonse = cc::net::http::get(g_texture_url);
@@ -225,7 +274,7 @@ void HelloTriangleApplication::create_texture_image()
     }
 }
 
-void HelloTriangleApplication::load_model(const std::string &path)
+void Vierkant3DViewer::load_model(const std::string &path)
 {
     if(!path.empty())
     {
@@ -310,7 +359,38 @@ void HelloTriangleApplication::load_model(const std::string &path)
     }
 }
 
-void HelloTriangleApplication::update(double time_delta)
+void Vierkant3DViewer::render_offscreen()
+{
+    auto image_index = m_window->swapchain().image_index();
+    auto &framebuffer = m_framebuffers_offscreen[image_index];
+
+    // wait for prior frame to finish
+    framebuffer.wait_fence();
+
+    VkCommandBufferInheritanceInfo inheritance = {};
+    inheritance.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+    inheritance.framebuffer = framebuffer.handle();
+    inheritance.renderPass = framebuffer.renderpass().get();
+
+    auto projection = glm::perspectiveRH(glm::radians(90.f),
+                                         framebuffer.extent().width / (float) framebuffer.extent().width,
+                                         m_camera->near(), m_camera->far());
+    projection[1][1] *= -1;
+
+    m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection);
+    VkCommandBuffer cmd_buffer = m_renderer_offscreen.render(&inheritance);
+
+    framebuffer.submit({cmd_buffer}, m_device->queue());
+
+    auto attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Color);
+
+    if(attach_it != framebuffer.attachments().end())
+    {
+        m_texture_offscreen = attach_it->second.front();
+    }
+}
+
+void Vierkant3DViewer::update(double time_delta)
 {
     m_arcball.enabled = !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
 
@@ -341,20 +421,13 @@ void HelloTriangleApplication::update(double time_delta)
         for(auto &entry : m_mesh->entries){ entry.transform = node_matrices[entry.node_index]; }
     }
 
-    // TODO: creating / updating those will be moved to a CullVisitor
-    m_drawables = vk::Renderer::create_drawables(m_device, m_mesh, m_mesh->materials, m_pipeline_cache);
-
-    for(auto &drawable : m_drawables)
-    {
-        drawable.matrices.modelview = m_camera->view_matrix() * drawable.matrices.modelview;
-        drawable.matrices.projection = m_camera->projection_matrix();
-    }
+    render_offscreen();
 
     // issue top-level draw-command
     m_window->draw();
 }
 
-std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::WindowPtr &w)
+std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w)
 {
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
@@ -366,13 +439,19 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
 
     auto render_mesh = [this, &inheritance]() -> VkCommandBuffer
     {
-        for(auto &drawable : m_drawables){ m_renderer.stage_drawable(drawable); }
+        m_draw_context.draw_mesh(m_renderer, m_mesh, m_camera->view_matrix(), m_camera->projection_matrix());
 
         if(m_draw_aabb)
         {
-            m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
-                                            m_camera->view_matrix() * m_mesh->transform(),
-                                            m_camera->projection_matrix());
+            for(const auto &entry : m_mesh->entries)
+            {
+                m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
+                                                m_camera->view_matrix() * m_mesh->transform() * entry.transform,
+                                                m_camera->projection_matrix());
+            }
+//            m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
+//                                            m_camera->view_matrix() * m_mesh->transform(),
+//                                            m_camera->projection_matrix());
         }
         if(m_draw_grid)
         {
@@ -383,9 +462,9 @@ std::vector<VkCommandBuffer> HelloTriangleApplication::draw(const vierkant::Wind
 
     auto render_gui = [this, &inheritance]() -> VkCommandBuffer
     {
-        m_gui_context.draw_gui(m_gui_renderer);
+        m_gui_context.draw_gui(m_renderer_gui);
 //        m_draw_context.draw_text(m_gui_renderer, "$$$ oder fahrkarte du nase\nteil zwo", m_font, {400.f, 450.f});
-        return m_gui_renderer.render(&inheritance);
+        return m_renderer_gui.render(&inheritance);
     };
 
     // submit and wait for all command-creation tasks to complete
