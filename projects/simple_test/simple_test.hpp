@@ -24,11 +24,13 @@ const char *g_texture_url = "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32
 
 const char *g_font_path = "/usr/local/share/fonts/Courier New Bold.ttf";
 
+//const char *g_font_path = "https://github.com/google/fonts/raw/master/ufl/ubuntu/Ubuntu-Medium.ttf";
+
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress = true);
 
 vierkant::MaterialPtr create_material(const vierkant::assimp::material_t &mat);
 
-void render_scene(vierkant::Renderer& renderer, vierkant::ScenePtr scene, vierkant::CameraPtr camera);
+void render_scene(vierkant::Renderer &renderer, vierkant::ScenePtr scene, vierkant::CameraPtr camera);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -40,6 +42,9 @@ public:
     explicit Vierkant3DViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
 private:
+
+    static vierkant::ImagePtr render_offscreen(vierkant::Framebuffer &framebuffer, vierkant::Renderer &renderer,
+                                               const std::function<void()> &functor);
 
     void setup() override;
 
@@ -61,7 +66,7 @@ private:
 
     void create_offscreen_assets();
 
-    void render_offscreen();
+    vierkant::ImagePtr cubemap_from_panorama(const vierkant::ImagePtr &panorama_img);
 
     bool m_use_msaa = true;
 

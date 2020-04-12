@@ -359,11 +359,9 @@ void Vierkant3DViewer::load_model(const std::string &path)
     }
 }
 
-void Vierkant3DViewer::render_offscreen()
+vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &framebuffer, vierkant::Renderer &renderer,
+                                                      const std::function<void()> &functor)
 {
-    auto image_index = m_window->swapchain().image_index();
-    auto &framebuffer = m_framebuffers_offscreen[image_index];
-
     // wait for prior frame to finish
     framebuffer.wait_fence();
 
@@ -372,22 +370,33 @@ void Vierkant3DViewer::render_offscreen()
     inheritance.framebuffer = framebuffer.handle();
     inheritance.renderPass = framebuffer.renderpass().get();
 
-    auto projection = glm::perspectiveRH(glm::radians(90.f),
-                                         framebuffer.extent().width / (float) framebuffer.extent().width,
-                                         m_camera->near(), m_camera->far());
-    projection[1][1] *= -1;
+    // invoke function-object to stage drawables
+    functor();
 
-    m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection);
-    VkCommandBuffer cmd_buffer = m_renderer_offscreen.render(&inheritance);
+    // create a commandbuffer
+    VkCommandBuffer cmd_buffer = renderer.render(&inheritance);
 
-    framebuffer.submit({cmd_buffer}, m_device->queue());
+    // submit rendering commands to queue
+    framebuffer.submit({cmd_buffer}, renderer.device()->queue());
 
-    auto attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Color);
+    // check for resolve-attachment, fallback to color-atachment
+    auto attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Resolve);
 
-    if(attach_it != framebuffer.attachments().end())
+    if(attach_it == framebuffer.attachments().end())
     {
-        m_texture_offscreen = attach_it->second.front();
+        attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Color);
     }
+
+    // return color-attachment
+    if(attach_it != framebuffer.attachments().end()){ return attach_it->second.front(); }
+    return nullptr;
+}
+
+vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::ImagePtr &panorama_img)
+{
+    // create cube framebuffer
+
+    return vierkant::ImagePtr();
 }
 
 void Vierkant3DViewer::update(double time_delta)
@@ -421,7 +430,18 @@ void Vierkant3DViewer::update(double time_delta)
         for(auto &entry : m_mesh->entries){ entry.transform = node_matrices[entry.node_index]; }
     }
 
-    render_offscreen();
+    auto image_index = m_window->swapchain().image_index();
+    auto &framebuffer = m_framebuffers_offscreen[image_index];
+
+    m_texture_offscreen = render_offscreen(framebuffer, m_renderer_offscreen, [this, &framebuffer]()
+    {
+        auto projection = glm::perspectiveRH(m_camera->fov(),
+                                             framebuffer.extent().width / (float) framebuffer.extent().width,
+                                             m_camera->near(), m_camera->far());
+        projection[1][1] *= -1;
+
+        m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection);
+    });
 
     // issue top-level draw-command
     m_window->draw();
