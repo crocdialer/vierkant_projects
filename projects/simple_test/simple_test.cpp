@@ -46,6 +46,8 @@ void Vierkant3DViewer::setup()
     load_model();
     create_graphics_pipeline();
     create_offscreen_assets();
+
+    cubemap_from_panorama(nullptr);
 }
 
 void Vierkant3DViewer::teardown()
@@ -69,7 +71,7 @@ void Vierkant3DViewer::create_context_and_window()
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
-    window_delegate.draw_fn = std::bind(&Vierkant3DViewer::draw, this, std::placeholders::_1);
+    window_delegate.draw_fn = [this](const vierkant::WindowPtr &w){ return draw(w); };
     window_delegate.resize_fn = [this](uint32_t w, uint32_t h)
     {
         create_graphics_pipeline();
@@ -117,7 +119,9 @@ void Vierkant3DViewer::create_context_and_window()
     // textures window
     m_gui_context.delegates["textures"] = [this]
     {
-        vk::gui::draw_images_ui({m_texture_offscreen, m_texture, m_texture_font});
+        std::vector<vierkant::ImagePtr> images;
+        for(const auto &pair : m_textures){ images.push_back(pair.second); }
+        vk::gui::draw_images_ui(images);
     };
 
     // animations window
@@ -185,7 +189,21 @@ void Vierkant3DViewer::create_context_and_window()
     vierkant::mouse_delegate_t file_drop_delegate = {};
     file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
     {
-        load_model(files.back());
+        auto &f = files.back();
+
+        switch(crocore::filesystem::get_file_type(f))
+        {
+            case crocore::filesystem::FileType::IMAGE:
+                load_environment(f);
+                break;
+
+            case crocore::filesystem::FileType::MODEL:
+                load_model(f);
+                break;
+
+            default:
+                break;
+        }
     };
     m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 
@@ -265,12 +283,12 @@ void Vierkant3DViewer::create_texture_image()
     }
     fmt.extent = {img->width(), img->height(), 1};
     fmt.use_mipmap = true;
-    m_texture = vk::Image::create(m_device, img->data(), fmt);
+    m_textures["test"] = vk::Image::create(m_device, img->data(), fmt);
 
     if(m_font)
     {
         // draw_gui some text into a texture
-        m_texture_font = m_font->create_texture(m_device, "Pooop!\nKleines kaka,\ngrosses KAKA ...");
+        m_textures["font"] = m_font->create_texture(m_device, "Pooop!\nKleines kaka,\ngrosses KAKA ...");
     }
 }
 
@@ -353,14 +371,38 @@ void Vierkant3DViewer::load_model(const std::string &path)
     else
     {
         m_mesh = vk::Mesh::create_from_geometries(m_device, {vk::Geometry::Box(glm::vec3(.5f))});
-        m_material->shader_type = vk::ShaderType::UNLIT_TEXTURE;
-        m_material->images = {m_texture};
-        m_mesh->materials = {m_material};
+        auto mat = vk::Material::create();
+        mat->shader_type = vk::ShaderType::UNLIT_TEXTURE;
+
+        auto it = m_textures.find("test");
+        if(it != m_textures.end()){ mat->images = {it->second}; }
+        m_mesh->materials = {mat};
     }
 }
 
-vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &framebuffer, vierkant::Renderer &renderer,
-                                                      const std::function<void()> &functor)
+void Vierkant3DViewer::load_environment(const std::string &path)
+{
+    auto img = crocore::create_image_from_file(path, 4);
+
+    if(img)
+    {
+        bool use_float = (img->num_bytes() / (img->width() * img->height() * img->num_components())) > 1;
+
+        vk::Image::Format fmt = {};
+        fmt.extent = {img->width(), img->height(), 1};
+        fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
+        auto tex = vk::Image::create(m_device, img->data(), fmt);
+        cubemap_from_panorama(tex);
+
+        // tmp
+        m_textures["environment"] = tex;
+    }
+}
+
+vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &framebuffer,
+                                                      vierkant::Renderer &renderer,
+                                                      const std::function<void()> &functor,
+                                                      VkQueue queue)
 {
     // wait for prior frame to finish
     framebuffer.wait_fence();
@@ -377,9 +419,9 @@ vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &fra
     VkCommandBuffer cmd_buffer = renderer.render(&inheritance);
 
     // submit rendering commands to queue
-    framebuffer.submit({cmd_buffer}, renderer.device()->queue());
+    framebuffer.submit({cmd_buffer}, queue ? queue : renderer.device()->queue());
 
-    // check for resolve-attachment, fallback to color-atachment
+    // check for resolve-attachment, fallback to color-attachment
     auto attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Resolve);
 
     if(attach_it == framebuffer.attachments().end())
@@ -394,7 +436,22 @@ vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &fra
 
 vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::ImagePtr &panorama_img)
 {
+    // framebuffer image-format
+    vierkant::Image::Format img_fmt = {};
+    img_fmt.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    img_fmt.view_type = VK_IMAGE_VIEW_TYPE_CUBE;
+    img_fmt.num_layers = 6;
+    img_fmt.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+
     // create cube framebuffer
+    vierkant::Framebuffer::create_info_t fb_create_info = {};
+    fb_create_info.size = {1024, 1024, 1};
+    fb_create_info.color_attachment_format = img_fmt;
+
+    auto cube_fb = vierkant::Framebuffer(m_device, fb_create_info);
+
+    // create cube pipeline with geometry shader
+    // render
 
     return vierkant::ImagePtr();
 }
@@ -433,7 +490,7 @@ void Vierkant3DViewer::update(double time_delta)
     auto image_index = m_window->swapchain().image_index();
     auto &framebuffer = m_framebuffers_offscreen[image_index];
 
-    m_texture_offscreen = render_offscreen(framebuffer, m_renderer_offscreen, [this, &framebuffer]()
+    m_textures["offscreen"] = render_offscreen(framebuffer, m_renderer_offscreen, [this, &framebuffer]()
     {
         auto projection = glm::perspectiveRH(m_camera->fov(),
                                              framebuffer.extent().width / (float) framebuffer.extent().width,

@@ -43,8 +43,10 @@ public:
 
 private:
 
-    static vierkant::ImagePtr render_offscreen(vierkant::Framebuffer &framebuffer, vierkant::Renderer &renderer,
-                                               const std::function<void()> &functor);
+    static vierkant::ImagePtr render_offscreen(vierkant::Framebuffer &framebuffer,
+                                               vierkant::Renderer &renderer,
+                                               const std::function<void()> &functor,
+                                               VkQueue queue = nullptr);
 
     void setup() override;
 
@@ -63,6 +65,8 @@ private:
     void create_texture_image();
 
     void load_model(const std::string &path = "");
+
+    void load_environment(const std::string &path);
 
     void create_offscreen_assets();
 
@@ -87,15 +91,13 @@ private:
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
 
-    vierkant::ImagePtr m_texture, m_texture_font, m_texture_offscreen;
+    std::map<std::string, vierkant::ImagePtr> m_textures;
 
     vk::PerspectiveCameraPtr m_camera;
 
     vk::Arcball m_arcball;
 
     vk::MeshPtr m_mesh = vk::Mesh::create();
-
-    vk::MaterialPtr m_material = vk::Material::create();
 
     std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
 
