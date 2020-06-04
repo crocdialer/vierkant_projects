@@ -4,6 +4,7 @@
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/assimp.hpp>
 #include <vierkant/Visitor.hpp>
+#include <vierkant/shaders.hpp>
 
 #include "simple_test.hpp"
 
@@ -46,8 +47,6 @@ void Vierkant3DViewer::setup()
     load_model();
     create_graphics_pipeline();
     create_offscreen_assets();
-
-    cubemap_from_panorama(nullptr);
 }
 
 void Vierkant3DViewer::teardown()
@@ -392,17 +391,19 @@ void Vierkant3DViewer::load_environment(const std::string &path)
         fmt.extent = {img->width(), img->height(), 1};
         fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
         auto tex = vk::Image::create(m_device, img->data(), fmt);
-        cubemap_from_panorama(tex);
 
         // tmp
         m_textures["environment"] = tex;
+
+        m_cubemap = cubemap_from_panorama(tex);
     }
 }
 
 vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &framebuffer,
                                                       vierkant::Renderer &renderer,
                                                       const std::function<void()> &functor,
-                                                      VkQueue queue)
+                                                      VkQueue queue,
+                                                      bool sync)
 {
     // wait for prior frame to finish
     framebuffer.wait_fence();
@@ -419,7 +420,9 @@ vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &fra
     VkCommandBuffer cmd_buffer = renderer.render(&inheritance);
 
     // submit rendering commands to queue
-    framebuffer.submit({cmd_buffer}, queue ? queue : renderer.device()->queue());
+    auto fence = framebuffer.submit({cmd_buffer}, queue ? queue : renderer.device()->queue());
+
+    if(sync){ vkWaitForFences(renderer.device()->handle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); }
 
     // check for resolve-attachment, fallback to color-attachment
     auto attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Resolve);
@@ -441,7 +444,7 @@ vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::Image
     img_fmt.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     img_fmt.view_type = VK_IMAGE_VIEW_TYPE_CUBE;
     img_fmt.num_layers = 6;
-    img_fmt.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    img_fmt.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 
     // create cube framebuffer
     vierkant::Framebuffer::create_info_t fb_create_info = {};
@@ -451,7 +454,68 @@ vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::Image
     auto cube_fb = vierkant::Framebuffer(m_device, fb_create_info);
 
     // create cube pipeline with geometry shader
+
     // render
+    vierkant::Renderer::create_info_t cuber_render_create_info = {};
+    cuber_render_create_info.renderpass = cube_fb.renderpass();
+    cuber_render_create_info.num_frames_in_flight = 1;
+    cuber_render_create_info.sample_count = VK_SAMPLE_COUNT_1_BIT;
+    cuber_render_create_info.viewport.width = cube_fb.extent().width;
+    cuber_render_create_info.viewport.height = cube_fb.extent().height;
+    cuber_render_create_info.viewport.maxDepth = cube_fb.extent().depth;
+    auto cube_render = vierkant::Renderer(m_device, cuber_render_create_info);
+
+    // create a drawable
+    vierkant::Renderer::drawable_t drawable = {};
+    drawable.pipeline_format.shader_stages[VK_SHADER_STAGE_VERTEX_BIT] =
+            vierkant::create_shader_module(m_device, vierkant::shaders::cube_vert);
+    drawable.pipeline_format.shader_stages[VK_SHADER_STAGE_GEOMETRY_BIT] =
+            vierkant::create_shader_module(m_device, vierkant::shaders::cube_layers_geom);
+    drawable.pipeline_format.shader_stages[VK_SHADER_STAGE_FRAGMENT_BIT] =
+            vierkant::create_shader_module(m_device, vierkant::shaders::unlit_panorama_frag);
+
+    drawable.mesh = vierkant::Mesh::create_from_geometries(m_device, {vierkant::Geometry::Box()});
+
+    auto cube_cam = vierkant::CubeCamera::create(.1f, 10.f);
+
+    struct geom_shader_ubo_t
+    {
+        glm::mat4 view_matrix[6];
+        glm::mat4 model_matrix = glm::mat4(1);
+        glm::mat4 projection_matrix = glm::mat4(1);
+    };
+    geom_shader_ubo_t ubo_data = {};
+    memcpy(ubo_data.view_matrix, cube_cam->view_matrices().data(), sizeof(ubo_data.view_matrix));
+    ubo_data.projection_matrix = cube_cam->projection_matrix();
+
+    vierkant::descriptor_t desc_matrices = {};
+    desc_matrices.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    desc_matrices.stage_flags = VK_SHADER_STAGE_GEOMETRY_BIT;
+    desc_matrices.buffer = vierkant::Buffer::create(m_device, &ubo_data, sizeof(ubo_data),
+                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    drawable.descriptors[vierkant::Renderer::BINDING_MATRIX] = desc_matrices;
+
+    vierkant::descriptor_t desc_image = {};
+    desc_image.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    desc_image.stage_flags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    desc_image.image_samplers = {panorama_img};
+    drawable.descriptors[vierkant::Renderer::BINDING_TEXTURES] = desc_image;
+
+    VkCommandBufferInheritanceInfo inheritance = {};
+    inheritance.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+    inheritance.framebuffer = cube_fb.handle();
+    inheritance.renderPass = cube_fb.renderpass().get();
+
+    auto cmd_buf = cube_render.render(&inheritance);
+    auto fence = cube_fb.submit({cmd_buf}, m_device->queue());
+
+    constexpr bool sync = true;
+    if(sync){ vkWaitForFences(m_renderer.device()->handle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); }
+
+    auto attach_it = cube_fb.attachments().find(vierkant::Framebuffer::AttachmentType::Color);
+
+    // return color-attachment
+    if(attach_it != cube_fb.attachments().end() && !attach_it->second.empty()){ return attach_it->second.front(); }
 
     return vierkant::ImagePtr();
 }

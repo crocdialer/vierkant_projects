@@ -46,7 +46,8 @@ private:
     static vierkant::ImagePtr render_offscreen(vierkant::Framebuffer &framebuffer,
                                                vierkant::Renderer &renderer,
                                                const std::function<void()> &functor,
-                                               VkQueue queue = nullptr);
+                                               VkQueue queue = nullptr,
+                                               bool sync = false);
 
     void setup() override;
 
@@ -104,6 +105,8 @@ private:
     vk::PipelineCachePtr m_pipeline_cache;
 
     vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
+
+    vierkant::ImagePtr m_cubemap;
 
     vierkant::FontPtr m_font;
 
