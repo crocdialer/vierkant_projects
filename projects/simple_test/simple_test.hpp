@@ -98,13 +98,13 @@ private:
 
     vk::MeshPtr m_mesh = vk::Mesh::create();
 
+    vk::MeshPtr m_skybox = nullptr;
+
     std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
 
     vk::PipelineCachePtr m_pipeline_cache;
 
     vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
-
-    vierkant::ImagePtr m_cubemap;
 
     vierkant::FontPtr m_font;
 

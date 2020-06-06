@@ -394,8 +394,19 @@ void Vierkant3DViewer::load_environment(const std::string &path)
         // tmp
         m_textures["environment"] = tex;
 
-        m_cubemap = vierkant::cubemap_from_panorama(tex);
-//        m_textures["cube"] = m_cubemap;
+        auto cubemap = vierkant::cubemap_from_panorama(tex, {1024, 1024});
+
+        if(!m_skybox)
+        {
+            auto box = vierkant::Geometry::Box();
+            m_skybox = vierkant::Mesh::create_from_geometries(m_device, {box});
+            auto &mat = m_skybox->materials.front();
+            mat->shader_type = vierkant::ShaderType::UNLIT_CUBE;
+            mat->depth_write = false;
+            mat->depth_test = true;
+            mat->cull_mode = VK_CULL_MODE_FRONT_BIT;
+        }
+        for(auto &mat : m_skybox->materials){ mat->images = {cubemap}; }
     }
 }
 
@@ -481,7 +492,7 @@ void Vierkant3DViewer::update(double time_delta)
         m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection);
     });
 
-    if(m_textures["environment"]){ m_cubemap = vierkant::cubemap_from_panorama(m_textures["environment"]); }
+//    if(m_textures["environment"]){ m_cubemap = vierkant::cubemap_from_panorama(m_textures["environment"]); }
 
     // issue top-level draw-command
     m_window->draw();
@@ -500,6 +511,11 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
     auto render_mesh = [this, &inheritance]() -> VkCommandBuffer
     {
         m_draw_context.draw_mesh(m_renderer, m_mesh, m_camera->view_matrix(), m_camera->projection_matrix());
+
+        glm::mat4 m = m_camera->view_matrix();
+        m[3] = glm::vec4(0, 0, 0, 1);
+        m = glm::scale(m, glm::vec3(m_camera->far() * .99f));
+        m_draw_context.draw_mesh(m_renderer, m_skybox, m, m_camera->projection_matrix());
 
         if(m_draw_aabb)
         {
