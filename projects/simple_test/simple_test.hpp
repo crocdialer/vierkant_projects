@@ -71,8 +71,6 @@ private:
 
     void create_offscreen_assets();
 
-    vierkant::ImagePtr cubemap_from_panorama(const vierkant::ImagePtr &panorama_img);
-
     bool m_use_msaa = true;
 
     bool m_fullscreen = false;
