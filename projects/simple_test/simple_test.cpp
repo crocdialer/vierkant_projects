@@ -396,6 +396,7 @@ void Vierkant3DViewer::load_environment(const std::string &path)
         m_textures["environment"] = tex;
 
         m_cubemap = cubemap_from_panorama(tex);
+//        m_textures["cube"] = m_cubemap;
     }
 }
 
@@ -475,6 +476,21 @@ vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::Image
             vierkant::create_shader_module(m_device, vierkant::shaders::unlit_panorama_frag);
 
     drawable.mesh = vierkant::Mesh::create_from_geometries(m_device, {vierkant::Geometry::Box()});
+    const auto &mesh_entry = drawable.mesh->entries.front();
+
+    drawable.base_index = mesh_entry.base_index;
+    drawable.num_indices = mesh_entry.num_indices;
+    drawable.base_vertex = mesh_entry.base_vertex;
+    drawable.num_vertices = mesh_entry.num_vertices;
+
+    drawable.pipeline_format.binding_descriptions = drawable.mesh->binding_descriptions();
+    drawable.pipeline_format.attribute_descriptions = drawable.mesh->attribute_descriptions();
+    drawable.pipeline_format.primitive_topology = mesh_entry.primitive_type;
+    drawable.pipeline_format.blend_state.blendEnable = false;
+    drawable.pipeline_format.depth_test = false;
+    drawable.pipeline_format.depth_write = false;
+    drawable.pipeline_format.cull_mode = VK_CULL_MODE_FRONT_BIT;
+    drawable.use_own_buffers = true;
 
     auto cube_cam = vierkant::CubeCamera::create(.1f, 10.f);
 
@@ -487,19 +503,23 @@ vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::Image
     geom_shader_ubo_t ubo_data = {};
     memcpy(ubo_data.view_matrix, cube_cam->view_matrices().data(), sizeof(ubo_data.view_matrix));
     ubo_data.projection_matrix = cube_cam->projection_matrix();
+//    ubo_data.model_matrix = glm::rotate(glm::mat4(1), glm::radians(45.f), glm::vec3(0.f, 1.f, 0.f));
 
     vierkant::descriptor_t desc_matrices = {};
     desc_matrices.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     desc_matrices.stage_flags = VK_SHADER_STAGE_GEOMETRY_BIT;
     desc_matrices.buffer = vierkant::Buffer::create(m_device, &ubo_data, sizeof(ubo_data),
                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    drawable.descriptors[vierkant::Renderer::BINDING_MATRIX] = desc_matrices;
+    drawable.descriptors[0] = desc_matrices;
 
     vierkant::descriptor_t desc_image = {};
     desc_image.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     desc_image.stage_flags = VK_SHADER_STAGE_FRAGMENT_BIT;
     desc_image.image_samplers = {panorama_img};
-    drawable.descriptors[vierkant::Renderer::BINDING_TEXTURES] = desc_image;
+    drawable.descriptors[1] = desc_image;
+
+    // stage cube-drawable
+    cube_render.stage_drawable(drawable);
 
     VkCommandBufferInheritanceInfo inheritance = {};
     inheritance.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -509,8 +529,8 @@ vierkant::ImagePtr Vierkant3DViewer::cubemap_from_panorama(const vierkant::Image
     auto cmd_buf = cube_render.render(&inheritance);
     auto fence = cube_fb.submit({cmd_buf}, m_device->queue());
 
-    constexpr bool sync = true;
-    if(sync){ vkWaitForFences(m_renderer.device()->handle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); }
+    // mandatory to sync here
+    vkWaitForFences(m_renderer.device()->handle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
 
     auto attach_it = cube_fb.attachments().find(vierkant::Framebuffer::AttachmentType::Color);
 
@@ -563,6 +583,8 @@ void Vierkant3DViewer::update(double time_delta)
 
         m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection);
     });
+
+    if(m_textures["environment"]){ m_cubemap = cubemap_from_panorama(m_textures["environment"]); }
 
     // issue top-level draw-command
     m_window->draw();
