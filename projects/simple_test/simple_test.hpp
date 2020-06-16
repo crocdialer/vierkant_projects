@@ -43,12 +43,6 @@ public:
 
 private:
 
-    static vierkant::ImagePtr render_offscreen(vierkant::Framebuffer &framebuffer,
-                                               vierkant::Renderer &renderer,
-                                               const std::function<void()> &functor,
-                                               VkQueue queue = nullptr,
-                                               bool sync = false);
-
     void setup() override;
 
     void update(double time_delta) override;
@@ -103,6 +97,10 @@ private:
     std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
 
     vk::PipelineCachePtr m_pipeline_cache;
+
+    vierkant::ScenePtr m_scene = vierkant::Scene::create();
+
+    vierkant::SceneRendererPtr m_scene_renderer;
 
     vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
 

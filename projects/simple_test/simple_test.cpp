@@ -4,6 +4,7 @@
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/assimp.hpp>
 #include <vierkant/Visitor.hpp>
+#include <vierkant/ForwardSceneRenderer.hpp>
 
 #include "simple_test.hpp"
 
@@ -228,6 +229,8 @@ void Vierkant3DViewer::create_graphics_pipeline()
 
     m_renderer = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
+
+    m_scene_renderer = vierkant::ForwardSceneRenderer::create(m_device);
 }
 
 void Vierkant3DViewer::create_offscreen_assets()
@@ -333,14 +336,14 @@ void Vierkant3DViewer::load_model(const std::string &path)
                     fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                     fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                     auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
-                    material->shader_type = mesh->root_bone ? vk::ShaderType::UNLIT_TEXTURE_SKIN
-                                                            : vk::ShaderType::UNLIT_TEXTURE;
+//                    material->shader_type = mesh->root_bone ? vk::ShaderType::UNLIT_TEXTURE_SKIN
+//                                                            : vk::ShaderType::UNLIT_TEXTURE;
                     material->images = {color_tex};
                 }
                 else
                 {
-                    material->shader_type = mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
-                                                            : vk::ShaderType::UNLIT_COLOR;
+//                    material->shader_type = mesh->root_bone ? vk::ShaderType::UNLIT_COLOR_SKIN
+//                                                            : vk::ShaderType::UNLIT_COLOR;
                     material->images = {};
                 }
             }
@@ -363,6 +366,8 @@ void Vierkant3DViewer::load_model(const std::string &path)
 //            main_queue().post([this, mesh](){ m_mesh = mesh; });
         };
 
+        m_scene->remove_object(m_mesh);
+
         loading_task();
 //        background_queue().post(loading_task);
     }
@@ -370,12 +375,14 @@ void Vierkant3DViewer::load_model(const std::string &path)
     {
         m_mesh = vk::Mesh::create_from_geometries(m_device, {vk::Geometry::Box(glm::vec3(.5f))});
         auto mat = vk::Material::create();
-        mat->shader_type = vk::ShaderType::UNLIT_TEXTURE;
+//        mat->shader_type = vk::ShaderType::UNLIT_TEXTURE;
 
         auto it = m_textures.find("test");
         if(it != m_textures.end()){ mat->images = {it->second}; }
         m_mesh->materials = {mat};
     }
+
+    m_scene->add_object(m_mesh);
 }
 
 void Vierkant3DViewer::load_environment(const std::string &path)
@@ -394,58 +401,24 @@ void Vierkant3DViewer::load_environment(const std::string &path)
         // tmp
         m_textures["environment"] = tex;
 
-        auto cubemap = vierkant::cubemap_from_panorama(tex, {1024, 1024});
+        float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
+        auto cubemap = vierkant::cubemap_from_panorama(tex, {res, res});
 
         if(!m_skybox)
         {
             auto box = vierkant::Geometry::Box();
             m_skybox = vierkant::Mesh::create_from_geometries(m_device, {box});
             auto &mat = m_skybox->materials.front();
-            mat->shader_type = vierkant::ShaderType::UNLIT_CUBE;
+//            mat->shader_type = vierkant::ShaderType::UNLIT_CUBE;
             mat->depth_write = false;
             mat->depth_test = true;
             mat->cull_mode = VK_CULL_MODE_FRONT_BIT;
         }
         for(auto &mat : m_skybox->materials){ mat->images = {cubemap}; }
-    }
-}
 
-vierkant::ImagePtr Vierkant3DViewer::render_offscreen(vierkant::Framebuffer &framebuffer,
-                                                      vierkant::Renderer &renderer,
-                                                      const std::function<void()> &functor,
-                                                      VkQueue queue,
-                                                      bool sync)
-{
-    // wait for prior frame to finish
-    framebuffer.wait_fence();
-
-    VkCommandBufferInheritanceInfo inheritance = {};
-    inheritance.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-    inheritance.framebuffer = framebuffer.handle();
-    inheritance.renderPass = framebuffer.renderpass().get();
-
-    // invoke function-object to stage drawables
-    functor();
-
-    // create a commandbuffer
-    VkCommandBuffer cmd_buffer = renderer.render(&inheritance);
-
-    // submit rendering commands to queue
-    auto fence = framebuffer.submit({cmd_buffer}, queue ? queue : renderer.device()->queue());
-
-    if(sync){ vkWaitForFences(renderer.device()->handle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); }
-
-    // check for resolve-attachment, fallback to color-attachment
-    auto attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Resolve);
-
-    if(attach_it == framebuffer.attachments().end())
-    {
-        attach_it = framebuffer.attachments().find(vierkant::Framebuffer::AttachmentType::Color);
+        m_scene->set_skybox(cubemap);
     }
 
-    // return color-attachment
-    if(attach_it != framebuffer.attachments().end()){ return attach_it->second.front(); }
-    return nullptr;
 }
 
 void Vierkant3DViewer::update(double time_delta)
@@ -460,23 +433,12 @@ void Vierkant3DViewer::update(double time_delta)
     auto cam_transform = rotation * tmp;
     m_camera->set_global_transform(cam_transform);
 
-//    m_camera_handle->set_rotation(m_arcball.rotation());
-//    m_arcball.update(time_delta);
-
     if(m_mesh && m_mesh->animation_index < m_mesh->node_animations.size())
     {
         // update node animation
         vierkant::update_animation(m_mesh->node_animations[m_mesh->animation_index],
                                    static_cast<float>(time_delta),
                                    m_mesh->animation_speed);
-
-        // entry animation transforms
-        std::vector<glm::mat4> node_matrices;
-        vierkant::nodes::build_node_matrices(m_mesh->root_node,
-                                             m_mesh->node_animations[m_mesh->animation_index],
-                                             node_matrices);
-
-        for(auto &entry : m_mesh->entries){ entry.transform = node_matrices[entry.node_index]; }
     }
 
     auto image_index = m_window->swapchain().image_index();
@@ -489,10 +451,9 @@ void Vierkant3DViewer::update(double time_delta)
                                              m_camera->near(), m_camera->far());
         projection[1][1] *= -1;
 
-        m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection);
+        m_draw_context.draw_mesh(m_renderer_offscreen, m_mesh, m_camera->view_matrix(), projection,
+                                 vierkant::ShaderType::UNLIT_COLOR);
     });
-
-//    if(m_textures["environment"]){ m_cubemap = vierkant::cubemap_from_panorama(m_textures["environment"]); }
 
     // issue top-level draw-command
     m_window->draw();
@@ -510,12 +471,17 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
 
     auto render_mesh = [this, &inheritance]() -> VkCommandBuffer
     {
-        m_draw_context.draw_mesh(m_renderer, m_mesh, m_camera->view_matrix(), m_camera->projection_matrix());
+//        m_draw_context.draw_mesh(m_renderer, m_mesh, m_camera->view_matrix(), m_camera->projection_matrix(),
+//                                 vierkant::ShaderType::UNLIT_COLOR);
 
+        m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+
+        // skybox rendering
         glm::mat4 m = m_camera->view_matrix();
         m[3] = glm::vec4(0, 0, 0, 1);
         m = glm::scale(m, glm::vec3(m_camera->far() * .99f));
-        m_draw_context.draw_mesh(m_renderer, m_skybox, m, m_camera->projection_matrix());
+        m_draw_context.draw_mesh(m_renderer, m_skybox, m, m_camera->projection_matrix(),
+                                 vierkant::ShaderType::UNLIT_CUBE);
 
         if(m_draw_aabb)
         {
