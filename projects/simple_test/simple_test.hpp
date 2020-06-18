@@ -57,6 +57,8 @@ private:
 
     void create_graphics_pipeline();
 
+    void create_ui();
+
     void create_texture_image();
 
     void load_model(const std::string &path = "");
@@ -90,7 +92,7 @@ private:
 
     vk::Arcball m_arcball;
 
-    vk::MeshPtr m_mesh = vk::Mesh::create();
+    vk::MeshPtr m_selected_mesh = vk::Mesh::create();
 
     vk::MeshPtr m_skybox = nullptr;
 
