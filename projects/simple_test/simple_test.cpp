@@ -275,6 +275,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
         if(it != m_textures.end()){ mat->images = {it->second}; }
         mesh->materials = {mat};
     }
+    m_selected_mesh = mesh;
 
     m_scene->clear();
     m_scene->add_object(mesh);
