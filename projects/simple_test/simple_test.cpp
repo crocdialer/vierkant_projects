@@ -367,12 +367,13 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
         m_draw_context.draw_mesh(m_renderer, m_skybox, m, m_camera->projection_matrix(),
                                  vierkant::ShaderType::UNLIT_CUBE);
 
-        if(m_draw_aabb)
+        if(m_draw_aabb && m_selected_mesh)
         {
             for(const auto &entry : m_selected_mesh->entries)
             {
                 m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
-                                                m_camera->view_matrix() * m_selected_mesh->transform() * entry.transform,
+                                                m_camera->view_matrix() * m_selected_mesh->transform() *
+                                                entry.transform,
                                                 m_camera->projection_matrix());
             }
 //            m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
@@ -475,13 +476,30 @@ void Vierkant3DViewer::create_ui()
 
     // attach arcball mouse delegate
     m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
-    m_window->mouse_delegates["zoom"].mouse_wheel = [this](const vierkant::MouseEvent &e)
+
+    vierkant::mouse_delegate_t simple_mouse = {};
+    simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
     {
         if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
         {
             m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
         }
     };
+    simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
+    {
+        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
+        {
+            if(e.is_right()){ m_selected_mesh = nullptr; }
+            else if(e.is_left())
+            {
+                auto picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
+                auto mesh = std::dynamic_pointer_cast<vierkant::Mesh>(picked_object);
+
+                if(mesh){ m_selected_mesh = mesh; }
+            }
+        }
+    };
+    m_window->mouse_delegates["simple_mouse"] = simple_mouse;
 
     // attach drag/drop mouse-delegate
     vierkant::mouse_delegate_t file_drop_delegate = {};
