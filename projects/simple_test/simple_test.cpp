@@ -81,6 +81,19 @@ void Vierkant3DViewer::create_context_and_window()
     window_delegate.close_fn = [this](){ set_running(false); };
     m_window->window_delegates[name()] = window_delegate;
 
+    // create a draw context
+    m_draw_context = vierkant::DrawContext(m_device);
+
+    // create ui and inputs
+    create_ui();
+
+    m_font = vk::Font::create(m_device, g_font_path, 64);
+
+    m_pipeline_cache = vk::PipelineCache::create(m_device);
+}
+
+void Vierkant3DViewer::create_ui()
+{
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
     key_delegate.key_press = [this](const vierkant::KeyEvent &e)
@@ -105,15 +118,120 @@ void Vierkant3DViewer::create_context_and_window()
     };
     m_window->key_delegates[name()] = key_delegate;
 
-    // create a draw context
-    m_draw_context = vierkant::DrawContext(m_device);
+    // create a gui and add a draw-delegate
+    m_gui_context = vk::gui::Context(m_device, g_font_path, 23.f);
+    m_gui_context.delegates["application"] = [this]
+    {
+        vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
+    };
 
-    // create ui and inputs
-    create_ui();
+    // textures window
+    m_gui_context.delegates["textures"] = [this]
+    {
+        std::vector<vierkant::ImagePtr> images;
+        for(const auto &pair : m_textures){ images.push_back(pair.second); }
+        vk::gui::draw_images_ui(images);
+    };
 
-    m_font = vk::Font::create(m_device, g_font_path, 64);
+    // animations window
+    m_gui_context.delegates["animation"] = [this]
+    {
+        if(m_selected_mesh && !m_selected_mesh->node_animations.empty())
+        {
+            auto &animation = m_selected_mesh->node_animations[m_selected_mesh->animation_index];
 
-    m_pipeline_cache = vk::PipelineCache::create(m_device);
+            ImGui::Begin("animation");
+
+            // animation index
+            int animation_index = m_selected_mesh->animation_index;
+            if(ImGui::SliderInt("index", &animation_index, 0, m_selected_mesh->node_animations.size() - 1))
+            {
+                m_selected_mesh->animation_index = animation_index;
+            }
+
+            // animation speed
+            if(ImGui::SliderFloat("speed", &m_selected_mesh->animation_speed, -3.f, 3.f)){}
+            ImGui::SameLine();
+            if(ImGui::Checkbox("play", &animation.playing)){}
+
+            float current_time = animation.current_time / animation.ticks_per_sec;
+            float duration = animation.duration / animation.ticks_per_sec;
+
+            // animation current time / max time
+            if(ImGui::SliderFloat(("/ " + crocore::to_string(duration, 2) + " s").c_str(),
+                                  &current_time, 0.f, duration))
+            {
+                animation.current_time = current_time * animation.ticks_per_sec;
+            }
+
+            ImGui::Separator();
+            ImGui::End();
+        }
+    };
+
+    // imgui demo window
+    m_gui_context.delegates["demo"] = []{ if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }};
+
+    // attach gui input-delegates to window
+    m_window->key_delegates["gui"] = m_gui_context.key_delegate();
+    m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
+
+    // camera
+    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
+//    m_camera->set_position(glm::vec3(0.f, 0.f, 4.0f));
+
+    // create arcball
+    m_arcball = vk::Arcball(m_window->size());
+    m_arcball.multiplier *= -1.f;
+
+    // attach arcball mouse delegate
+    m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
+
+    vierkant::mouse_delegate_t simple_mouse = {};
+    simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
+    {
+        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
+        {
+            m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
+        }
+    };
+    simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
+    {
+        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
+        {
+            if(e.is_right()){ m_selected_mesh = nullptr; }
+            else if(e.is_left())
+            {
+                auto picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
+                auto mesh = std::dynamic_pointer_cast<vierkant::Mesh>(picked_object);
+
+                if(mesh){ m_selected_mesh = mesh; }
+            }
+        }
+    };
+    m_window->mouse_delegates["simple_mouse"] = simple_mouse;
+
+    // attach drag/drop mouse-delegate
+    vierkant::mouse_delegate_t file_drop_delegate = {};
+    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
+    {
+        auto &f = files.back();
+
+        switch(crocore::filesystem::get_file_type(f))
+        {
+            case crocore::filesystem::FileType::IMAGE:
+                load_environment(f);
+                break;
+
+            case crocore::filesystem::FileType::MODEL:
+                load_model(f);
+                break;
+
+            default:
+                break;
+        }
+    };
+    m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 }
 
 void Vierkant3DViewer::create_graphics_pipeline()
@@ -243,7 +361,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
                     fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                     fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                     auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
-                    material->images = {color_tex};
+                    material->textures[vierkant::Material::Color] = color_tex;
                 }
             }
 
@@ -254,7 +372,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
             }
 
             // scale
-            float scale = 5.f / glm::length(mesh->aabb().halfExtents());
+            float scale = 5.f / glm::length(mesh->aabb().half_extents());
             mesh->set_scale(scale);
 
             // center aabb
@@ -272,7 +390,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
         auto mat = vk::Material::create();
 
         auto it = m_textures.find("test");
-        if(it != m_textures.end()){ mat->images = {it->second}; }
+        if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
     }
     m_selected_mesh = mesh;
@@ -309,7 +427,7 @@ void Vierkant3DViewer::load_environment(const std::string &path)
             mat->depth_test = true;
             mat->cull_mode = VK_CULL_MODE_FRONT_BIT;
         }
-        for(auto &mat : m_skybox->materials){ mat->images = {cubemap}; }
+        for(auto &mat : m_skybox->materials){ mat->textures[vierkant::Material::Environment] = cubemap; }
 
         m_scene->set_skybox(cubemap);
     }
@@ -351,12 +469,7 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
 
-    VkCommandBufferInheritanceInfo inheritance = {};
-    inheritance.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-    inheritance.framebuffer = framebuffer.handle();
-    inheritance.renderPass = framebuffer.renderpass().get();
-
-    auto render_scene = [this, &inheritance]() -> VkCommandBuffer
+    auto render_scene = [this, &framebuffer]() -> VkCommandBuffer
     {
         m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
 
@@ -376,22 +489,22 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
                                                 entry.transform,
                                                 m_camera->projection_matrix());
             }
-//            m_draw_context.draw_boundingbox(m_renderer, m_mesh->aabb(),
-//                                            m_camera->view_matrix() * m_mesh->transform(),
-//                                            m_camera->projection_matrix());
+            m_draw_context.draw_boundingbox(m_renderer, m_selected_mesh->aabb(),
+                                            m_camera->view_matrix() * m_selected_mesh->transform(),
+                                            m_camera->projection_matrix());
         }
         if(m_draw_grid)
         {
             m_draw_context.draw_grid(m_renderer, 10.f, 100, m_camera->view_matrix(), m_camera->projection_matrix());
         }
-        return m_renderer.render(&inheritance);
+        return m_renderer.render(framebuffer);
     };
 
-    auto render_gui = [this, &inheritance]() -> VkCommandBuffer
+    auto render_gui = [this, &framebuffer]() -> VkCommandBuffer
     {
         m_gui_context.draw_gui(m_renderer_gui);
 //        m_draw_context.draw_text(m_gui_renderer, "$$$ oder fahrkarte du nase\nteil zwo", m_font, {400.f, 450.f});
-        return m_renderer_gui.render(&inheritance);
+        return m_renderer_gui.render(framebuffer);
     };
 
     // submit and wait for all command-creation tasks to complete
@@ -404,122 +517,4 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
     std::vector<VkCommandBuffer> command_buffers;
     for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
     return command_buffers;
-}
-
-void Vierkant3DViewer::create_ui()
-{
-// create a gui and add a draw-delegate
-    m_gui_context = vk::gui::Context(m_device, g_font_path, 23.f);
-    m_gui_context.delegates["application"] = [this]
-    {
-        vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
-    };
-
-    // textures window
-    m_gui_context.delegates["textures"] = [this]
-    {
-        std::vector<vierkant::ImagePtr> images;
-        for(const auto &pair : m_textures){ images.push_back(pair.second); }
-        vk::gui::draw_images_ui(images);
-    };
-
-    // animations window
-    m_gui_context.delegates["animation"] = [this]
-    {
-        if(m_selected_mesh && !m_selected_mesh->node_animations.empty())
-        {
-            auto &animation = m_selected_mesh->node_animations[m_selected_mesh->animation_index];
-
-            ImGui::Begin("animation");
-
-            // animation index
-            int animation_index = m_selected_mesh->animation_index;
-            if(ImGui::SliderInt("index", &animation_index, 0, m_selected_mesh->node_animations.size() - 1))
-            {
-                m_selected_mesh->animation_index = animation_index;
-            }
-
-            // animation speed
-            if(ImGui::SliderFloat("speed", &m_selected_mesh->animation_speed, -3.f, 3.f)){}
-            ImGui::SameLine();
-            if(ImGui::Checkbox("play", &animation.playing)){}
-
-            float current_time = animation.current_time / animation.ticks_per_sec;
-            float duration = animation.duration / animation.ticks_per_sec;
-
-            // animation current time / max time
-            if(ImGui::SliderFloat(("/ " + crocore::to_string(duration, 2) + " s").c_str(),
-                                  &current_time, 0.f, duration))
-            {
-                animation.current_time = current_time * animation.ticks_per_sec;
-            }
-
-            ImGui::Separator();
-            ImGui::End();
-        }
-    };
-
-    // imgui demo window
-    m_gui_context.delegates["demo"] = []{ if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }};
-
-    // attach gui input-delegates to window
-    m_window->key_delegates["gui"] = m_gui_context.key_delegate();
-    m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
-
-    // camera
-    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
-//    m_camera->set_position(glm::vec3(0.f, 0.f, 4.0f));
-
-    // create arcball
-    m_arcball = vk::Arcball(m_window->size());
-    m_arcball.multiplier *= -1.f;
-
-    // attach arcball mouse delegate
-    m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
-
-    vierkant::mouse_delegate_t simple_mouse = {};
-    simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
-    {
-        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
-        {
-            m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
-        }
-    };
-    simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
-    {
-        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
-        {
-            if(e.is_right()){ m_selected_mesh = nullptr; }
-            else if(e.is_left())
-            {
-                auto picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
-                auto mesh = std::dynamic_pointer_cast<vierkant::Mesh>(picked_object);
-
-                if(mesh){ m_selected_mesh = mesh; }
-            }
-        }
-    };
-    m_window->mouse_delegates["simple_mouse"] = simple_mouse;
-
-    // attach drag/drop mouse-delegate
-    vierkant::mouse_delegate_t file_drop_delegate = {};
-    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
-    {
-        auto &f = files.back();
-
-        switch(crocore::filesystem::get_file_type(f))
-        {
-            case crocore::filesystem::FileType::IMAGE:
-                load_environment(f);
-                break;
-
-            case crocore::filesystem::FileType::MODEL:
-                load_model(f);
-                break;
-
-            default:
-                break;
-        }
-    };
-    m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 }
