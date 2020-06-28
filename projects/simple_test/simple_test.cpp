@@ -5,7 +5,8 @@
 #include <vierkant/assimp.hpp>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/UnlitForward.hpp>
-
+#include <vierkant/PBRDeferred.hpp>
+#include <vierkant/PBRDeferred.hpp>
 #include "simple_test.hpp"
 
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
@@ -253,7 +254,14 @@ void Vierkant3DViewer::create_graphics_pipeline()
     m_renderer = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
 
-    m_scene_renderer = vierkant::UnlitForward::create(m_device);
+//    m_scene_renderer = vierkant::UnlitForward::create(m_device);
+
+    vierkant::PBRDeferred::create_info_t pbr_render_info = {};
+    pbr_render_info.num_frames_in_flight = framebuffers.size();
+    pbr_render_info.size = fb_extent;
+//    pbr_render_info.sample_count = m_window->swapchain().sample_count();
+    pbr_render_info.pipeline_cache = m_pipeline_cache;
+    m_scene_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 }
 
 void Vierkant3DViewer::create_offscreen_assets()
@@ -272,7 +280,7 @@ void Vierkant3DViewer::create_offscreen_assets()
     for(auto &frambuffer : m_framebuffers_offscreen)
     {
         frambuffer = vierkant::Framebuffer(m_device, fb_info, renderpass);
-        frambuffer.clear_color = {0.f, 0.f, 0.f, 0.f};
+        frambuffer.clear_color = {{0.f, 0.f, 0.f, 0.f}};
         renderpass = frambuffer.renderpass();
     }
 
@@ -320,9 +328,20 @@ void Vierkant3DViewer::load_model(const std::string &path)
 {
     vierkant::MeshPtr mesh;
 
+    auto create_texture = [device = m_device](const crocore::ImagePtr &img) -> vierkant::ImagePtr
+    {
+        vk::Image::Format fmt;
+        fmt.format = vk_format(img);
+        fmt.extent = {img->width(), img->height(), 1};
+        fmt.use_mipmap = true;
+        fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        return vk::Image::create(device, img->data(), fmt);
+    };
+
     if(!path.empty())
     {
-        auto load_mesh = [this, path]() -> vierkant::MeshPtr
+        auto load_mesh = [this, path, create_texture]() -> vierkant::MeshPtr
         {
             auto mesh_assets = vierkant::assimp::load_model(path);
             auto mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms,
@@ -351,18 +370,14 @@ void Vierkant3DViewer::load_model(const std::string &path)
                 material->blending = mesh_assets.materials[i].blending;
 
                 auto color_img = mesh_assets.materials[i].img_diffuse;
+                auto emmission_img = mesh_assets.materials[i].img_emission;
+                auto normal_img = mesh_assets.materials[i].img_normals;
+                auto ao_rough_metal_img = mesh_assets.materials[i].img_ao_roughness_metal;
 
-                if(color_img)
-                {
-                    vk::Image::Format fmt;
-                    fmt.format = vk_format(color_img);
-                    fmt.extent = {color_img->width(), color_img->height(), 1};
-                    fmt.use_mipmap = true;
-                    fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                    fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                    auto color_tex = vk::Image::create(m_device, color_img->data(), fmt);
-                    material->textures[vierkant::Material::Color] = color_tex;
-                }
+                if(color_img){ material->textures[vierkant::Material::Color] = create_texture(color_img); }
+                if(emmission_img){ material->textures[vierkant::Material::Emission] = create_texture(emmission_img); }
+                if(normal_img){ material->textures[vierkant::Material::Normal] = create_texture(normal_img); }
+                if(ao_rough_metal_img){ material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img); }
             }
 
             // correct material indices
@@ -457,7 +472,7 @@ void Vierkant3DViewer::update(double time_delta)
                                                        m_camera->fov());
         cam->set_transform(m_camera->transform());
 
-        m_scene_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
+//        m_scene_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
     });
 
     // issue top-level draw-command
@@ -471,6 +486,8 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
 
     auto render_scene = [this, &framebuffer]() -> VkCommandBuffer
     {
+//        m_draw_context.draw_image_fullscreen(m_renderer, m_textures["test"]);
+
         m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
 
         // skybox rendering
