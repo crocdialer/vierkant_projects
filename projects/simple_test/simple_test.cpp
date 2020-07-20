@@ -6,7 +6,7 @@
 #include <vierkant/Visitor.hpp>
 #include <vierkant/UnlitForward.hpp>
 #include <vierkant/PBRDeferred.hpp>
-#include <vierkant/PBRDeferred.hpp>
+#include <vierkant/cubemap_utils.hpp>
 #include "simple_test.hpp"
 
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
