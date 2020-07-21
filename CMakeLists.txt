@@ -15,10 +15,12 @@ if(NOT CMAKE_BUILD_TYPE)
             FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
-set(RELEASE_BUILDS "Release MinSizeRel")
-if(${CMAKE_BUILD_TYPE} IN_LIST RELEASE_BUILDS)
+if (${CMAKE_BUILD_TYPE} IN_LIST RELEASE_BUILDS)
     list(APPEND CXX_FLAGS "-O3")
-endif()
+    add_definitions(-DNDEBUG)
+else ()
+    remove_definitions(-DNDEBUG)
+endif ()
 
 # vierkant
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)

@@ -9,6 +9,14 @@
 #include <vierkant/cubemap_utils.hpp>
 #include "simple_test.hpp"
 
+////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
+
+#ifdef NDEBUG
+const bool g_enable_validation_layers = false;
+#else
+const bool g_enable_validation_layers = true;
+#endif
+
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
 {
     VkFormat ret = VK_FORMAT_UNDEFINED;
@@ -29,14 +37,6 @@ VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
             break;
     }
     return ret;
-}
-
-void render_scene(vierkant::Renderer &renderer, vierkant::ScenePtr scene, vierkant::CameraPtr camera)
-{
-    // proof-of API, keep it simple here ...
-    vierkant::SelectVisitor<vierkant::Mesh> select_visitor;
-    scene->root()->accept(select_visitor);
-
 }
 
 void Vierkant3DViewer::setup()
@@ -64,6 +64,10 @@ void Vierkant3DViewer::poll_events()
 void Vierkant3DViewer::create_context_and_window()
 {
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
+
+    // attach logger for debug-output
+    m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
+
     m_window = vk::Window::create(m_instance.handle(), WIDTH, HEIGHT, name(), m_fullscreen);
     m_device = vk::Device::create(m_instance.physical_devices().front(), m_instance.use_validation_layers(),
                                   m_window->surface());
@@ -377,7 +381,10 @@ void Vierkant3DViewer::load_model(const std::string &path)
                 if(color_img){ material->textures[vierkant::Material::Color] = create_texture(color_img); }
                 if(emmission_img){ material->textures[vierkant::Material::Emission] = create_texture(emmission_img); }
                 if(normal_img){ material->textures[vierkant::Material::Normal] = create_texture(normal_img); }
-                if(ao_rough_metal_img){ material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img); }
+                if(ao_rough_metal_img)
+                {
+                    material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img);
+                }
             }
 
             // correct material indices
