@@ -440,9 +440,15 @@ void Vierkant3DViewer::load_environment(const std::string &path)
         float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
         auto cubemap = vierkant::cubemap_from_panorama(tex, {res, res});
 
+        m_scene_renderer->set_environment(cubemap);
+
         if(!m_skybox)
         {
             auto box = vierkant::Geometry::Box();
+            box->colors.clear();
+            box->tex_coords.clear();
+            box->tangents.clear();
+            box->normals.clear();
             m_skybox = vierkant::Mesh::create_from_geometries(m_device, {box});
             auto &mat = m_skybox->materials.front();
             mat->depth_write = false;
