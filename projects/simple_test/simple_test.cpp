@@ -258,14 +258,18 @@ void Vierkant3DViewer::create_graphics_pipeline()
     m_renderer = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
 
-//    m_scene_renderer = vierkant::UnlitForward::create(m_device);
-
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.size = fb_extent;
 //    pbr_render_info.sample_count = m_window->swapchain().sample_count();
     pbr_render_info.pipeline_cache = m_pipeline_cache;
-    m_scene_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
+
+    if(m_pbr_renderer)
+    {
+        pbr_render_info.conv_lambert = m_pbr_renderer->environment_lambert();
+        pbr_render_info.conv_ggx = m_pbr_renderer->environment_ggx();
+    }
+    m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 }
 
 void Vierkant3DViewer::create_offscreen_assets()
@@ -297,6 +301,7 @@ void Vierkant3DViewer::create_offscreen_assets()
     create_info.pipeline_cache = m_pipeline_cache;
     create_info.renderpass = renderpass;
     m_renderer_offscreen = vierkant::Renderer(m_device, create_info);
+    m_unlit_renderer = vierkant::UnlitForward::create(m_device);
 }
 
 void Vierkant3DViewer::create_texture_image()
@@ -437,27 +442,9 @@ void Vierkant3DViewer::load_environment(const std::string &path)
         // tmp
         m_textures["environment"] = tex;
 
-        float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
-        auto cubemap = vierkant::cubemap_from_panorama(tex, {res, res});
+        m_scene->set_enironment(tex);
+        m_pbr_renderer->set_environment(m_scene->environment());
 
-        m_scene_renderer->set_environment(cubemap);
-
-        if(!m_skybox)
-        {
-            auto box = vierkant::Geometry::Box();
-            box->colors.clear();
-            box->tex_coords.clear();
-            box->tangents.clear();
-            box->normals.clear();
-            m_skybox = vierkant::Mesh::create_from_geometries(m_device, {box});
-            auto &mat = m_skybox->materials.front();
-            mat->depth_write = false;
-            mat->depth_test = true;
-            mat->cull_mode = VK_CULL_MODE_FRONT_BIT;
-        }
-        for(auto &mat : m_skybox->materials){ mat->textures[vierkant::Material::Environment] = cubemap; }
-
-        m_scene->set_skybox(cubemap);
     }
 }
 
@@ -485,7 +472,7 @@ void Vierkant3DViewer::update(double time_delta)
                                                        m_camera->fov());
         cam->set_transform(m_camera->transform());
 
-//        m_scene_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
+        m_unlit_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
     });
 
     // issue top-level draw-command
@@ -499,16 +486,7 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
 
     auto render_scene = [this, &framebuffer]() -> VkCommandBuffer
     {
-//        m_draw_context.draw_image_fullscreen(m_renderer, m_textures["test"]);
-
-        m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
-
-        // skybox rendering
-        glm::mat4 m = m_camera->view_matrix();
-        m[3] = glm::vec4(0, 0, 0, 1);
-        m = glm::scale(m, glm::vec3(m_camera->far() * .99f));
-        m_draw_context.draw_mesh(m_renderer, m_skybox, m, m_camera->projection_matrix(),
-                                 vierkant::ShaderType::UNLIT_CUBE);
+        m_pbr_renderer->render_scene(m_renderer, m_scene, m_camera, {});
 
         if(m_draw_aabb && m_selected_mesh)
         {

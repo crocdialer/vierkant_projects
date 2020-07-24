@@ -84,15 +84,15 @@ private:
 
     vk::MeshPtr m_selected_mesh = vk::Mesh::create();
 
-    vk::MeshPtr m_skybox = nullptr;
-
     std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
 
     vk::PipelineCachePtr m_pipeline_cache;
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
 
-    vierkant::SceneRendererPtr m_scene_renderer;
+    vierkant::PBRDeferredPtr m_pbr_renderer;
+
+    vierkant::SceneRendererPtr m_unlit_renderer;
 
     vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
 
