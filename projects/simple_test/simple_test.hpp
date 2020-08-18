@@ -65,8 +65,6 @@ private:
 
     bool m_draw_aabb = true;
 
-    float m_cam_distance = 20.f;
-
     // bundles basic Vulkan assets
     vierkant::Instance m_instance;
 

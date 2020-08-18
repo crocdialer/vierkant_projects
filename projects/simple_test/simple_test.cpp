@@ -188,6 +188,7 @@ void Vierkant3DViewer::create_ui()
     // create arcball
     m_arcball = vk::Arcball(m_window->size());
     m_arcball.multiplier *= -1.f;
+    m_arcball.distance = 20.f;
 
     // attach arcball mouse delegate
     m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
@@ -197,7 +198,7 @@ void Vierkant3DViewer::create_ui()
     {
         if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
         {
-            m_cam_distance = std::max(.1f, m_cam_distance - e.wheel_increment().y);
+            m_arcball.distance = std::max(.1f, m_arcball.distance - e.wheel_increment().y);
         }
     };
     simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
@@ -214,6 +215,7 @@ void Vierkant3DViewer::create_ui()
             }
         }
     };
+
     m_window->mouse_delegates["simple_mouse"] = simple_mouse;
 
     // attach drag/drop mouse-delegate
@@ -307,18 +309,18 @@ void Vierkant3DViewer::create_offscreen_assets()
 void Vierkant3DViewer::create_texture_image()
 {
     // try to fetch cool image
-    auto http_resonse = cc::net::http::get(g_texture_url);
+    auto http_resonse = crocore::net::http::get(g_texture_url);
 
     crocore::ImagePtr img;
     vk::Image::Format fmt;
 
     // create from downloaded data
-    if(!http_resonse.data.empty()){ img = cc::create_image_from_data(http_resonse.data, 4); }
+    if(!http_resonse.data.empty()){ img = crocore::create_image_from_data(http_resonse.data, 4); }
     else
     {
         // create 2x2 black/white checkerboard image
         uint32_t v[4] = {0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF};
-        img = cc::Image_<uint8_t>::create(reinterpret_cast<uint8_t *>(v), 2, 2, 4);
+        img = crocore::Image_<uint8_t>::create(reinterpret_cast<uint8_t *>(v), 2, 2, 4);
         fmt.mag_filter = VK_FILTER_NEAREST;
         fmt.format = VK_FORMAT_R8G8B8A8_UNORM;
     }
@@ -352,7 +354,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
     {
         auto load_mesh = [this, path, create_texture]() -> vierkant::MeshPtr
         {
-            auto mesh_assets = vierkant::assimp::load_model(path);
+            auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
             auto mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms,
                                                          mesh_assets.node_indices);
 
@@ -450,15 +452,9 @@ void Vierkant3DViewer::load_environment(const std::string &path)
 
 void Vierkant3DViewer::update(double time_delta)
 {
+    // update arcball and camera
     m_arcball.enabled = !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
-
-    auto look_at = glm::vec3(0);
-
-    glm::mat4 rotation = glm::mat4_cast(m_arcball.rotation());
-
-    auto tmp = glm::translate(glm::mat4(1), look_at + glm::vec3(0, 0, m_cam_distance));
-    auto cam_transform = rotation * tmp;
-    m_camera->set_global_transform(cam_transform);
+    m_camera->set_global_transform(m_arcball.transform());
 
     // update animated objects in the scene
     m_scene->update(time_delta);
