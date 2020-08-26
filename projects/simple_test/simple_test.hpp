@@ -80,7 +80,7 @@ private:
 
     vk::Arcball m_arcball;
 
-    vk::MeshPtr m_selected_mesh = vk::Mesh::create();
+    std::set<vierkant::Object3DPtr> m_selected_objects;
 
     std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
 

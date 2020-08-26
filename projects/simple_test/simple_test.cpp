@@ -138,41 +138,14 @@ void Vierkant3DViewer::create_ui()
         vk::gui::draw_images_ui(images);
     };
 
-    // animations window
-    m_gui_context.delegates["animation"] = [this]
-    {
-        if(m_selected_mesh && !m_selected_mesh->node_animations.empty())
-        {
-            auto &animation = m_selected_mesh->node_animations[m_selected_mesh->animation_index];
+//    // vierkant::Object3D window
+//    m_gui_context.delegates["selection"] = [this]
+//    {
+//        for(auto &obj : m_selected_objects){ vk::gui::draw_object_ui(obj); }
+//    };
 
-            ImGui::Begin("animation");
-
-            // animation index
-            int animation_index = m_selected_mesh->animation_index;
-            if(ImGui::SliderInt("index", &animation_index, 0, m_selected_mesh->node_animations.size() - 1))
-            {
-                m_selected_mesh->animation_index = animation_index;
-            }
-
-            // animation speed
-            if(ImGui::SliderFloat("speed", &m_selected_mesh->animation_speed, -3.f, 3.f)){}
-            ImGui::SameLine();
-            if(ImGui::Checkbox("play", &animation.playing)){}
-
-            float current_time = animation.current_time / animation.ticks_per_sec;
-            float duration = animation.duration / animation.ticks_per_sec;
-
-            // animation current time / max time
-            if(ImGui::SliderFloat(("/ " + crocore::to_string(duration, 2) + " s").c_str(),
-                                  &current_time, 0.f, duration))
-            {
-                animation.current_time = current_time * animation.ticks_per_sec;
-            }
-
-            ImGui::Separator();
-            ImGui::End();
-        }
-    };
+    // scenegraph window
+    m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
 
     // imgui demo window
     m_gui_context.delegates["demo"] = []{ if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }};
@@ -183,15 +156,18 @@ void Vierkant3DViewer::create_ui()
 
     // camera
     m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
-//    m_camera->set_position(glm::vec3(0.f, 0.f, 4.0f));
 
     // create arcball
     m_arcball = vk::Arcball(m_window->size());
-    m_arcball.multiplier *= -1.f;
     m_arcball.distance = 20.f;
 
     // attach arcball mouse delegate
-    m_window->mouse_delegates["arcball"] = m_arcball.mouse_delegate();
+    auto arcball_delegeate = m_arcball.mouse_delegate();
+    arcball_delegeate.enabled = [this]()
+    {
+        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
+    };
+    m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
 
     vierkant::mouse_delegate_t simple_mouse = {};
     simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
@@ -205,13 +181,16 @@ void Vierkant3DViewer::create_ui()
     {
         if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
         {
-            if(e.is_right()){ m_selected_mesh = nullptr; }
+            if(e.is_right()){ m_selected_objects.clear(); }
             else if(e.is_left())
             {
                 auto picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
-                auto mesh = std::dynamic_pointer_cast<vierkant::Mesh>(picked_object);
 
-                if(mesh){ m_selected_mesh = mesh; }
+                if(picked_object)
+                {
+                    if(e.is_control_down()){ m_selected_objects.insert(picked_object); }
+                    else{ m_selected_objects = {picked_object}; }
+                }
             }
         }
     };
@@ -422,7 +401,6 @@ void Vierkant3DViewer::load_model(const std::string &path)
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
     }
-    m_selected_mesh = mesh;
 
     m_scene->clear();
     m_scene->add_object(mesh);
@@ -452,8 +430,7 @@ void Vierkant3DViewer::load_environment(const std::string &path)
 
 void Vierkant3DViewer::update(double time_delta)
 {
-    // update arcball and camera
-    m_arcball.enabled = !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
+    // update camera with arcball
     m_camera->set_global_transform(m_arcball.transform());
 
     // update animated objects in the scene
@@ -484,18 +461,27 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
     {
         m_pbr_renderer->render_scene(m_renderer, m_scene, m_camera, {});
 
-        if(m_draw_aabb && m_selected_mesh)
+        if(m_draw_aabb)
         {
-            for(const auto &entry : m_selected_mesh->entries)
+            for(auto &obj : m_selected_objects)
             {
-                m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
-                                                m_camera->view_matrix() * m_selected_mesh->transform() *
-                                                entry.transform,
+                m_draw_context.draw_boundingbox(m_renderer, obj->aabb(),
+                                                m_camera->view_matrix() * obj->transform(),
                                                 m_camera->projection_matrix());
+
+                auto mesh = std::dynamic_pointer_cast<vierkant::Mesh>(obj);
+
+                if(mesh)
+                {
+                    for(const auto &entry : mesh->entries)
+                    {
+                        m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
+                                                        m_camera->view_matrix() * mesh->transform() *
+                                                        entry.transform,
+                                                        m_camera->projection_matrix());
+                    }
+                }
             }
-            m_draw_context.draw_boundingbox(m_renderer, m_selected_mesh->aabb(),
-                                            m_camera->view_matrix() * m_selected_mesh->transform(),
-                                            m_camera->projection_matrix());
         }
         if(m_draw_grid)
         {
