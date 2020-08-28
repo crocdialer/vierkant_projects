@@ -334,8 +334,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
         auto load_mesh = [this, path, create_texture]() -> vierkant::MeshPtr
         {
             auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
-            auto mesh = vk::Mesh::create_from_geometries(m_device, mesh_assets.geometries, mesh_assets.transforms,
-                                                         mesh_assets.node_indices, mesh_assets.material_indices);
+            auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos);
 
             // skin + bones
             mesh->root_bone = mesh_assets.root_bone;
@@ -388,7 +387,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
     }
     else
     {
-        mesh = vk::Mesh::create_from_geometries(m_device, {vk::Geometry::Box(glm::vec3(.5f))});
+        mesh = vk::Mesh::create_from_geometry(m_device, vk::Geometry::Box(glm::vec3(.5f)));
         auto mat = vk::Material::create();
 
         auto it = m_textures.find("test");
