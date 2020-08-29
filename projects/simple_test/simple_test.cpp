@@ -111,7 +111,7 @@ void Vierkant3DViewer::create_ui()
                     set_running(false);
                     break;
                 case vk::Key::_G:
-                    m_draw_grid = !m_draw_grid;
+                    m_pbr_renderer->settings.draw_grid = !m_pbr_renderer->settings.draw_grid;
                     break;
                 case vk::Key::_B:
                     m_draw_aabb = !m_draw_aabb;
@@ -130,19 +130,11 @@ void Vierkant3DViewer::create_ui()
         vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
     };
 
-    // textures window
-    m_gui_context.delegates["textures"] = [this]
+    // renderer window
+    m_gui_context.delegates["renderer"] = [this]
     {
-        std::vector<vierkant::ImagePtr> images;
-        for(const auto &pair : m_textures){ images.push_back(pair.second); }
-        vk::gui::draw_images_ui(images);
+        vk::gui::draw_scene_renderer_ui(m_pbr_renderer);
     };
-
-//    // vierkant::Object3D window
-//    m_gui_context.delegates["selection"] = [this]
-//    {
-//        for(auto &obj : m_selected_objects){ vk::gui::draw_object_ui(obj); }
-//    };
 
     // scenegraph window
     m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
@@ -475,10 +467,6 @@ std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w
                     }
                 }
             }
-        }
-        if(m_draw_grid)
-        {
-            m_draw_context.draw_grid(m_renderer, 10.f, 100, m_camera->view_matrix(), m_camera->projection_matrix());
         }
         return m_renderer.render(framebuffer);
     };

@@ -61,8 +61,6 @@ private:
 
     bool m_fullscreen = false;
 
-    bool m_draw_grid = true;
-
     bool m_draw_aabb = true;
 
     // bundles basic Vulkan assets
