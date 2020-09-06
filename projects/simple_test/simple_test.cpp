@@ -131,10 +131,7 @@ void Vierkant3DViewer::create_ui()
     };
 
     // renderer window
-    m_gui_context.delegates["renderer"] = [this]
-    {
-        vk::gui::draw_scene_renderer_ui(m_pbr_renderer);
-    };
+    m_gui_context.delegates["renderer"] = [this]{ vk::gui::draw_scene_renderer_ui(m_pbr_renderer, m_camera); };
 
     // scenegraph window
     m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
@@ -241,6 +238,7 @@ void Vierkant3DViewer::create_graphics_pipeline()
     {
         pbr_render_info.conv_lambert = m_pbr_renderer->environment_lambert();
         pbr_render_info.conv_ggx = m_pbr_renderer->environment_ggx();
+        pbr_render_info.settings = m_pbr_renderer->settings;
     }
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 }
