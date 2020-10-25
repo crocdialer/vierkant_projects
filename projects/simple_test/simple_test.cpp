@@ -223,7 +223,6 @@ void Vierkant3DViewer::create_graphics_pipeline()
     create_info.viewport.height = fb_extent.height;
     create_info.viewport.maxDepth = fb_extent.depth;
     create_info.pipeline_cache = m_pipeline_cache;
-    create_info.renderpass = m_window->swapchain().framebuffers().front().renderpass();
 
     m_renderer = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
@@ -270,7 +269,6 @@ void Vierkant3DViewer::create_offscreen_assets()
     create_info.viewport.height = size.y;
     create_info.viewport.maxDepth = 1;
     create_info.pipeline_cache = m_pipeline_cache;
-    create_info.renderpass = renderpass;
     m_renderer_offscreen = vierkant::Renderer(m_device, create_info);
     m_unlit_renderer = vierkant::UnlitForward::create(m_device);
 }
