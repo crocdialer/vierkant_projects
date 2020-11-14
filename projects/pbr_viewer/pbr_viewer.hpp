@@ -24,12 +24,12 @@ void render_scene(vierkant::Renderer &renderer, vierkant::ScenePtr scene, vierka
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Vierkant3DViewer : public crocore::Application
+class PBRViewer : public crocore::Application
 {
 
 public:
 
-    explicit Vierkant3DViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
+    explicit PBRViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
 private:
 
@@ -102,6 +102,6 @@ private:
 
 int main(int argc, char *argv[])
 {
-    auto app = std::make_shared<Vierkant3DViewer>(argc, argv);
+    auto app = std::make_shared<PBRViewer>(argc, argv);
     return app->run();
 }

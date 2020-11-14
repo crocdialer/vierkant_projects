@@ -7,7 +7,7 @@
 #include <vierkant/UnlitForward.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
-#include "simple_test.hpp"
+#include "pbr_viewer.hpp"
 
 ////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
 
@@ -39,7 +39,7 @@ VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
     return ret;
 }
 
-void Vierkant3DViewer::setup()
+void PBRViewer::setup()
 {
     crocore::g_logger.set_severity(crocore::Severity::DEBUG);
 
@@ -50,18 +50,18 @@ void Vierkant3DViewer::setup()
     create_offscreen_assets();
 }
 
-void Vierkant3DViewer::teardown()
+void PBRViewer::teardown()
 {
     LOG_INFO << "ciao " << name();
     vkDeviceWaitIdle(m_device->handle());
 }
 
-void Vierkant3DViewer::poll_events()
+void PBRViewer::poll_events()
 {
     glfwPollEvents();
 }
 
-void Vierkant3DViewer::create_context_and_window()
+void PBRViewer::create_context_and_window()
 {
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
 
@@ -102,7 +102,7 @@ void Vierkant3DViewer::create_context_and_window()
     m_pipeline_cache = vk::PipelineCache::create(m_device);
 }
 
-void Vierkant3DViewer::create_ui()
+void PBRViewer::create_ui()
 {
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
@@ -214,7 +214,7 @@ void Vierkant3DViewer::create_ui()
     m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 }
 
-void Vierkant3DViewer::create_graphics_pipeline()
+void PBRViewer::create_graphics_pipeline()
 {
     m_pipeline_cache->clear();
 
@@ -247,7 +247,7 @@ void Vierkant3DViewer::create_graphics_pipeline()
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 }
 
-void Vierkant3DViewer::create_offscreen_assets()
+void PBRViewer::create_offscreen_assets()
 {
     glm::uvec2 size(1024, 1024);
 
@@ -278,7 +278,7 @@ void Vierkant3DViewer::create_offscreen_assets()
     m_unlit_renderer = vierkant::UnlitForward::create(m_device);
 }
 
-void Vierkant3DViewer::create_texture_image()
+void PBRViewer::create_texture_image()
 {
     // try to fetch cool image
     auto http_resonse = crocore::net::http::get(g_texture_url);
@@ -307,7 +307,7 @@ void Vierkant3DViewer::create_texture_image()
     }
 }
 
-void Vierkant3DViewer::load_model(const std::string &path)
+void PBRViewer::load_model(const std::string &path)
 {
     vierkant::MeshPtr mesh;
 
@@ -393,7 +393,7 @@ void Vierkant3DViewer::load_model(const std::string &path)
     m_scene->add_object(mesh);
 }
 
-void Vierkant3DViewer::load_environment(const std::string &path)
+void PBRViewer::load_environment(const std::string &path)
 {
     auto load_task = [&, path]()
     {
@@ -423,7 +423,7 @@ void Vierkant3DViewer::load_environment(const std::string &path)
     background_queue().post(load_task);
 }
 
-void Vierkant3DViewer::update(double time_delta)
+void PBRViewer::update(double time_delta)
 {
     // update camera with arcball
     m_camera->set_global_transform(m_arcball.transform());
@@ -447,7 +447,7 @@ void Vierkant3DViewer::update(double time_delta)
     m_window->draw();
 }
 
-std::vector<VkCommandBuffer> Vierkant3DViewer::draw(const vierkant::WindowPtr &w)
+std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
 {
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];

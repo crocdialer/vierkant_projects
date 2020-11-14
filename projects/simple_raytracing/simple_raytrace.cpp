@@ -1,5 +1,7 @@
 #include <vierkant/imgui/imgui_util.h>
 
+#include "vierkant_projects/simple_raytracing_shaders.hpp"
+
 #include "simple_raytrace.hpp"
 
 void SimpleRayTracing::setup()
