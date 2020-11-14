@@ -69,8 +69,13 @@ void Vierkant3DViewer::create_context_and_window()
     m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
 
     m_window = vk::Window::create(m_instance.handle(), WIDTH, HEIGHT, name(), m_fullscreen);
-    m_device = vk::Device::create(m_instance.physical_devices().front(), m_instance.use_validation_layers(),
-                                  m_window->surface());
+
+    // create device
+    vk::Device::create_info_t device_info = {};
+    device_info.physical_device = m_instance.physical_devices().front();
+    device_info.use_validation = m_instance.use_validation_layers();
+    device_info.surface = m_window->surface();
+    m_device = vk::Device::create(device_info);
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
     // create a WindowDelegate
@@ -383,30 +388,39 @@ void Vierkant3DViewer::load_model(const std::string &path)
         mesh->materials = {mat};
     }
 
+    m_selected_objects.clear();
     m_scene->clear();
     m_scene->add_object(mesh);
 }
 
 void Vierkant3DViewer::load_environment(const std::string &path)
 {
-    auto img = crocore::create_image_from_file(path, 4);
-
-    if(img)
+    auto load_task = [&, path]()
     {
-        bool use_float = (img->num_bytes() / (img->width() * img->height() * img->num_components())) > 1;
+        auto img = crocore::create_image_from_file(path, 4);
 
-        vk::Image::Format fmt = {};
-        fmt.extent = {img->width(), img->height(), 1};
-        fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
-        auto tex = vk::Image::create(m_device, img->data(), fmt);
+        main_queue().post([this, img]()
+        {
+            if(img)
+            {
+                bool use_float = (img->num_bytes() /
+                                  (img->width() * img->height() * img->num_components())) > 1;
 
-        // tmp
-        m_textures["environment"] = tex;
+                vk::Image::Format fmt = {};
+                fmt.extent = {img->width(), img->height(), 1};
+                fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
+                auto tex = vk::Image::create(m_device, img->data(), fmt);
 
-        m_scene->set_enironment(tex);
-        m_pbr_renderer->set_environment(m_scene->environment());
+                // tmp
+                m_textures["environment"] = tex;
 
-    }
+                m_scene->set_enironment(tex);
+                m_pbr_renderer->set_environment(m_scene->environment());
+
+            }
+        });
+    };
+    background_queue().post(load_task);
 }
 
 void Vierkant3DViewer::update(double time_delta)
@@ -417,17 +431,17 @@ void Vierkant3DViewer::update(double time_delta)
     // update animated objects in the scene
     m_scene->update(time_delta);
 
-    auto image_index = m_window->swapchain().image_index();
-    auto &framebuffer = m_framebuffers_offscreen[image_index];
-
-    m_textures["offscreen"] = render_offscreen(framebuffer, m_renderer_offscreen, [this, &framebuffer]()
-    {
-        auto cam = vierkant::PerspectiveCamera::create(framebuffer.extent().width / (float) framebuffer.extent().height,
-                                                       m_camera->fov());
-        cam->set_transform(m_camera->transform());
-
-        m_unlit_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
-    });
+//    auto image_index = m_window->swapchain().image_index();
+//    auto &framebuffer = m_framebuffers_offscreen[image_index];
+//
+//    m_textures["offscreen"] = render_offscreen(framebuffer, m_renderer_offscreen, [this, &framebuffer]()
+//    {
+//        auto cam = vierkant::PerspectiveCamera::create(framebuffer.extent().width / (float) framebuffer.extent().height,
+//                                                       m_camera->fov());
+//        cam->set_transform(m_camera->transform());
+//
+//        m_unlit_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
+//    });
 
     // issue top-level draw-command
     m_window->draw();
