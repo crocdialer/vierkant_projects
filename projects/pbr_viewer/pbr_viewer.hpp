@@ -4,8 +4,11 @@
 
 #pragma once
 
+#include <filesystem>
+
 #include <crocore/Application.hpp>
 #include <vierkant/vierkant.hpp>
+#include "serialization.hpp"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -28,6 +31,28 @@ class PBRViewer : public crocore::Application
 {
 
 public:
+
+    struct settings_t
+    {
+        crocore::Severity log_severity = crocore::Severity::DEBUG;
+        std::string model_path;
+        std::string environment_path;
+
+        vierkant::Window::create_info_t window_info =
+                {
+                        .instance = VK_NULL_HANDLE,
+                        .width = 1920,
+                        .height = 1080,
+                        .fullscreen = false,
+                        .vsync = true
+                };
+
+        bool draw_aabbs = true;
+
+        glm::quat view_rotation = {};
+        glm::vec3 view_look_at = {};
+        float view_distance = 5.f;
+    };
 
     explicit PBRViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
@@ -57,11 +82,17 @@ private:
 
     void create_offscreen_assets();
 
-    bool m_use_msaa = true;
+    void save_settings(settings_t settings, const std::filesystem::path &path = "settings.json");
 
-    bool m_fullscreen = false;
+    settings_t load_settings(const std::filesystem::path &path = "settings.json");
 
-    bool m_draw_aabb = true;
+//    bool m_use_msaa = true;
+//
+//    bool m_fullscreen = false;
+//
+//    bool m_draw_aabb = true;
+
+    settings_t m_settings;
 
     // bundles basic Vulkan assets
     vierkant::Instance m_instance;
@@ -105,3 +136,20 @@ int main(int argc, char *argv[])
     auto app = std::make_shared<PBRViewer>(argc, argv);
     return app->run();
 }
+
+template<class Archive>
+void serialize(Archive &ar, PBRViewer::settings_t &settings)
+{
+
+    ar(cereal::make_nvp("log_severity", settings.log_severity),
+       cereal::make_nvp("model_path", settings.model_path),
+       cereal::make_nvp("environment_path", settings.environment_path),
+       cereal::make_nvp("window", settings.window_info),
+       cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
+       cereal::make_nvp("view_rotation", settings.view_rotation),
+       cereal::make_nvp("view_look_at", settings.view_look_at),
+       cereal::make_nvp("view_distance", settings.view_distance));
+}
+
+//
+//} // namespace boost::serialization

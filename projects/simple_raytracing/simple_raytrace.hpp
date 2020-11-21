@@ -9,6 +9,8 @@
 
 #include <vierkant/vierkant.hpp>
 
+#include "RaytracingPipeline.h"
+
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
 const bool V_SYNC = true;
@@ -71,6 +73,8 @@ private:
     vk::Renderer m_renderer, m_gui_renderer;
 
     vierkant::gui::Context m_gui_context;
+
+    VkPhysicalDeviceRayTracingPropertiesNV m_raytracing_properties = {};
 };
 
 int main(int argc, char *argv[])

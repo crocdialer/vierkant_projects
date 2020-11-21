@@ -29,10 +29,14 @@ void SimpleRayTracing::create_context_and_window()
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
     m_window = vk::Window::create(m_instance.handle(), WIDTH, HEIGHT, name(), m_fullscreen);
 
+//    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR
+//    VkPhysicalDeviceRayTracingFeatures raytracing_feature = {};
+
     // create device
     vk::Device::create_info_t device_info = {};
     device_info.physical_device = m_instance.physical_devices().front();
     device_info.use_validation = m_instance.use_validation_layers();
+    device_info.enable_device_address = true;
     device_info.surface = m_window->surface();
 
     // add the raytracing-extension
@@ -40,13 +44,16 @@ void SimpleRayTracing::create_context_and_window()
 
     m_device = vk::Device::create(device_info);
 
-    // Query the ray tracing properties of the current implementation, we will need them later on
-    VkPhysicalDeviceRayTracingPropertiesNV rayTracingProperties = {};
-    rayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
+    // query the ray tracing properties
+    m_raytracing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
     VkPhysicalDeviceProperties2 deviceProps2{};
     deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    deviceProps2.pNext = &rayTracingProperties;
+    deviceProps2.pNext = &m_raytracing_properties;
     vkGetPhysicalDeviceProperties2(m_device->physical_device(), &deviceProps2);
+
+//    vkGetAccelerationStructureMemoryRequirementsNV()
+    vkCmdTraceRaysNV()
+//    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR
 
 //    // Query the ray tracing properties of the current implementation, we will need them later on
 ////    VkPhysicalDeviceRay
@@ -56,11 +63,13 @@ void SimpleRayTracing::create_context_and_window()
 //    deviceFeatures2.pNext = &rayTracingFeatures;
 //    vkGetPhysicalDeviceFeatures2(VkPhysicalDeviceRay, &deviceFeatures2);
 
+//    VkRayTracingPipelineCreateInfoNV
+
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
-    window_delegate.draw_fn = std::bind(&SimpleRayTracing::draw, this, std::placeholders::_1);
+    window_delegate.draw_fn = [this](const vierkant::WindowPtr &w) { return draw(w); };
     window_delegate.resize_fn = [this](uint32_t w, uint32_t h)
     {
         create_graphics_pipeline();

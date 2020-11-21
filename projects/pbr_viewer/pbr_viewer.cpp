@@ -1,12 +1,22 @@
+#include <fstream>
+
+// include headers that implement a archive in simple text format
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+//#include <boost/serialization/vector.hpp>
+
 #include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
+#include <crocore/json.hpp>
+
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/assimp.hpp>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/UnlitForward.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
+
 #include "pbr_viewer.hpp"
 
 ////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
@@ -68,7 +78,10 @@ void PBRViewer::create_context_and_window()
     // attach logger for debug-output
     m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
 
-    m_window = vk::Window::create(m_instance.handle(), WIDTH, HEIGHT, name(), m_fullscreen);
+    vk::Window::create_info_t window_info = m_settings.window_info;
+    window_info.title = name();
+    window_info.instance = m_instance.handle();
+    m_window = vk::Window::create(window_info);
 
     // create device
     vk::Device::create_info_t device_info = {};
@@ -76,7 +89,8 @@ void PBRViewer::create_context_and_window()
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.surface = m_window->surface();
     m_device = vk::Device::create(device_info);
-    m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
+    m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), window_info.sample_count),
+                               window_info.vsync);
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
@@ -119,7 +133,10 @@ void PBRViewer::create_ui()
                     m_pbr_renderer->settings.draw_grid = !m_pbr_renderer->settings.draw_grid;
                     break;
                 case vk::Key::_B:
-                    m_draw_aabb = !m_draw_aabb;
+                    m_settings.draw_aabbs = !m_settings.draw_aabbs;
+                    break;
+                case vk::Key::_S:
+                    save_settings(m_settings);
                     break;
                 default:
                     break;
@@ -373,6 +390,7 @@ void PBRViewer::load_model(const std::string &path)
             auto aabb = mesh->aabb().transform(mesh->transform());
             mesh->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
 
+            m_settings.model_path = path;
             return mesh;
         };
 
@@ -399,26 +417,28 @@ void PBRViewer::load_environment(const std::string &path)
     {
         auto img = crocore::create_image_from_file(path, 4);
 
+        m_settings.environment_path = path;
+
         main_queue().post([this, img]()
-        {
-            if(img)
-            {
-                bool use_float = (img->num_bytes() /
-                                  (img->width() * img->height() * img->num_components())) > 1;
+                          {
+                              if(img)
+                              {
+                                  bool use_float = (img->num_bytes() /
+                                                    (img->width() * img->height() * img->num_components())) > 1;
 
-                vk::Image::Format fmt = {};
-                fmt.extent = {img->width(), img->height(), 1};
-                fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
-                auto tex = vk::Image::create(m_device, img->data(), fmt);
+                                  vk::Image::Format fmt = {};
+                                  fmt.extent = {img->width(), img->height(), 1};
+                                  fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
+                                  auto tex = vk::Image::create(m_device, img->data(), fmt);
 
-                // tmp
-                m_textures["environment"] = tex;
+                                  // tmp
+                                  m_textures["environment"] = tex;
 
-                m_scene->set_enironment(tex);
-                m_pbr_renderer->set_environment(m_scene->environment());
+                                  m_scene->set_enironment(tex);
+                                  m_pbr_renderer->set_environment(m_scene->environment());
 
-            }
-        });
+                              }
+                          });
     };
     background_queue().post(load_task);
 }
@@ -456,7 +476,7 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
     {
         m_pbr_renderer->render_scene(m_renderer, m_scene, m_camera, {});
 
-        if(m_draw_aabb)
+        if(m_settings.draw_aabbs)
         {
             for(auto &obj : m_selected_objects)
             {
@@ -498,4 +518,49 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
     std::vector<VkCommandBuffer> command_buffers;
     for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
     return command_buffers;
+}
+
+void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path)
+{
+    vierkant::Window::create_info_t window_info = {};
+    window_info.width = m_window->size().x;
+    window_info.height = m_window->size().y;
+    window_info.fullscreen = m_window->fullscreen();
+    window_info.sample_count = m_window->swapchain().sample_count();
+    window_info.title = m_window->title();
+
+    window_info.vsync = m_window->swapchain().v_sync();
+
+    settings.log_severity = crocore::g_logger.severity();
+    settings.view_rotation = m_arcball.rotation;
+    settings.view_look_at = m_arcball.look_at;
+    settings.view_distance = m_arcball.distance;
+
+    // create and open a character archive for output
+    std::ofstream ofs(path.string());
+
+    // save data to archive
+    {
+        cereal::JSONOutputArchive archive(ofs);
+
+        // write class instance to archive
+        archive(settings);
+    }
+}
+
+PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path)
+{
+    PBRViewer::settings_t settings = {};
+
+    // create and open a character archive for input
+    std::ifstream file_stream(path.string());
+
+    // load data from archive
+    {
+        cereal::JSONInputArchive archive(file_stream);
+
+        // write class instance to archive
+        archive(settings);
+    }
+    return settings;
 }
