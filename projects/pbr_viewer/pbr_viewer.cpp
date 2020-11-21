@@ -51,13 +51,23 @@ VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
 
 void PBRViewer::setup()
 {
-    crocore::g_logger.set_severity(crocore::Severity::DEBUG);
+    // try to read settings
+    m_settings = load_settings();
+
+    crocore::g_logger.set_severity(m_settings.log_severity);
 
     create_context_and_window();
+
+    // create ui and inputs
+    create_ui();
+
     create_texture_image();
-    load_model();
     create_graphics_pipeline();
     create_offscreen_assets();
+
+    // load stuff
+    load_model(m_settings.model_path);
+    load_environment(m_settings.environment_path);
 }
 
 void PBRViewer::teardown()
@@ -107,9 +117,6 @@ void PBRViewer::create_context_and_window()
 
     // create a draw context
     m_draw_context = vierkant::DrawContext(m_device);
-
-    // create ui and inputs
-    create_ui();
 
     m_font = vk::Font::create(m_device, g_font_path, 64);
 
@@ -170,7 +177,10 @@ void PBRViewer::create_ui()
 
     // create arcball
     m_arcball = vk::Arcball(m_window->size());
-    m_arcball.distance = 20.f;
+
+    m_arcball.rotation = m_settings.view_rotation;
+    m_arcball.look_at = m_settings.view_look_at;
+    m_arcball.distance = m_settings.view_distance;
 
     // attach arcball mouse delegate
     auto arcball_delegeate = m_arcball.mouse_delegate();
@@ -252,8 +262,8 @@ void PBRViewer::create_graphics_pipeline()
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.size = fb_extent;
-//    pbr_render_info.sample_count = m_window->swapchain().sample_count();
     pbr_render_info.pipeline_cache = m_pipeline_cache;
+    pbr_render_info.settings = m_settings.render_settings;
 
     if(m_pbr_renderer)
     {
@@ -390,7 +400,6 @@ void PBRViewer::load_model(const std::string &path)
             auto aabb = mesh->aabb().transform(mesh->transform());
             mesh->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
 
-            m_settings.model_path = path;
             return mesh;
         };
 
@@ -409,6 +418,8 @@ void PBRViewer::load_model(const std::string &path)
     m_selected_objects.clear();
     m_scene->clear();
     m_scene->add_object(mesh);
+
+    m_settings.model_path = path;
 }
 
 void PBRViewer::load_environment(const std::string &path)
@@ -417,9 +428,7 @@ void PBRViewer::load_environment(const std::string &path)
     {
         auto img = crocore::create_image_from_file(path, 4);
 
-        m_settings.environment_path = path;
-
-        main_queue().post([this, img]()
+        main_queue().post([this, path, img]()
                           {
                               if(img)
                               {
@@ -437,6 +446,7 @@ void PBRViewer::load_environment(const std::string &path)
                                   m_scene->set_enironment(tex);
                                   m_pbr_renderer->set_environment(m_scene->environment());
 
+                                  m_settings.environment_path = path;
                               }
                           });
     };
@@ -532,20 +542,26 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     window_info.vsync = m_window->swapchain().v_sync();
 
     settings.log_severity = crocore::g_logger.severity();
+    settings.window_info = window_info;
     settings.view_rotation = m_arcball.rotation;
     settings.view_look_at = m_arcball.look_at;
     settings.view_distance = m_arcball.distance;
+    settings.render_settings = m_pbr_renderer->settings;
 
     // create and open a character archive for output
     std::ofstream ofs(path.string());
 
     // save data to archive
+    try
     {
         cereal::JSONOutputArchive archive(ofs);
 
         // write class instance to archive
         archive(settings);
-    }
+
+    } catch(std::exception &e){ LOG_ERROR << e.what(); }
+
+    LOG_DEBUG << "save settings: " << path;
 }
 
 PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path)
@@ -556,11 +572,17 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
     std::ifstream file_stream(path.string());
 
     // load data from archive
+    if(file_stream.is_open())
     {
-        cereal::JSONInputArchive archive(file_stream);
+        try
+        {
+            cereal::JSONInputArchive archive(file_stream);
 
-        // write class instance to archive
-        archive(settings);
+            // read class instance from archive
+            archive(settings);
+        } catch(std::exception &e){ LOG_ERROR << e.what(); }
+
+        LOG_DEBUG << "loading settings: " << path;
     }
     return settings;
 }

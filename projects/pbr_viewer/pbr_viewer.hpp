@@ -47,9 +47,11 @@ public:
                         .vsync = true
                 };
 
+        vierkant::SceneRenderer::settings_t render_settings = {};
+
         bool draw_aabbs = true;
 
-        glm::quat view_rotation = {};
+        glm::quat view_rotation = {1.0f, 0.0f, 0.0f, 0.0f};
         glm::vec3 view_look_at = {};
         float view_distance = 5.f;
     };
@@ -145,6 +147,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("model_path", settings.model_path),
        cereal::make_nvp("environment_path", settings.environment_path),
        cereal::make_nvp("window", settings.window_info),
+       cereal::make_nvp("render_settings", settings.render_settings),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
        cereal::make_nvp("view_rotation", settings.view_rotation),
        cereal::make_nvp("view_look_at", settings.view_look_at),
