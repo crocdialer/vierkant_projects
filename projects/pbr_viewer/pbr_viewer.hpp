@@ -41,8 +41,8 @@ public:
         vierkant::Window::create_info_t window_info =
                 {
                         .instance = VK_NULL_HANDLE,
-                        .width = 1920,
-                        .height = 1080,
+                        .size = {1920, 1080},
+                        .position = {},
                         .fullscreen = false,
                         .vsync = true
                 };

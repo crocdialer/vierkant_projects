@@ -30,8 +30,7 @@ void SimpleRayTracing::create_context_and_window()
 
     vierkant::Window::create_info_t window_info = {};
     window_info.instance = m_instance.handle();
-    window_info.width = WIDTH;
-    window_info.height = HEIGHT;
+    window_info.size = {WIDTH, HEIGHT};
     window_info.title = name();
     window_info.fullscreen = m_fullscreen;
     m_window = vk::Window::create(window_info);
@@ -76,7 +75,7 @@ void SimpleRayTracing::create_context_and_window()
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
-    window_delegate.draw_fn = [this](const vierkant::WindowPtr &w) { return draw(w); };
+    window_delegate.draw_fn = [this](const vierkant::WindowPtr &w){ return draw(w); };
     window_delegate.resize_fn = [this](uint32_t w, uint32_t h)
     {
         create_graphics_pipeline();

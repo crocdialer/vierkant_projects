@@ -533,8 +533,8 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
 void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path)
 {
     vierkant::Window::create_info_t window_info = {};
-    window_info.width = m_window->size().x;
-    window_info.height = m_window->size().y;
+    window_info.size = m_window->size();
+    window_info.position = m_window->position();
     window_info.fullscreen = m_window->fullscreen();
     window_info.sample_count = m_window->swapchain().sample_count();
     window_info.title = m_window->title();
