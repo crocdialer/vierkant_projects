@@ -88,10 +88,9 @@ void PBRViewer::create_context_and_window()
     // attach logger for debug-output
     m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
 
-    vk::Window::create_info_t window_info = m_settings.window_info;
-    window_info.title = name();
-    window_info.instance = m_instance.handle();
-    m_window = vk::Window::create(window_info);
+    m_settings.window_info.title = name();
+    m_settings.window_info.instance = m_instance.handle();
+    m_window = vk::Window::create(m_settings.window_info);
 
     // create device
     vk::Device::create_info_t device_info = {};
@@ -99,8 +98,8 @@ void PBRViewer::create_context_and_window()
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.surface = m_window->surface();
     m_device = vk::Device::create(device_info);
-    m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), window_info.sample_count),
-                               window_info.vsync);
+    m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
+                               m_settings.window_info.vsync);
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
@@ -338,23 +337,50 @@ void PBRViewer::load_model(const std::string &path)
 {
     vierkant::MeshPtr mesh;
 
-    auto create_texture = [device = m_device](const crocore::ImagePtr &img) -> vierkant::ImagePtr
-    {
-        vk::Image::Format fmt;
-        fmt.format = vk_format(img);
-        fmt.extent = {img->width(), img->height(), 1};
-        fmt.use_mipmap = true;
-        fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        return vk::Image::create(device, img->data(), fmt);
-    };
-
     if(!path.empty())
     {
-        auto load_mesh = [this, path, create_texture]() -> vierkant::MeshPtr
+        m_settings.model_path = path;
+
+        auto load_mesh = [this, path]() -> vierkant::MeshPtr
         {
             auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
             auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos);
+
+            if(!mesh)
+            {
+                LOG_WARNING << "could not load mesh: " << path;
+                return nullptr;
+            }
+
+            std::vector<vierkant::BufferPtr> staging_buffers;
+
+            // command pool for background transfer
+            auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
+                                                              VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+
+            auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+
+            auto create_texture = [device = m_device, cmd_buf_handle = cmd_buf.handle(), &staging_buffers](const crocore::ImagePtr &img) -> vierkant::ImagePtr
+            {
+                vk::Image::Format fmt;
+                fmt.format = vk_format(img);
+                fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+                fmt.extent = {img->width(), img->height(), 1};
+                fmt.use_mipmap = true;
+                fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+                fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+                fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                fmt.initial_cmd_buffer = cmd_buf_handle;
+
+                auto vk_img = vk::Image::create(device, nullptr, fmt);
+                auto buf = vierkant::Buffer::create(device, img->data(), img->num_bytes(),
+                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                vk_img->copy_from(buf, cmd_buf_handle);
+                staging_buffers.push_back(std::move(buf));
+                return vk_img;
+            };
+
+            cmd_buf.begin();
 
             // skin + bones
             mesh->root_bone = mesh_assets.root_bone;
@@ -392,6 +418,9 @@ void PBRViewer::load_model(const std::string &path)
                 }
             }
 
+            // submit transfer and sync
+            cmd_buf.submit(m_device->queues(vierkant::Device::Queue::GRAPHICS)[1], true);
+
             // scale
             float scale = 5.f / glm::length(mesh->aabb().half_extents());
             mesh->set_scale(scale);
@@ -403,7 +432,17 @@ void PBRViewer::load_model(const std::string &path)
             return mesh;
         };
 
-        mesh = load_mesh();
+        background_queue().post([this, load_mesh]()
+        {
+            auto mesh = load_mesh();
+            main_queue().post([this, mesh]()
+            {
+                m_selected_objects.clear();
+                m_scene->clear();
+                m_scene->add_object(mesh);
+//                m_settings.model_path = path;
+            });
+        });
     }
     else
     {
@@ -413,13 +452,11 @@ void PBRViewer::load_model(const std::string &path)
         auto it = m_textures.find("test");
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
+
+        m_selected_objects.clear();
+        m_scene->clear();
+        m_scene->add_object(mesh);
     }
-
-    m_selected_objects.clear();
-    m_scene->clear();
-    m_scene->add_object(mesh);
-
-    m_settings.model_path = path;
 }
 
 void PBRViewer::load_environment(const std::string &path)

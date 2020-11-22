@@ -42,7 +42,7 @@ void serialize(Archive &archive, vierkant::SceneRenderer::settings_t &render_set
     );
 }
 
-}
+}// namespace vierkant
 
 namespace glm
 {
@@ -172,4 +172,4 @@ void serialize(Archive &archive, glm::dquat &q)
 }
 
 
-}// namespace vierkant
+}// namespace glm
