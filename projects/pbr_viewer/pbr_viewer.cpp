@@ -27,6 +27,8 @@ const bool g_enable_validation_layers = false;
 const bool g_enable_validation_layers = true;
 #endif
 
+using double_second = std::chrono::duration<double>;
+
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
 {
     VkFormat ret = VK_FORMAT_UNDEFINED;
@@ -94,6 +96,7 @@ void PBRViewer::create_context_and_window()
 
     // create device
     vk::Device::create_info_t device_info = {};
+    device_info.instance = m_instance.handle();
     device_info.physical_device = m_instance.physical_devices().front();
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.surface = m_window->surface();
@@ -354,6 +357,8 @@ void PBRViewer::load_model(const std::string &path)
 
             std::vector<vierkant::BufferPtr> staging_buffers;
 
+            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+
             // command pool for background transfer
             auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
                                                               VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
@@ -419,7 +424,7 @@ void PBRViewer::load_model(const std::string &path)
             }
 
             // submit transfer and sync
-            cmd_buf.submit(m_device->queues(vierkant::Device::Queue::GRAPHICS)[1], true);
+            cmd_buf.submit(queue, true);
 
             // scale
             float scale = 5.f / glm::length(mesh->aabb().half_extents());
@@ -432,15 +437,21 @@ void PBRViewer::load_model(const std::string &path)
             return mesh;
         };
 
-        background_queue().post([this, load_mesh]()
+        background_queue().post([this, load_mesh, path]()
         {
+            m_num_loading++;
+            auto start_time = std::chrono::steady_clock::now();
+
             auto mesh = load_mesh();
-            main_queue().post([this, mesh]()
+            main_queue().post([this, mesh, start_time, path]()
             {
                 m_selected_objects.clear();
                 m_scene->clear();
                 m_scene->add_object(mesh);
-//                m_settings.model_path = path;
+
+                auto dur = double_second(std::chrono::steady_clock::now() - start_time);
+                LOG_DEBUG << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(), dur.count());
+                m_num_loading--;
             });
         });
     }
@@ -463,9 +474,13 @@ void PBRViewer::load_environment(const std::string &path)
 {
     auto load_task = [&, path]()
     {
+        m_num_loading++;
+
+        auto start_time = std::chrono::steady_clock::now();
+
         auto img = crocore::create_image_from_file(path, 4);
 
-        main_queue().post([this, path, img]()
+        main_queue().post([this, path, img, start_time]()
                           {
                               if(img)
                               {
@@ -485,6 +500,9 @@ void PBRViewer::load_environment(const std::string &path)
 
                                   m_settings.environment_path = path;
                               }
+                              auto dur = double_second(std::chrono::steady_clock::now() - start_time);
+                              LOG_DEBUG << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(), dur.count());
+                              m_num_loading--;
                           });
     };
     background_queue().post(load_task);
@@ -551,7 +569,11 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
     auto render_gui = [this, &framebuffer]() -> VkCommandBuffer
     {
         m_gui_context.draw_gui(m_renderer_gui);
-//        m_draw_context.draw_text(m_gui_renderer, "$$$ oder fahrkarte du nase\nteil zwo", m_font, {400.f, 450.f});
+
+        if(m_num_loading)
+        {
+            m_draw_context.draw_text(m_renderer_gui, "loading ...", m_font, {m_window->size().x - 375, 50.f});
+        }
         return m_renderer_gui.render(framebuffer);
     };
 
@@ -567,7 +589,7 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
     return command_buffers;
 }
 
-void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path)
+void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path) const
 {
     vierkant::Window::create_info_t window_info = {};
     window_info.size = m_window->size();

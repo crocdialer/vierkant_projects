@@ -84,15 +84,11 @@ private:
 
     void create_offscreen_assets();
 
-    void save_settings(settings_t settings, const std::filesystem::path &path = "settings.json");
+    void save_settings(settings_t settings, const std::filesystem::path &path = "settings.json") const;
 
-    settings_t load_settings(const std::filesystem::path &path = "settings.json");
+    static settings_t load_settings(const std::filesystem::path &path = "settings.json");
 
-//    bool m_use_msaa = true;
-//
-//    bool m_fullscreen = false;
-//
-//    bool m_draw_aabb = true;
+    std::atomic<uint32_t> m_num_loading = 0;
 
     settings_t m_settings;
 

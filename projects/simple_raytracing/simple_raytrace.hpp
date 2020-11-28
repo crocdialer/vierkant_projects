@@ -74,6 +74,7 @@ private:
 
     vierkant::gui::Context m_gui_context;
 
+    // TODO: switch to VkPhysicalDeviceRayTracingPropertiesKHR
     VkPhysicalDeviceRayTracingPropertiesNV m_raytracing_properties = {};
 };
 

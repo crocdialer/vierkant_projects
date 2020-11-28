@@ -35,22 +35,28 @@ void SimpleRayTracing::create_context_and_window()
     window_info.fullscreen = m_fullscreen;
     m_window = vk::Window::create(window_info);
 
-//    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR
-//    VkPhysicalDeviceRayTracingFeatures raytracing_feature = {};
+    // TODO: atm only beta and borked
+//    VkPhysicalDeviceRayTracingFeaturesKHR raytracing_features = {};
+//    raytracing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
+//    raytracing_features.rayTracing = true;
+//    raytracing_features.rayQuery = true;
 
     // create device
     vk::Device::create_info_t device_info = {};
+    device_info.instance = m_instance.handle();
     device_info.physical_device = m_instance.physical_devices().front();
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.enable_device_address = true;
     device_info.surface = m_window->surface();
+//    device_info.create_device_pNext = &raytracing_features;
 
     // add the raytracing-extension
-    device_info.extensions = {VK_NV_RAY_TRACING_EXTENSION_NAME};
+    device_info.extensions = {VK_NV_RAY_TRACING_EXTENSION_NAME};// VK_KHR_RAY_TRACING_EXTENSION_NAME
 
     m_device = vk::Device::create(device_info);
 
     // query the ray tracing properties
+    // TODO: switch to VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_KHR
     m_raytracing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
     VkPhysicalDeviceProperties2 deviceProps2{};
     deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -59,7 +65,6 @@ void SimpleRayTracing::create_context_and_window()
 
 //    vkGetAccelerationStructureMemoryRequirementsNV()
 //    vkCmdTraceRaysNV()
-//    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR
 
 //    // Query the ray tracing properties of the current implementation, we will need them later on
 ////    VkPhysicalDeviceRay

@@ -3,6 +3,9 @@ FILE(GLOB FOLDER_CONTENT *)
 
 include_directories(${vierkant_INCLUDE_DIRS})
 
+## include vulkan_beta.h header
+add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
+
 #shaders
 set(GLSLANG_VALIDATOR "glslangValidator")
 
