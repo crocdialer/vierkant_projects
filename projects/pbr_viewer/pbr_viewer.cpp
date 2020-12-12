@@ -1,10 +1,5 @@
 #include <fstream>
 
-// include headers that implement a archive in simple text format
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-//#include <boost/serialization/vector.hpp>
-
 #include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
@@ -365,7 +360,8 @@ void PBRViewer::load_model(const std::string &path)
 
             auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
 
-            auto create_texture = [device = m_device, cmd_buf_handle = cmd_buf.handle(), &staging_buffers](const crocore::ImagePtr &img) -> vierkant::ImagePtr
+            auto create_texture = [device = m_device, cmd_buf_handle = cmd_buf.handle(), &staging_buffers](
+                    const crocore::ImagePtr &img) -> vierkant::ImagePtr
             {
                 vk::Image::Format fmt;
                 fmt.format = vk_format(img);
@@ -438,22 +434,25 @@ void PBRViewer::load_model(const std::string &path)
         };
 
         background_queue().post([this, load_mesh, path]()
-        {
-            m_num_loading++;
-            auto start_time = std::chrono::steady_clock::now();
+                                {
+                                    m_num_loading++;
+                                    auto start_time = std::chrono::steady_clock::now();
 
-            auto mesh = load_mesh();
-            main_queue().post([this, mesh, start_time, path]()
-            {
-                m_selected_objects.clear();
-                m_scene->clear();
-                m_scene->add_object(mesh);
+                                    auto mesh = load_mesh();
+                                    main_queue().post([this, mesh, start_time, path]()
+                                                      {
+                                                          m_selected_objects.clear();
+                                                          m_scene->clear();
+                                                          m_scene->add_object(mesh);
 
-                auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-                LOG_DEBUG << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(), dur.count());
-                m_num_loading--;
-            });
-        });
+                                                          auto dur = double_second(
+                                                                  std::chrono::steady_clock::now() - start_time);
+                                                          LOG_DEBUG
+                                                          << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(),
+                                                                             dur.count());
+                                                          m_num_loading--;
+                                                      });
+                                });
     }
     else
     {
@@ -480,26 +479,75 @@ void PBRViewer::load_environment(const std::string &path)
 
         auto img = crocore::create_image_from_file(path, 4);
 
-        main_queue().post([this, path, img, start_time]()
+        vierkant::ImagePtr panorama, skybox, conv_lambert, conv_ggx;
+
+        if(img)
+        {
+            bool use_float = (img->num_bytes() /
+                              (img->width() * img->height() * img->num_components())) > 1;
+
+            // command pool for background transfer
+            auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
+                                                              VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            // some "specific" queue lol
+            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
+
+            {
+                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+                cmd_buf.begin();
+
+                vk::Image::Format fmt = {};
+                fmt.extent = {img->width(), img->height(), 1};
+                fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+                fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
+                fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                fmt.initial_cmd_buffer = cmd_buf.handle();
+                panorama = vk::Image::create(m_device, nullptr, fmt);
+
+                auto buf = vierkant::Buffer::create(m_device, img->data(), img->num_bytes(),
+                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+                // copy and layout transition
+                panorama->copy_from(buf, cmd_buf.handle());
+                panorama->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
+
+                // submit and sync
+                cmd_buf.submit(queue, true);
+
+                // derive sane resolution for cube from panorama-width
+                float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
+                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, queue, true);
+            }
+
+            if(skybox)
+            {
+                constexpr uint32_t lambert_size = 128;
+
+                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, queue);
+                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), queue);
+
+                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+                cmd_buf.begin();
+
+                conv_lambert->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
+                conv_ggx->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
+
+                // submit and sync
+                cmd_buf.submit(queue, true);
+            }
+        }
+
+        main_queue().post([this, path, panorama, skybox, conv_lambert, conv_ggx, start_time]()
                           {
-                              if(img)
-                              {
-                                  bool use_float = (img->num_bytes() /
-                                                    (img->width() * img->height() * img->num_components())) > 1;
+                              // tmp
+                              m_textures["environment"] = panorama;
 
-                                  vk::Image::Format fmt = {};
-                                  fmt.extent = {img->width(), img->height(), 1};
-                                  fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
-                                  auto tex = vk::Image::create(m_device, img->data(), fmt);
+                              m_scene->set_enironment(skybox);
 
-                                  // tmp
-                                  m_textures["environment"] = tex;
+                              m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
 
-                                  m_scene->set_enironment(tex);
-                                  m_pbr_renderer->set_environment(m_scene->environment());
+                              m_settings.environment_path = path;
 
-                                  m_settings.environment_path = path;
-                              }
                               auto dur = double_second(std::chrono::steady_clock::now() - start_time);
                               LOG_DEBUG << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(), dur.count());
                               m_num_loading--;
