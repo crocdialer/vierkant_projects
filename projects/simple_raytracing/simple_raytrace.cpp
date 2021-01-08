@@ -35,11 +35,23 @@ void SimpleRayTracing::create_context_and_window()
     window_info.fullscreen = m_fullscreen;
     m_window = vk::Window::create(window_info);
 
-    // TODO: atm only beta and borked
-//    VkPhysicalDeviceRayTracingFeaturesKHR raytracing_features = {};
-//    raytracing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
-//    raytracing_features.rayTracing = true;
-//    raytracing_features.rayQuery = true;
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features = {};
+    acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    acceleration_structure_features.accelerationStructure = true;
+//    acceleration_structure_features.accelerationStructureHostCommands = true;
+
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features = {};
+    ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    ray_tracing_pipeline_features.rayTracingPipeline = true;
+//    ray_tracing_pipeline_features.rayTracingPipelineTraceRaysIndirect = true;
+//    ray_tracing_pipeline_features.rayTraversalPrimitiveCulling = true;
+
+    VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {};
+    ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+    ray_query_features.rayQuery = true;
+
+    acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+    ray_tracing_pipeline_features.pNext = &ray_query_features;
 
     // create device
     vk::Device::create_info_t device_info = {};
@@ -48,16 +60,28 @@ void SimpleRayTracing::create_context_and_window()
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.enable_device_address = true;
     device_info.surface = m_window->surface();
-//    device_info.create_device_pNext = &raytracing_features;
+    device_info.create_device_pNext = &acceleration_structure_features;
 
     // add the raytracing-extension
-    device_info.extensions = {VK_NV_RAY_TRACING_EXTENSION_NAME};// VK_KHR_RAY_TRACING_EXTENSION_NAME
+    device_info.extensions = {VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+                              VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+                              VK_KHR_RAY_QUERY_EXTENSION_NAME,
+                              VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+                              VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
+
+    // TODO: those should be final:
+    // VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
+    // VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
+    // VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME
+    // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+    // VK_KHR_MAINTENANCE3_EXTENSION_NAME (vulkan 1.1 core)
+    // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME (vulkan 1.2 core)
 
     m_device = vk::Device::create(device_info);
 
     // query the ray tracing properties
     // TODO: switch to VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_KHR
-    m_raytracing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
+    m_raytracing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
     VkPhysicalDeviceProperties2 deviceProps2{};
     deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     deviceProps2.pNext = &m_raytracing_properties;

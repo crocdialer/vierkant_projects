@@ -490,7 +490,7 @@ void PBRViewer::load_environment(const std::string &path)
             auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
                                                               VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
             // some "specific" queue lol
-            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
+            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
 
             {
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
@@ -537,10 +537,10 @@ void PBRViewer::load_environment(const std::string &path)
             }
         }
 
-        main_queue().post([this, path, panorama, skybox, conv_lambert, conv_ggx, start_time]()
+        main_queue().post([this, path, skybox, conv_lambert, conv_ggx, start_time]()
                           {
                               // tmp
-                              m_textures["environment"] = panorama;
+//                              m_textures["environment"] = panorama;
 
                               m_scene->set_enironment(skybox);
 

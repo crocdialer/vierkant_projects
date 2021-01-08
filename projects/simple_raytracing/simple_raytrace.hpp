@@ -74,8 +74,7 @@ private:
 
     vierkant::gui::Context m_gui_context;
 
-    // TODO: switch to VkPhysicalDeviceRayTracingPropertiesKHR
-    VkPhysicalDeviceRayTracingPropertiesNV m_raytracing_properties = {};
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_raytracing_properties = {};
 };
 
 int main(int argc, char *argv[])
