@@ -7,13 +7,13 @@
 namespace vierkant
 {
 
-QueryPoolPtr create_query_pool(const vierkant::DevicePtr &device, VkQueryType query_type)
+QueryPoolPtr create_query_pool(const vierkant::DevicePtr &device, uint32_t query_count, VkQueryType query_type)
 {
     // Allocate a query pool for storing the needed size for every BLAS compaction.
     VkQueryPoolCreateInfo pool_create_info = {};
     pool_create_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
 
-    pool_create_info.queryCount = 1;
+    pool_create_info.queryCount = query_count;
     pool_create_info.queryType = query_type;
 
     VkQueryPool handle = VK_NULL_HANDLE;
@@ -25,13 +25,8 @@ QueryPoolPtr create_query_pool(const vierkant::DevicePtr &device, VkQueryType qu
 inline VkTransformMatrixKHR vk_transform_matrix(const glm::mat4 &m)
 {
     VkTransformMatrixKHR ret;
-
-    for(uint32_t i = 0; i < 4; ++i)
-    {
-        ret.matrix[0][i] = m[i].x;
-        ret.matrix[1][i] = m[i].y;
-        ret.matrix[2][i] = m[i].z;
-    }
+    auto transpose = glm::transpose(m);
+    memcpy(&ret, glm::value_ptr(transpose), sizeof(VkTransformMatrixKHR));
     return ret;
 }
 
@@ -61,12 +56,28 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
     VkDeviceAddress index_base_address = mesh->index_buffer->device_address();
 
     // raytracing flags
-    VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR |
+                                                 VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+
+    // compaction requested?
+    bool enable_compaction = (flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
+                             == VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
 
     std::vector<VkAccelerationStructureGeometryKHR> geometries(mesh->entries.size());
     std::vector<VkAccelerationStructureBuildRangeInfoKHR> offsets(mesh->entries.size());
     std::vector<VkAccelerationStructureBuildGeometryInfoKHR> build_infos(mesh->entries.size());
 
+    // all-in, one scratch buffer per entry is memory-intense but fast
+    std::vector<vierkant::BufferPtr> scratch_buffers(mesh->entries.size());
+
+    // one per bottom-lvl-build
+    std::vector<vierkant::CommandBuffer> command_buffers(mesh->entries.size());
+
+    // used to query compaction sizes after building
+    auto query_pool = create_query_pool(m_device, mesh->entries.size(),
+                                        VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR);
+
+    // those will be stored
     std::vector<acceleration_asset_t> entry_assets(mesh->entries.size());
 
     for(uint32_t i = 0; i < mesh->entries.size(); ++i)
@@ -117,18 +128,12 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
         build_info.pGeometries = &geometry;
         build_info.srcAccelerationStructure = VK_NULL_HANDLE;
 
-//    // why!?
-//    std::vector<const VkAccelerationStructureBuildGeometryInfoKHR*> build_info_ptrs(build_infos.size());
-//    for(uint32_t i = 0; i < build_infos.size(); ++i){ build_info_ptrs[i] = &build_infos[i]; }
-
-
         // query memory requirements
         VkAccelerationStructureBuildSizesInfoKHR size_info = {};
         size_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
         vkGetAccelerationStructureBuildSizesKHR(m_device->handle(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
                                                 &build_infos[i], &offsets[i].primitiveCount, &size_info);
-
 
         auto &acceleration_asset = entry_assets[i];
         acceleration_asset.buffer = vierkant::Buffer::create(m_device, nullptr, size_info.accelerationStructureSize,
@@ -155,17 +160,50 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
 
         // Allocate the scratch buffers holding the temporary data of the
         // acceleration structure builder
-        auto scratch_buffer = vierkant::Buffer::create(m_device, nullptr, size_info.buildScratchSize,
-                                                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        scratch_buffers[i] = vierkant::Buffer::create(m_device, nullptr, size_info.buildScratchSize,
+                                                      VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-        // Is enable_compaction requested?
-        bool enable_compaction = (flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
-                                 == VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+        // assign acceleration structure and scratch_buffer
+        build_info.dstAccelerationStructure = handle;
+        build_info.scratchData.deviceAddress = scratch_buffers[i]->device_address();
 
-        auto query_pool = create_query_pool(m_device, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR);
+        // create commandbuffer for building the bottomlevel-structure
+        auto &cmd_buffer = command_buffers[i];
+        cmd_buffer = vierkant::CommandBuffer(m_device, m_command_pool.get());
+        cmd_buffer.begin();
 
+        // build the AS
+        const VkAccelerationStructureBuildRangeInfoKHR *offset_ptr = &offset;
+        vkCmdBuildAccelerationStructuresKHR(cmd_buffer.handle(), 1, &build_info, &offset_ptr);
+
+//        // Since the scratch buffer is reused across builds, we need a barrier to ensure one build
+//        // is finished before starting the next one
+//        VkMemoryBarrier barrier = {};{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+//        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+//        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+//        vkCmdPipelineBarrier(cmd_buffer.handle(),
+//                             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+//                             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+//                             0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+        // Write compacted size to query number idx.
+        if(enable_compaction)
+        {
+            VkAccelerationStructureKHR accel_structure = acceleration_asset.structure.get();
+            vkCmdWriteAccelerationStructuresPropertiesKHR(cmd_buffer.handle(), 1, &accel_structure,
+                                                          VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+                                                          query_pool.get(), i);
+        }
+
+        cmd_buffer.end();
     }
+
+    std::vector<VkCommandBuffer> cmd_handles(command_buffers.size());
+    for(uint32_t i = 0; i < command_buffers.size(); ++i){ cmd_handles[i] = command_buffers[i].handle(); }
+
+    VkQueue queue = m_device->queue();
+    vierkant::submit(m_device, queue, cmd_handles, VK_NULL_HANDLE, true);
 
     // store bottom-level entries
     if(!entry_assets.empty()){ m_acceleration_assets[mesh] = std::move(entry_assets); }
@@ -193,6 +231,11 @@ void RaytracingPipeline::set_function_pointers()
             m_device->handle(), "vkGetRayTracingShaderGroupHandlesKHR"));
     vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(
             m_device->handle(), "vkCreateRayTracingPipelinesKHR"));
+
+    vkWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(
+            m_device->handle(), "vkWriteAccelerationStructuresPropertiesKHR"));
+    vkCmdWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(
+            m_device->handle(), "vkCmdWriteAccelerationStructuresPropertiesKHR"));
 }
 
 }//namespace vierkant

@@ -16,7 +16,9 @@ using AccelerationStructurePtr = std::shared_ptr<VkAccelerationStructureKHR_T>;
 //! define a shared handle for a VkQueryPool
 using QueryPoolPtr = std::shared_ptr<VkQueryPool_T>;
 
-QueryPoolPtr create_query_pool(const vierkant::DevicePtr& device, VkQueryType query_type);
+QueryPoolPtr create_query_pool(const vierkant::DevicePtr& device,
+                               uint32_t query_count,
+                               VkQueryType query_type);
 
 class RaytracingPipeline
 {
@@ -63,6 +65,8 @@ private:
     PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
     PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
 
+    PFN_vkWriteAccelerationStructuresPropertiesKHR vkWriteAccelerationStructuresPropertiesKHR = nullptr;
+    PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
     void set_function_pointers();
 };
 
