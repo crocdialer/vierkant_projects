@@ -7,6 +7,21 @@
 namespace vierkant
 {
 
+QueryPoolPtr create_query_pool(const vierkant::DevicePtr &device, VkQueryType query_type)
+{
+    // Allocate a query pool for storing the needed size for every BLAS compaction.
+    VkQueryPoolCreateInfo pool_create_info = {};
+    pool_create_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+
+    pool_create_info.queryCount = 1;
+    pool_create_info.queryType = query_type;
+
+    VkQueryPool handle = VK_NULL_HANDLE;
+    vkCheck(vkCreateQueryPool(device->handle(), &pool_create_info, nullptr, &handle),
+            "could not create VkQueryPool");
+    return QueryPoolPtr(handle, [device](VkQueryPool p){ vkDestroyQueryPool(device->handle(), p, nullptr); });
+}
+
 inline VkTransformMatrixKHR vk_transform_matrix(const glm::mat4 &m)
 {
     VkTransformMatrixKHR ret;
@@ -137,8 +152,22 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
         {
             vkDestroyAccelerationStructureKHR(m_device->handle(), s, nullptr);
         });
+
+        // Allocate the scratch buffers holding the temporary data of the
+        // acceleration structure builder
+        auto scratch_buffer = vierkant::Buffer::create(m_device, nullptr, size_info.buildScratchSize,
+                                                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+        // Is enable_compaction requested?
+        bool enable_compaction = (flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
+                                 == VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+
+        auto query_pool = create_query_pool(m_device, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR);
+
     }
 
+    // store bottom-level entries
     if(!entry_assets.empty()){ m_acceleration_assets[mesh] = std::move(entry_assets); }
 }
 

@@ -10,7 +10,13 @@
 namespace vierkant
 {
 
+//! define a shared handle for a VkAccelerationStructureKHR
 using AccelerationStructurePtr = std::shared_ptr<VkAccelerationStructureKHR_T>;
+
+//! define a shared handle for a VkQueryPool
+using QueryPoolPtr = std::shared_ptr<VkQueryPool_T>;
+
+QueryPoolPtr create_query_pool(const vierkant::DevicePtr& device, VkQueryType query_type);
 
 class RaytracingPipeline
 {
@@ -23,7 +29,7 @@ public:
 
     RaytracingPipeline() = default;
 
-    RaytracingPipeline(const vierkant::DevicePtr &device);
+    explicit RaytracingPipeline(const vierkant::DevicePtr &device);
 
     void add_mesh(vierkant::MeshPtr mesh);
 
@@ -47,15 +53,15 @@ private:
 
     // process-addresses for raytracing related function
 //    PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
-    PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-    PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
-    PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-    PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
-    PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-    PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
-    PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
-    PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
-    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+    PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
+    PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR = nullptr;
+    PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR = nullptr;
+    PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = nullptr;
+    PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR = nullptr;
+    PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR = nullptr;
+    PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
+    PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
 
     void set_function_pointers();
 };
