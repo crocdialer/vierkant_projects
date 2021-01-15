@@ -342,7 +342,9 @@ void PBRViewer::load_model(const std::string &path)
         auto load_mesh = [this, path]() -> vierkant::MeshPtr
         {
             auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
-            auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos);
+
+            vierkant::Mesh::create_info_t mesh_create_info = {};
+            auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos, mesh_create_info);
 
             if(!mesh)
             {
@@ -456,7 +458,8 @@ void PBRViewer::load_model(const std::string &path)
     }
     else
     {
-        mesh = vk::Mesh::create_from_geometry(m_device, vk::Geometry::Box(glm::vec3(.5f)));
+        vierkant::Mesh::create_info_t mesh_create_info = {};
+        mesh = vk::Mesh::create_from_geometry(m_device, vk::Geometry::Box(glm::vec3(.5f)), mesh_create_info);
         auto mat = vk::Material::create();
 
         auto it = m_textures.find("test");

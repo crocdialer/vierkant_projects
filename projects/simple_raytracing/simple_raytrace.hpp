@@ -74,7 +74,7 @@ private:
 
     vierkant::gui::Context m_gui_context;
 
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_raytracing_properties = {};
+    vierkant::RaytracingPipeline m_ray_tracer;
 };
 
 int main(int argc, char *argv[])

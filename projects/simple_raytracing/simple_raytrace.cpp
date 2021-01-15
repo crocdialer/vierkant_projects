@@ -37,21 +37,18 @@ void SimpleRayTracing::create_context_and_window()
 
     VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features = {};
     acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-    acceleration_structure_features.accelerationStructure = true;
+//    acceleration_structure_features.accelerationStructure = true;
 //    acceleration_structure_features.accelerationStructureHostCommands = true;
 
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features = {};
     ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-    ray_tracing_pipeline_features.rayTracingPipeline = true;
+//    ray_tracing_pipeline_features.rayTracingPipeline = true;
 //    ray_tracing_pipeline_features.rayTracingPipelineTraceRaysIndirect = true;
 //    ray_tracing_pipeline_features.rayTraversalPrimitiveCulling = true;
 
     VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {};
     ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-    ray_query_features.rayQuery = true;
-
-    acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
-    ray_tracing_pipeline_features.pNext = &ray_query_features;
+//    ray_query_features.rayQuery = true;
 
     // create device
     vk::Device::create_info_t device_info = {};
@@ -60,7 +57,17 @@ void SimpleRayTracing::create_context_and_window()
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.enable_device_address = true;
     device_info.surface = m_window->surface();
+
+    // create pNext-chain
     device_info.create_device_pNext = &acceleration_structure_features;
+    acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+    ray_tracing_pipeline_features.pNext = &ray_query_features;
+
+    // query available features for the raytracing-extensions
+    VkPhysicalDeviceFeatures2 device_features = {};
+    device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    device_features.pNext = &acceleration_structure_features;
+    vkGetPhysicalDeviceFeatures2(device_info.physical_device, &device_features);
 
     // add the raytracing-extension
     device_info.extensions = {VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
@@ -69,36 +76,13 @@ void SimpleRayTracing::create_context_and_window()
                               VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
                               VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
 
-    // TODO: those should be final:
-    // VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
-    // VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
-    // VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME
-    // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
     // VK_KHR_MAINTENANCE3_EXTENSION_NAME (vulkan 1.1 core)
     // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME (vulkan 1.2 core)
 
     m_device = vk::Device::create(device_info);
 
-    // query the ray tracing properties
-    // TODO: switch to VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_KHR
-    m_raytracing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-    VkPhysicalDeviceProperties2 deviceProps2{};
-    deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    deviceProps2.pNext = &m_raytracing_properties;
-    vkGetPhysicalDeviceProperties2(m_device->physical_device(), &deviceProps2);
-
-//    vkGetAccelerationStructureMemoryRequirementsNV()
-//    vkCmdTraceRaysNV()
-
-//    // Query the ray tracing properties of the current implementation, we will need them later on
-////    VkPhysicalDeviceRay
-//    rayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
-//    VkPhysicalDeviceFeatures2 deviceFeatures2{};
-//    deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-//    deviceFeatures2.pNext = &rayTracingFeatures;
-//    vkGetPhysicalDeviceFeatures2(VkPhysicalDeviceRay, &deviceFeatures2);
-
-//    VkRayTracingPipelineCreateInfoNV
+    // create our raytracing-thingy
+    m_ray_tracer = vierkant::RaytracingPipeline(m_device);
 
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
@@ -165,11 +149,18 @@ void SimpleRayTracing::load_model()
     geom->colors = {glm::vec4(1.f, 0.f, 0.f, 1.f),
                     glm::vec4(0.f, 1.f, 0.f, 1.f),
                     glm::vec4(0.f, 0.f, 1.f, 1.f)};
-    m_mesh = vk::Mesh::create_from_geometry(m_device, geom);
+
+    geom->indices = {0, 1, 2};
+
+    vierkant::Mesh::create_info_t mesh_create_info = {};
+    mesh_create_info.buffer_usage_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    m_mesh = vk::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
 
     m_drawable = vk::Renderer::create_drawables(m_mesh).front();
     m_drawable.pipeline_format.shader_stages = vierkant::create_shader_stages(m_device,
                                                                               vierkant::ShaderType::UNLIT_COLOR);
+
+    m_ray_tracer.add_mesh(m_mesh);
 }
 
 void SimpleRayTracing::update(double time_delta)
