@@ -26,7 +26,11 @@ void SimpleRayTracing::poll_events()
 
 void SimpleRayTracing::create_context_and_window()
 {
+    // create instance
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
+
+    // grab first physical device
+    VkPhysicalDevice physical_device = m_instance.physical_devices().front();
 
     vierkant::Window::create_info_t window_info = {};
     window_info.instance = m_instance.handle();
@@ -35,31 +39,17 @@ void SimpleRayTracing::create_context_and_window()
     window_info.fullscreen = m_fullscreen;
     m_window = vk::Window::create(window_info);
 
+    // prepare extension-features query
     VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features = {};
     acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-//    acceleration_structure_features.accelerationStructure = true;
-//    acceleration_structure_features.accelerationStructureHostCommands = true;
 
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features = {};
     ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-//    ray_tracing_pipeline_features.rayTracingPipeline = true;
-//    ray_tracing_pipeline_features.rayTracingPipelineTraceRaysIndirect = true;
-//    ray_tracing_pipeline_features.rayTraversalPrimitiveCulling = true;
 
     VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {};
     ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-//    ray_query_features.rayQuery = true;
 
-    // create device
-    vk::Device::create_info_t device_info = {};
-    device_info.instance = m_instance.handle();
-    device_info.physical_device = m_instance.physical_devices().front();
-    device_info.use_validation = m_instance.use_validation_layers();
-    device_info.enable_device_address = true;
-    device_info.surface = m_window->surface();
-
-    // create pNext-chain
-    device_info.create_device_pNext = &acceleration_structure_features;
+    // create a pNext-chain connecting the extension-structures
     acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
     ray_tracing_pipeline_features.pNext = &ray_query_features;
 
@@ -67,7 +57,15 @@ void SimpleRayTracing::create_context_and_window()
     VkPhysicalDeviceFeatures2 device_features = {};
     device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     device_features.pNext = &acceleration_structure_features;
-    vkGetPhysicalDeviceFeatures2(device_info.physical_device, &device_features);
+    vkGetPhysicalDeviceFeatures2(physical_device, &device_features);
+
+    // create device
+    vk::Device::create_info_t device_info = {};
+    device_info.instance = m_instance.handle();
+    device_info.physical_device = physical_device;
+    device_info.use_validation = m_instance.use_validation_layers();
+    device_info.enable_device_address = true;
+    device_info.surface = m_window->surface();
 
     // add the raytracing-extension
     device_info.extensions = {VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
@@ -75,6 +73,9 @@ void SimpleRayTracing::create_context_and_window()
                               VK_KHR_RAY_QUERY_EXTENSION_NAME,
                               VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
                               VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
+
+    // pass populated extension-chain to enable the features
+    device_info.create_device_pNext = &acceleration_structure_features;
 
     // VK_KHR_MAINTENANCE3_EXTENSION_NAME (vulkan 1.1 core)
     // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME (vulkan 1.2 core)
@@ -153,7 +154,9 @@ void SimpleRayTracing::load_model()
     geom->indices = {0, 1, 2};
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
-    mesh_create_info.buffer_usage_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+    // additionally required buffer-flags for raytracing
+    mesh_create_info.buffer_usage_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     m_mesh = vk::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
 
     m_drawable = vk::Renderer::create_drawables(m_mesh).front();

@@ -152,25 +152,24 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
         const VkAccelerationStructureBuildRangeInfoKHR *offset_ptr = &offset;
         vkCmdBuildAccelerationStructuresKHR(cmd_buffer.handle(), 1, &build_info, &offset_ptr);
 
-        // Since the scratch buffer is reused across builds, we need a barrier to ensure one build
-        // is finished before starting the next one
-        VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-        vkCmdPipelineBarrier(cmd_buffer.handle(),
-                             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                             0, 1, &barrier, 0, nullptr, 0, nullptr);
-
         // Write compacted size to query number idx.
         if(enable_compaction)
         {
+            // Since the scratch buffer is reused across builds, we need a barrier to ensure one build
+            // is finished before starting the next one
+            VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+            barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+            vkCmdPipelineBarrier(cmd_buffer.handle(),
+                                 VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                                 VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                                 0, 1, &barrier, 0, nullptr, 0, nullptr);
+
             VkAccelerationStructureKHR accel_structure = acceleration_asset.structure.get();
             vkCmdWriteAccelerationStructuresPropertiesKHR(cmd_buffer.handle(), 1, &accel_structure,
                                                           VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
                                                           query_pool.get(), i);
         }
-
         cmd_buffer.end();
     }
 
@@ -199,16 +198,11 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
         // compacting
         std::vector<acceleration_asset_t> entry_assets_compact(entry_assets.size());
 
-        uint32_t statTotalOriSize{0}, statTotalCompactSize{0};
-
         for(uint32_t i = 0; i < entry_assets.size(); i++)
         {
             LOG_DEBUG << crocore::format("reducing bottom-lvl-size (%d), from %d to %d \n", i,
                                          (uint32_t) entry_assets[i].buffer->num_bytes(),
                                          compact_sizes[i]);
-
-            statTotalOriSize += (uint32_t) entry_assets[i].buffer->num_bytes();
-            statTotalCompactSize += (uint32_t) compact_sizes[i];
 
             // Creating a compact version of the AS
             VkAccelerationStructureCreateInfoKHR create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
@@ -232,6 +226,9 @@ void RaytracingPipeline::add_mesh(vierkant::MeshPtr mesh)
 
     // store bottom-level entries
     if(!entry_assets.empty()){ m_acceleration_assets[mesh] = std::move(entry_assets); }
+
+    // tmp here for testing
+    create_toplevel_structure();
 }
 
 void RaytracingPipeline::set_function_pointers()
@@ -280,11 +277,130 @@ RaytracingPipeline::create_acceleration_asset(VkAccelerationStructureCreateInfoK
     vkCheck(vkCreateAccelerationStructureKHR(m_device->handle(), &create_info, nullptr, &handle),
             "could not create acceleration structure");
 
+    // get device address
+    VkAccelerationStructureDeviceAddressInfoKHR address_info = {};
+    address_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    address_info.accelerationStructure = handle;
+    acceleration_asset.device_address = vkGetAccelerationStructureDeviceAddressKHR(m_device->handle(), &address_info);
+
     acceleration_asset.structure = AccelerationStructurePtr(handle, [&](VkAccelerationStructureKHR s)
     {
         vkDestroyAccelerationStructureKHR(m_device->handle(), s, nullptr);
     });
     return acceleration_asset;
+}
+
+void RaytracingPipeline::create_toplevel_structure()
+{
+    uint32_t num_geometries = 0, num_primitives = 0;
+    std::vector<VkAccelerationStructureInstanceKHR> instances;
+
+    // instance flags
+    VkGeometryInstanceFlagsKHR instance_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+
+    for(const auto &[mesh, acceleration_assets] : m_acceleration_assets)
+    {
+        assert(mesh->entries.size() == acceleration_assets.size());
+
+        for(uint i = 0; i < acceleration_assets.size(); ++i)
+        {
+            const auto &entry = mesh->entries[i];
+            const auto &asset = acceleration_assets[i];
+
+            // per bottom-lvl instance
+            VkAccelerationStructureInstanceKHR instance{};
+            instance.transform = vk_transform_matrix(entry.transform);
+            instance.instanceCustomIndex = 0;
+            instance.mask = 0xFF;
+            instance.instanceShaderBindingTableRecordOffset = 0;
+            instance.flags = instance_flags;
+            instance.accelerationStructureReference = asset.device_address;
+
+            num_primitives += entry.num_indices / 3;
+            instances.push_back(instance);
+        }
+        num_geometries += mesh->entries.size();
+    }
+
+    // put instances into host-visible gpu-buffer
+    auto instance_buffer = vierkant::Buffer::create(m_device, instances, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                                         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+                                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+
+    VkDeviceOrHostAddressConstKHR instance_data_device_address{};
+    instance_data_device_address.deviceAddress = instance_buffer->device_address();
+
+    VkAccelerationStructureGeometryKHR acceleration_structure_geometry{};
+    acceleration_structure_geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    acceleration_structure_geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    acceleration_structure_geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+    acceleration_structure_geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    acceleration_structure_geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+    acceleration_structure_geometry.geometry.instances.data = instance_data_device_address;
+
+    // The pSrcAccelerationStructure, dstAccelerationStructure, and mode members of pBuildInfo are ignored.
+    // Any VkDeviceOrHostAddressKHR members of pBuildInfo are ignored by this command,
+    // except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData
+    // will be examined to check if it is NULL.*
+    VkAccelerationStructureBuildGeometryInfoKHR acceleration_structure_build_geometry_info{};
+    acceleration_structure_build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    acceleration_structure_build_geometry_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    acceleration_structure_build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    acceleration_structure_build_geometry_info.geometryCount = num_geometries;
+    acceleration_structure_build_geometry_info.pGeometries = &acceleration_structure_geometry;
+
+    VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{};
+    acceleration_structure_build_sizes_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    vkGetAccelerationStructureBuildSizesKHR(m_device->handle(),
+                                            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                                            &acceleration_structure_build_geometry_info,
+                                            &num_primitives,
+                                            &acceleration_structure_build_sizes_info);
+
+    // create the top-level structure
+    VkAccelerationStructureCreateInfoKHR create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+    create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    create_info.size = acceleration_structure_build_sizes_info.accelerationStructureSize;
+
+    auto top_level_structure = create_acceleration_asset(create_info);
+
+    LOG_DEBUG << top_level_structure.buffer->num_bytes() << " bytes in toplevel";
+
+    // Create a small scratch buffer used during build of the top level acceleration structure
+    auto scratch_buffer = vierkant::Buffer::create(m_device, nullptr,
+                                                   acceleration_structure_build_sizes_info.buildScratchSize,
+                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    VkAccelerationStructureBuildGeometryInfoKHR acceleration_build_geometry_info{};
+    acceleration_build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    acceleration_build_geometry_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    acceleration_build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    acceleration_build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    acceleration_build_geometry_info.dstAccelerationStructure = top_level_structure.structure.get();
+    acceleration_build_geometry_info.geometryCount = 1;
+    acceleration_build_geometry_info.pGeometries = &acceleration_structure_geometry;
+    acceleration_build_geometry_info.scratchData.deviceAddress = scratch_buffer->device_address();
+
+    VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info{};
+    acceleration_structure_build_range_info.primitiveCount = 1;
+    acceleration_structure_build_range_info.primitiveOffset = 0;
+    acceleration_structure_build_range_info.firstVertex = 0;
+    acceleration_structure_build_range_info.transformOffset = 0;
+
+
+    auto cmd_buffer = vierkant::CommandBuffer(m_device, m_command_pool.get());
+    cmd_buffer.begin();
+
+    // build the AS
+    const VkAccelerationStructureBuildRangeInfoKHR *offset_ptr = &acceleration_structure_build_range_info;
+    vkCmdBuildAccelerationStructuresKHR(cmd_buffer.handle(), 1, &acceleration_build_geometry_info, &offset_ptr);
+
+    cmd_buffer.submit(m_device->queue(), true);
+
+    m_top_level = top_level_structure;
 }
 
 }//namespace vierkant
