@@ -16,7 +16,7 @@ using AccelerationStructurePtr = std::shared_ptr<VkAccelerationStructureKHR_T>;
 //! define a shared handle for a VkQueryPool
 using QueryPoolPtr = std::shared_ptr<VkQueryPool_T>;
 
-QueryPoolPtr create_query_pool(const vierkant::DevicePtr& device,
+QueryPoolPtr create_query_pool(const vierkant::DevicePtr &device,
                                uint32_t query_count,
                                VkQueryType query_type);
 
@@ -54,7 +54,6 @@ private:
     vierkant::CommandPoolPtr m_command_pool;
 
     // process-addresses for raytracing related function
-//    PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
     PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR = nullptr;
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR = nullptr;
@@ -64,10 +63,12 @@ private:
     PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
     PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
     PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
-
     PFN_vkWriteAccelerationStructuresPropertiesKHR vkWriteAccelerationStructuresPropertiesKHR = nullptr;
     PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
+    PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR = nullptr;
     void set_function_pointers();
+
+    acceleration_asset_t create_acceleration_asset(VkAccelerationStructureCreateInfoKHR create_info);
 };
 
 }// namespace vierkant
