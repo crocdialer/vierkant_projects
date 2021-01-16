@@ -292,7 +292,6 @@ RaytracingPipeline::create_acceleration_asset(VkAccelerationStructureCreateInfoK
 
 void RaytracingPipeline::create_toplevel_structure()
 {
-    uint32_t num_geometries = 0, num_primitives = 0;
     std::vector<VkAccelerationStructureInstanceKHR> instances;
 
     // instance flags
@@ -316,17 +315,14 @@ void RaytracingPipeline::create_toplevel_structure()
             instance.flags = instance_flags;
             instance.accelerationStructureReference = asset.device_address;
 
-            num_primitives += entry.num_indices / 3;
             instances.push_back(instance);
         }
-        num_geometries += mesh->entries.size();
     }
 
     // put instances into host-visible gpu-buffer
     auto instance_buffer = vierkant::Buffer::create(m_device, instances, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
                                                                          VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
                                                     VMA_MEMORY_USAGE_CPU_TO_GPU);
-
 
     VkDeviceOrHostAddressConstKHR instance_data_device_address{};
     instance_data_device_address.deviceAddress = instance_buffer->device_address();
@@ -339,6 +335,8 @@ void RaytracingPipeline::create_toplevel_structure()
     acceleration_structure_geometry.geometry.instances.arrayOfPointers = VK_FALSE;
     acceleration_structure_geometry.geometry.instances.data = instance_data_device_address;
 
+    uint32_t num_primitives = 1;
+
     // The pSrcAccelerationStructure, dstAccelerationStructure, and mode members of pBuildInfo are ignored.
     // Any VkDeviceOrHostAddressKHR members of pBuildInfo are ignored by this command,
     // except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData
@@ -347,7 +345,7 @@ void RaytracingPipeline::create_toplevel_structure()
     acceleration_structure_build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     acceleration_structure_build_geometry_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
     acceleration_structure_build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-    acceleration_structure_build_geometry_info.geometryCount = num_geometries;
+    acceleration_structure_build_geometry_info.geometryCount = 1;
     acceleration_structure_build_geometry_info.pGeometries = &acceleration_structure_geometry;
 
     VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{};
@@ -378,18 +376,19 @@ void RaytracingPipeline::create_toplevel_structure()
     acceleration_build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     acceleration_build_geometry_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
     acceleration_build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-    acceleration_build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    acceleration_build_geometry_info.mode = m_top_level.structure ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR
+                                                                  : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    acceleration_build_geometry_info.srcAccelerationStructure = m_top_level.structure.get();
     acceleration_build_geometry_info.dstAccelerationStructure = top_level_structure.structure.get();
     acceleration_build_geometry_info.geometryCount = 1;
     acceleration_build_geometry_info.pGeometries = &acceleration_structure_geometry;
     acceleration_build_geometry_info.scratchData.deviceAddress = scratch_buffer->device_address();
 
     VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info{};
-    acceleration_structure_build_range_info.primitiveCount = 1;
+    acceleration_structure_build_range_info.primitiveCount = instances.size();
     acceleration_structure_build_range_info.primitiveOffset = 0;
     acceleration_structure_build_range_info.firstVertex = 0;
     acceleration_structure_build_range_info.transformOffset = 0;
-
 
     auto cmd_buffer = vierkant::CommandBuffer(m_device, m_command_pool.get());
     cmd_buffer.begin();

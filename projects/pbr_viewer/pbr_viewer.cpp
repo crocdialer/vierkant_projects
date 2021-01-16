@@ -339,7 +339,7 @@ void PBRViewer::load_model(const std::string &path)
     {
         m_settings.model_path = path;
 
-        auto load_mesh = [this, path]() -> vierkant::MeshPtr
+        auto load_mesh = [this, path]() -> vierkant::MeshNodePtr
         {
             auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
 
@@ -424,15 +424,17 @@ void PBRViewer::load_model(const std::string &path)
             // submit transfer and sync
             cmd_buf.submit(queue, true);
 
+            auto mesh_node = vierkant::MeshNode::create(mesh);
+
             // scale
-            float scale = 5.f / glm::length(mesh->aabb().half_extents());
-            mesh->set_scale(scale);
+            float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
+            mesh_node->set_scale(scale);
 
             // center aabb
-            auto aabb = mesh->aabb().transform(mesh->transform());
-            mesh->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
+            auto aabb = mesh_node->aabb().transform(mesh_node->transform());
+            mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
 
-            return mesh;
+            return mesh_node;
         };
 
         background_queue().post([this, load_mesh, path]()
@@ -440,12 +442,12 @@ void PBRViewer::load_model(const std::string &path)
                                     m_num_loading++;
                                     auto start_time = std::chrono::steady_clock::now();
 
-                                    auto mesh = load_mesh();
-                                    main_queue().post([this, mesh, start_time, path]()
+                                    auto mesh_node = load_mesh();
+                                    main_queue().post([this, mesh_node, start_time, path]()
                                                       {
                                                           m_selected_objects.clear();
                                                           m_scene->clear();
-                                                          m_scene->add_object(mesh);
+                                                          m_scene->add_object(mesh_node);
 
                                                           auto dur = double_second(
                                                                   std::chrono::steady_clock::now() - start_time);
@@ -466,9 +468,11 @@ void PBRViewer::load_model(const std::string &path)
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
 
+        auto mesh_node = vierkant::MeshNode::create(mesh);
+
         m_selected_objects.clear();
         m_scene->clear();
-        m_scene->add_object(mesh);
+        m_scene->add_object(mesh_node);
     }
 }
 
@@ -600,14 +604,14 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
                                                 m_camera->view_matrix() * obj->transform(),
                                                 m_camera->projection_matrix());
 
-                auto mesh = std::dynamic_pointer_cast<vierkant::Mesh>(obj);
+                auto mesh_node = std::dynamic_pointer_cast<vierkant::MeshNode>(obj);
 
-                if(mesh)
+                if(mesh_node)
                 {
-                    for(const auto &entry : mesh->entries)
+                    for(const auto &entry : mesh_node->mesh->entries)
                     {
                         m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
-                                                        m_camera->view_matrix() * mesh->transform() *
+                                                        m_camera->view_matrix() * mesh_node->transform() *
                                                         entry.transform,
                                                         m_camera->projection_matrix());
                     }
