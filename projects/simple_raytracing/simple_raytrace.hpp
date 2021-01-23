@@ -9,7 +9,7 @@
 
 #include <vierkant/vierkant.hpp>
 
-#include "RaytracingPipeline.h"
+#include "Raytracer.hpp"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -74,7 +74,7 @@ private:
 
     vierkant::gui::Context m_gui_context;
 
-    vierkant::RaytracingPipeline m_ray_tracer;
+    vierkant::Raytracer m_ray_tracer;
 };
 
 int main(int argc, char *argv[])

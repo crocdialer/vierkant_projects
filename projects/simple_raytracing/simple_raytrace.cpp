@@ -27,7 +27,7 @@ void SimpleRayTracing::poll_events()
 void SimpleRayTracing::create_context_and_window()
 {
     // create instance
-    m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
+    m_instance = vk::Instance(g_enable_validation_layers, vk::Window::required_extensions());
 
     // grab first physical device
     VkPhysicalDevice physical_device = m_instance.physical_devices().front();
@@ -67,23 +67,16 @@ void SimpleRayTracing::create_context_and_window()
     device_info.enable_device_address = true;
     device_info.surface = m_window->surface();
 
-    // add the raytracing-extension
-    device_info.extensions = {VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-                              VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-                              VK_KHR_RAY_QUERY_EXTENSION_NAME,
-                              VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-                              VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
+    // add the raytracing-extensions
+    device_info.extensions = vierkant::Raytracer::required_extensions();
 
     // pass populated extension-chain to enable the features
     device_info.create_device_pNext = &acceleration_structure_features;
 
-    // VK_KHR_MAINTENANCE3_EXTENSION_NAME (vulkan 1.1 core)
-    // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME (vulkan 1.2 core)
-
     m_device = vk::Device::create(device_info);
 
     // create our raytracing-thingy
-    m_ray_tracer = vierkant::RaytracingPipeline(m_device);
+    m_ray_tracer = vierkant::Raytracer(m_device);
 
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
@@ -156,7 +149,9 @@ void SimpleRayTracing::load_model()
     vierkant::Mesh::create_info_t mesh_create_info = {};
 
     // additionally required buffer-flags for raytracing
-    mesh_create_info.buffer_usage_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    mesh_create_info.buffer_usage_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                          VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     m_mesh = vk::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
 
     m_drawable = vk::Renderer::create_drawables(m_mesh).front();
@@ -164,6 +159,26 @@ void SimpleRayTracing::load_model()
                                                                               vierkant::ShaderType::UNLIT_COLOR);
 
     m_ray_tracer.add_mesh(m_mesh);
+
+    vierkant::Raytracer::tracable_t tracable = {};
+    tracable.extent = {100, 100, 1};
+
+    // raygen
+    tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                                                 vierkant::create_shader_module(m_device,
+                                                                                vierkant::shaders::simple_ray::raygen_rgen)});
+    // miss
+    tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_MISS_BIT_KHR,
+                                                 vierkant::create_shader_module(m_device,
+                                                                                vierkant::shaders::simple_ray::miss_rmiss)});
+
+    // closest hit
+    tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+                                                 vierkant::create_shader_module(m_device,
+                                                                                vierkant::shaders::simple_ray::closesthit_rchit)});
+
+    tracable.descriptors
+    //    m_ray_tracer
 }
 
 void SimpleRayTracing::update(double time_delta)

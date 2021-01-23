@@ -80,7 +80,7 @@ void PBRViewer::poll_events()
 
 void PBRViewer::create_context_and_window()
 {
-    m_instance = vk::Instance(g_enable_validation_layers, vk::Window::get_required_extensions());
+    m_instance = vk::Instance(g_enable_validation_layers, vk::Window::required_extensions());
 
     // attach logger for debug-output
     m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
