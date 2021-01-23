@@ -34,10 +34,6 @@ public:
 
     struct tracable_t
     {
-        MeshPtr mesh;
-
-        uint32_t entry_index = 0;
-
         raytracing_pipeline_info_t pipeline_info = {};
 
 //        matrix_struct_t matrices = {};
@@ -64,7 +60,14 @@ public:
 
     const VkPhysicalDeviceRayTracingPipelinePropertiesKHR &properties() const{ return m_properties; };
 
+    /**
+     * @brief   trace_rays invokes a raytracing pipeline.
+     *
+     * @param   tracable
+     */
     void trace_rays(tracable_t tracable);
+
+    vierkant::AccelerationStructurePtr acceleration_structure() const{ return m_top_level.structure; }
 
 private:
 

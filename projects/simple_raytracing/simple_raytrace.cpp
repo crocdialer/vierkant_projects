@@ -109,6 +109,8 @@ void SimpleRayTracing::create_context_and_window()
         vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
     };
 
+    m_draw_context = vierkant::DrawContext(m_device);
+
     // attach gui input-delegates to window
     m_window->key_delegates["gui"] = m_gui_context.key_delegate();
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
@@ -160,25 +162,59 @@ void SimpleRayTracing::load_model()
 
     m_ray_tracer.add_mesh(m_mesh);
 
-    vierkant::Raytracer::tracable_t tracable = {};
-    tracable.extent = {100, 100, 1};
+    // create a storage image
+    vierkant::Image::Format img_format = {};
+    img_format.extent = {100, 100, 1};
+    img_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    img_format.initial_layout = VK_IMAGE_LAYOUT_GENERAL;
+    m_storage_image = vierkant::Image::create(m_device, img_format);
+
+    m_tracable.extent = m_storage_image->extent();
 
     // raygen
-    tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-                                                 vierkant::create_shader_module(m_device,
-                                                                                vierkant::shaders::simple_ray::raygen_rgen)});
+    m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                                                   vierkant::create_shader_module(m_device,
+                                                                                  vierkant::shaders::simple_ray::raygen_rgen)});
     // miss
-    tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_MISS_BIT_KHR,
-                                                 vierkant::create_shader_module(m_device,
-                                                                                vierkant::shaders::simple_ray::miss_rmiss)});
+    m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_MISS_BIT_KHR,
+                                                   vierkant::create_shader_module(m_device,
+                                                                                  vierkant::shaders::simple_ray::miss_rmiss)});
 
     // closest hit
-    tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-                                                 vierkant::create_shader_module(m_device,
-                                                                                vierkant::shaders::simple_ray::closesthit_rchit)});
+    m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+                                                   vierkant::create_shader_module(m_device,
+                                                                                  vierkant::shaders::simple_ray::closesthit_rchit)});
 
-    tracable.descriptors
-    //    m_ray_tracer
+    // descriptors
+    vierkant::descriptor_t desc_acceleration_structure = {};
+    desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    desc_acceleration_structure.acceleration_structure = m_ray_tracer.acceleration_structure();
+    m_tracable.descriptors[0] = desc_acceleration_structure;
+
+    vierkant::descriptor_t desc_storage_image = {};
+    desc_storage_image.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    desc_storage_image.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    desc_storage_image.image_samplers = {m_storage_image};
+    m_tracable.descriptors[1] = desc_storage_image;
+
+    // provide inverse modelview and projection matrices
+    std::vector<glm::mat4> matrices = {glm::inverse(m_camera->view_matrix()),
+                                       glm::inverse(m_camera->projection_matrix())};
+
+    vierkant::descriptor_t desc_matrices = {};
+    desc_matrices.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    desc_matrices.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    desc_matrices.buffer = vierkant::Buffer::create(m_device, matrices,
+                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
+    m_tracable.descriptors[2] = desc_matrices;
+
+    // tada
+    m_ray_tracer.trace_rays(m_tracable);
+
+    // trnasition storage image
+    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void SimpleRayTracing::update(double time_delta)
@@ -198,6 +234,7 @@ std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w
     auto render_mesh = [this, &framebuffer]() -> VkCommandBuffer
     {
         m_renderer.stage_drawable(m_drawable);
+        m_draw_context.draw_image(m_renderer, m_storage_image);
         return m_renderer.render(framebuffer);
     };
 

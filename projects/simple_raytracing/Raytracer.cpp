@@ -486,7 +486,7 @@ Raytracer::create_shader_binding_table(VkPipeline pipeline,
     const uint32_t group_count = group_create_infos.size();
     const uint32_t handle_size = m_properties.shaderGroupHandleSize;
     const uint32_t handle_size_aligned = aligned_size(m_properties.shaderGroupHandleSize,
-                                                      m_properties.shaderGroupHandleAlignment);
+                                                      m_properties.shaderGroupBaseAlignment);
     const uint32_t binding_table_size = group_count * handle_size_aligned;
 
     // retrieve the shader-handles into host-memory

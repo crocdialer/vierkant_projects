@@ -31,7 +31,7 @@ class SimpleRayTracing : public crocore::Application
 
 public:
 
-    explicit SimpleRayTracing(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv) {};
+    explicit SimpleRayTracing(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
 private:
 
@@ -68,13 +68,23 @@ private:
 
     vk::MeshPtr m_mesh = vk::Mesh::create();
 
+    // drawable and renderer
     vk::Renderer::drawable_t m_drawable;
 
     vk::Renderer m_renderer, m_gui_renderer;
 
+    // gui context
     vierkant::gui::Context m_gui_context;
 
+    vierkant::DrawContext m_draw_context;
+
+    //!
     vierkant::Raytracer m_ray_tracer;
+
+    // information about the raytracing-pipeline to run
+    vierkant::Raytracer::tracable_t m_tracable = {};
+
+    vierkant::ImagePtr m_storage_image;
 };
 
 int main(int argc, char *argv[])
