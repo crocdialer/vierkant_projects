@@ -88,9 +88,9 @@ private:
             {
                 VkStridedDeviceAddressRegionKHR raygen = {};
 
-                VkStridedDeviceAddressRegionKHR miss = {};
-
                 VkStridedDeviceAddressRegionKHR hit = {};
+
+                VkStridedDeviceAddressRegionKHR miss = {};
 
                 VkStridedDeviceAddressRegionKHR callable = {};
             };

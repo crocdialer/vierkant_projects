@@ -98,6 +98,7 @@ void SimpleRayTracing::create_context_and_window()
         if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard))
         {
             if(e.code() == vk::Key::_ESCAPE){ set_running(false); }
+            else if(e.code() == vk::Key::_B){ m_show_ray_tracer = !m_show_ray_tracer; }
         }
     };
     m_window->key_delegates["main"] = key_delegate;
@@ -164,7 +165,7 @@ void SimpleRayTracing::load_model()
 
     // create a storage image
     vierkant::Image::Format img_format = {};
-    img_format.extent = {100, 100, 1};
+    img_format.extent = {static_cast<uint32_t>(m_window->size().x), static_cast<uint32_t>(m_window->size().y), 1};
     img_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     img_format.initial_layout = VK_IMAGE_LAYOUT_GENERAL;
     m_storage_image = vierkant::Image::create(m_device, img_format);
@@ -213,6 +214,12 @@ void SimpleRayTracing::load_model()
     // tada
     m_ray_tracer.trace_rays(m_tracable);
 
+//    // create 2x2 black/white checkerboard image
+//    img_format.extent = {2, 2, 1};
+//    img_format.mag_filter = VK_FILTER_NEAREST;
+//    uint32_t v[4] = {0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF};
+//    m_storage_image = vierkant::Image::create(m_device, v, img_format);
+
     // trnasition storage image
     m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
@@ -233,8 +240,8 @@ std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w
 
     auto render_mesh = [this, &framebuffer]() -> VkCommandBuffer
     {
-        m_renderer.stage_drawable(m_drawable);
-        m_draw_context.draw_image(m_renderer, m_storage_image);
+        if(m_show_ray_tracer){ m_draw_context.draw_image_fullscreen(m_renderer, m_storage_image); }
+        else{ m_renderer.stage_drawable(m_drawable); }
         return m_renderer.render(framebuffer);
     };
 

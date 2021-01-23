@@ -81,6 +81,9 @@ private:
     //!
     vierkant::Raytracer m_ray_tracer;
 
+    //! toggle raster / raytracer
+    bool m_show_ray_tracer = true;
+
     // information about the raytracing-pipeline to run
     vierkant::Raytracer::tracable_t m_tracable = {};
 

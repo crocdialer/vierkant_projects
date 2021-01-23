@@ -11,8 +11,8 @@ namespace vierkant
 enum BindingTableGroup : uint32_t
 {
     Raygen = 0,
-    Miss = 1,
-    Hit = 2,
+    Hit = 1,
+    Miss = 2,
     Callable = 3
 };
 
