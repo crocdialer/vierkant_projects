@@ -139,14 +139,12 @@ void SimpleRayTracing::create_graphics_pipeline()
 
 void SimpleRayTracing::load_model()
 {
+    // simple triangle geometry
     auto geom = vk::Geometry::create();
     geom->vertices = {glm::vec3(-0.5f, -0.5f, 0.f),
                       glm::vec3(0.5f, -0.5f, 0.f),
                       glm::vec3(0.f, 0.5f, 0.f)};
-    geom->colors = {glm::vec4(1.f, 0.f, 0.f, 1.f),
-                    glm::vec4(0.f, 1.f, 0.f, 1.f),
-                    glm::vec4(0.f, 0.f, 1.f, 1.f)};
-
+    geom->colors = {glm::vec4(1.f), glm::vec4(1.f), glm::vec4(1.f)};
     geom->indices = {0, 1, 2};
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
@@ -211,23 +209,25 @@ void SimpleRayTracing::load_model()
                                                     VMA_MEMORY_USAGE_CPU_TO_GPU);
     m_tracable.descriptors[2] = desc_matrices;
 
-    // tada
-    m_ray_tracer.trace_rays(m_tracable);
+    m_tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device, m_tracable.descriptors);
+    VkDescriptorSetLayout set_layout_handle = m_tracable.descriptor_set_layout.get();
 
-//    // create 2x2 black/white checkerboard image
-//    img_format.extent = {2, 2, 1};
-//    img_format.mag_filter = VK_FILTER_NEAREST;
-//    uint32_t v[4] = {0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF};
-//    m_storage_image = vierkant::Image::create(m_device, v, img_format);
-
-    // trnasition storage image
-    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    m_tracable.pipeline_info.descriptor_set_layouts = {set_layout_handle};
 }
 
 void SimpleRayTracing::update(double time_delta)
 {
     m_drawable.matrices.modelview = m_camera->view_matrix();
     m_drawable.matrices.projection = m_camera->projection_matrix();
+
+    // trnasition storage image
+    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_GENERAL);
+
+    // tada
+    m_ray_tracer.trace_rays(m_tracable);
+
+    // trnasition storage image
+    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // issue top-level draw-command
     m_window->draw();
@@ -251,20 +251,14 @@ std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w
         return m_gui_renderer.render(framebuffer);
     };
 
-    bool concurrant_draw = true;
+    // submit and wait for all command-creation tasks to complete
+    std::vector<std::future<VkCommandBuffer>> cmd_futures;
+    cmd_futures.push_back(background_queue().post(render_mesh));
+    cmd_futures.push_back(background_queue().post(render_gui));
+    crocore::wait_all(cmd_futures);
 
-    if(concurrant_draw)
-    {
-        // submit and wait for all command-creation tasks to complete
-        std::vector<std::future<VkCommandBuffer>> cmd_futures;
-        cmd_futures.push_back(background_queue().post(render_mesh));
-        cmd_futures.push_back(background_queue().post(render_gui));
-        crocore::wait_all(cmd_futures);
-
-        // get values from completed futures
-        std::vector<VkCommandBuffer> command_buffers;
-        for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
-        return command_buffers;
-    }
-    return {render_mesh(), render_gui()};
+    // get values from completed futures
+    std::vector<VkCommandBuffer> command_buffers;
+    for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
+    return command_buffers;
 }

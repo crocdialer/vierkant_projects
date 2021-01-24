@@ -7,15 +7,6 @@
 namespace vierkant
 {
 
-//! helper enum to create a shader-binding-table
-enum BindingTableGroup : uint32_t
-{
-    Raygen = 0,
-    Hit = 1,
-    Miss = 2,
-    Callable = 3
-};
-
 inline uint32_t aligned_size(uint32_t size, uint32_t alignment)
 {
     return (size + alignment - 1) & ~(alignment - 1);
@@ -53,7 +44,8 @@ std::vector<const char *> Raytracer::required_extensions()
 }
 
 Raytracer::Raytracer(const vierkant::DevicePtr &device) :
-        m_device(device)
+        m_device(device),
+        m_pipeline_cache(vierkant::PipelineCache::create(device))
 {
     // get the ray tracing and acceleration-structure related function pointers
     set_function_pointers();
@@ -77,7 +69,7 @@ Raytracer::Raytracer(const vierkant::DevicePtr &device) :
     m_descriptor_pool = vierkant::create_descriptor_pool(m_device, descriptor_counts, 512);
 }
 
-void Raytracer::add_mesh(vierkant::MeshPtr mesh)
+void Raytracer::add_mesh(const vierkant::MeshPtr& mesh, const glm::mat4 &transform)
 {
 
     const auto &vertex_attrib = mesh->vertex_attribs[vierkant::Mesh::AttribLocation::ATTRIB_POSITION];
@@ -113,6 +105,8 @@ void Raytracer::add_mesh(vierkant::MeshPtr mesh)
     {
         const auto &entry = mesh->entries[i];
 
+        const auto &material = mesh->materials[entry.material_index];
+
         // throw on non-triangle entries
         if(entry.primitive_type != VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         {
@@ -131,7 +125,7 @@ void Raytracer::add_mesh(vierkant::MeshPtr mesh)
 
         auto &geometry = geometries[i];
         geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-        geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+        geometry.flags = material->blending ? VK_GEOMETRY_OPAQUE_BIT_KHR : 0;
         geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         geometry.geometry.triangles = triangles;
 
@@ -240,6 +234,7 @@ void Raytracer::add_mesh(vierkant::MeshPtr mesh)
             create_info.size = compact_sizes[i];
             auto &acceleration_asset = entry_assets_compact[i];
             acceleration_asset = create_acceleration_asset(create_info);
+            acceleration_asset.transform = entry_assets[i].transform;
 
             // copy the original BLAS to a compact version
             VkCopyAccelerationStructureInfoKHR copy_info{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR};
@@ -281,9 +276,6 @@ void Raytracer::set_function_pointers()
             m_device->handle(), "vkGetRayTracingShaderGroupHandlesKHR"));
     vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(
             m_device->handle(), "vkCreateRayTracingPipelinesKHR"));
-
-    vkWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(
-            m_device->handle(), "vkWriteAccelerationStructuresPropertiesKHR"));
     vkCmdWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(
             m_device->handle(), "vkCmdWriteAccelerationStructuresPropertiesKHR"));
     vkCmdCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(
@@ -291,7 +283,8 @@ void Raytracer::set_function_pointers()
 }
 
 Raytracer::acceleration_asset_t
-Raytracer::create_acceleration_asset(VkAccelerationStructureCreateInfoKHR create_info)
+Raytracer::create_acceleration_asset(VkAccelerationStructureCreateInfoKHR create_info,
+                                     const glm::mat4 &transform)
 {
     Raytracer::acceleration_asset_t acceleration_asset = {};
     acceleration_asset.buffer = vierkant::Buffer::create(m_device, nullptr, create_info.size,
@@ -312,6 +305,9 @@ Raytracer::create_acceleration_asset(VkAccelerationStructureCreateInfoKHR create
     address_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
     address_info.accelerationStructure = handle;
     acceleration_asset.device_address = vkGetAccelerationStructureDeviceAddressKHR(m_device->handle(), &address_info);
+
+    // pass transform
+    acceleration_asset.transform = transform;
 
     acceleration_asset.structure = AccelerationStructurePtr(handle, [&](VkAccelerationStructureKHR s)
     {
@@ -338,7 +334,7 @@ void Raytracer::create_toplevel_structure()
 
             // per bottom-lvl instance
             VkAccelerationStructureInstanceKHR instance{};
-            instance.transform = vk_transform_matrix(entry.transform);
+            instance.transform = vk_transform_matrix(asset.transform * entry.transform);
             instance.instanceCustomIndex = 0;
             instance.mask = 0xFF;
             instance.instanceShaderBindingTableRecordOffset = 0;
@@ -434,21 +430,28 @@ void Raytracer::create_toplevel_structure()
 
 void Raytracer::trace_rays(tracable_t tracable)
 {
-    // TODO: cache
-    auto descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device, tracable.descriptors);
-    VkDescriptorSetLayout set_layout_handle = descriptor_set_layout.get();
-
-    tracable.pipeline_info.descriptor_set_layouts = {set_layout_handle};
-
     // create a raytracing pipeline
-    auto pipeline = vierkant::Pipeline::create(m_device, tracable.pipeline_info);
+    auto pipeline = m_pipeline_cache->pipeline(tracable.pipeline_info);
+
+//    // TODO: cache
+//    auto descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device, tracable.descriptors);
+//    VkDescriptorSetLayout set_layout_handle = descriptor_set_layout.get();
+//
+//    tracable.pipeline_info.descriptor_set_layouts = {set_layout_handle};
 
     // create the binding table
-    auto binding_table = create_shader_binding_table(pipeline->handle(), tracable.pipeline_info.shader_stages);
+    shader_binding_table_t binding_table = {};
+    auto search_table_it = m_binding_tables.find(pipeline->handle());
+    if(search_table_it != m_binding_tables.end()){ binding_table = search_table_it->second; }
+    else
+    {
+        binding_table = create_shader_binding_table(pipeline->handle(), tracable.pipeline_info.shader_stages);
+        m_binding_tables[pipeline->handle()] = binding_table;
+    }
 
     // TODO: cache
     // fetch descriptor set
-    auto descriptor_set = vierkant::create_descriptor_set(m_device, m_descriptor_pool, descriptor_set_layout);
+    auto descriptor_set = vierkant::create_descriptor_set(m_device, m_descriptor_pool, tracable.descriptor_set_layout);
 
     // update descriptor-set with actual descriptors
     vierkant::update_descriptor_set(m_device, descriptor_set, tracable.descriptors);
@@ -485,8 +488,7 @@ Raytracer::create_shader_binding_table(VkPipeline pipeline,
 
     const uint32_t group_count = group_create_infos.size();
     const uint32_t handle_size = m_properties.shaderGroupHandleSize;
-    const uint32_t handle_size_aligned = aligned_size(m_properties.shaderGroupHandleSize,
-                                                      m_properties.shaderGroupBaseAlignment);
+    const uint32_t handle_size_aligned = aligned_size(handle_size, m_properties.shaderGroupBaseAlignment);
     const uint32_t binding_table_size = group_count * handle_size_aligned;
 
     // retrieve the shader-handles into host-memory
@@ -511,26 +513,26 @@ Raytracer::create_shader_binding_table(VkPipeline pipeline,
     binding_table.buffer->unmap();
 
     // this feels a bit silly but these groups do not correspond 1:1 to shader-stages.
-    std::map<BindingTableGroup, size_t> group_elements;
-    for(const auto &pair : shader_stages)
+    std::map<shader_binding_table_t::Group, size_t> group_elements;
+    for(const auto &[stage, shader] : shader_stages)
     {
-        switch(pair.first)
+        switch(stage)
         {
             case VK_SHADER_STAGE_RAYGEN_BIT_KHR:
-                group_elements[BindingTableGroup::Raygen]++;
+                group_elements[shader_binding_table_t::Group::Raygen]++;
                 break;
 
             case VK_SHADER_STAGE_MISS_BIT_KHR:
-                group_elements[BindingTableGroup::Miss]++;
+                group_elements[shader_binding_table_t::Group::Miss]++;
                 break;
 
-            case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:
             case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:
-                group_elements[BindingTableGroup::Hit]++;
+            case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:
+                group_elements[shader_binding_table_t::Group::Hit]++;
                 break;
 
             case VK_SHADER_STAGE_CALLABLE_BIT_KHR:
-                group_elements[BindingTableGroup::Callable]++;
+                group_elements[shader_binding_table_t::Group::Callable]++;
                 break;
 
             default:
