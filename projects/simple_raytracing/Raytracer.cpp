@@ -441,12 +441,13 @@ void Raytracer::trace_rays(tracable_t tracable)
 
     // create the binding table
     shader_binding_table_t binding_table = {};
-    auto search_table_it = m_binding_tables.find(pipeline->handle());
-    if(search_table_it != m_binding_tables.end()){ binding_table = search_table_it->second; }
-    else
+
+    try {binding_table = m_binding_tables.get(pipeline->handle());}
+    catch(std::out_of_range &e)
     {
-        binding_table = create_shader_binding_table(pipeline->handle(), tracable.pipeline_info.shader_stages);
-        m_binding_tables[pipeline->handle()] = binding_table;
+        binding_table = m_binding_tables.put(pipeline->handle(),
+                                             create_shader_binding_table(pipeline->handle(),
+                                                                         tracable.pipeline_info.shader_stages));
     }
 
     // TODO: cache

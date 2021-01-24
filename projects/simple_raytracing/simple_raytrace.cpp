@@ -236,7 +236,7 @@ void SimpleRayTracing::update(double time_delta)
 std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w)
 {
     auto image_index = w->swapchain().image_index();
-    const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
+    const auto &framebuffer = w->swapchain().framebuffers()[image_index];
 
     auto render_mesh = [this, &framebuffer]() -> VkCommandBuffer
     {

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <crocore/Cache.hpp>
+
 #include <vierkant/Device.hpp>
 #include <vierkant/Mesh.hpp>
 #include <vierkant/PipelineCache.hpp>
@@ -124,7 +126,7 @@ private:
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
-    std::unordered_map<VkPipeline, shader_binding_table_t> m_binding_tables;
+    crocore::Cache_<VkPipeline, shader_binding_table_t> m_binding_tables;
 
     // process-addresses for raytracing related functions
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
