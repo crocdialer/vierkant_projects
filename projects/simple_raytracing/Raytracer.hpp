@@ -60,7 +60,7 @@ public:
      *
      * @param   tracable
      */
-    void trace_rays(tracable_t tracable);
+    void trace_rays(tracable_t tracable, VkCommandBuffer commandbuffer = VK_NULL_HANDLE);
 
     vierkant::AccelerationStructurePtr acceleration_structure() const{ return m_top_level.structure; }
 
@@ -127,6 +127,8 @@ private:
     vierkant::PipelineCachePtr m_pipeline_cache;
 
     crocore::Cache_<VkPipeline, shader_binding_table_t> m_binding_tables;
+
+    crocore::Cache_<DescriptorSetLayoutPtr, DescriptorSetPtr> m_descriptor_sets;
 
     // process-addresses for raytracing related functions
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;

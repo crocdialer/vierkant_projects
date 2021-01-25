@@ -78,6 +78,16 @@ private:
 
     vierkant::DrawContext m_draw_context;
 
+    struct ray_assets_t
+    {
+        //! timeline semaphore to sync raytracing and draw-operations
+        vierkant::Semaphore semaphore;
+
+        //! records raytracing commands
+        vierkant::CommandBuffer command_buffer;
+    };
+    std::vector<ray_assets_t> m_ray_assets;
+
     //!
     vierkant::Raytracer m_ray_tracer;
 

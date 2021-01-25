@@ -73,12 +73,22 @@ void SimpleRayTracing::create_context_and_window()
     // pass populated extension-chain to enable the features
     device_info.create_device_pNext = &acceleration_structure_features;
 
+    // create a device
     m_device = vk::Device::create(device_info);
+
+    // create a swapchain
+    m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
     // create our raytracing-thingy
     m_ray_tracer = vierkant::Raytracer(m_device);
 
-    m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
+    m_ray_assets.resize(m_window->swapchain().framebuffers().size());
+
+    for(auto &ray_asset : m_ray_assets)
+    {
+        ray_asset.semaphore = vierkant::Semaphore(m_device, 2);
+        ray_asset.command_buffer = vierkant::CommandBuffer(m_device, m_device->command_pool());
+    }
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
@@ -220,17 +230,49 @@ void SimpleRayTracing::update(double time_delta)
     m_drawable.matrices.modelview = m_camera->view_matrix();
     m_drawable.matrices.projection = m_camera->projection_matrix();
 
-    // trnasition storage image
-    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_GENERAL);
+    auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
+
+    // similar to a fence wait
+    ray_asset.semaphore.wait(2);
+    ray_asset.semaphore = vierkant::Semaphore(m_device, 0);
+
+    ray_asset.command_buffer.begin();
+
+    // transition storage image
+    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_GENERAL, ray_asset.command_buffer.handle());
 
     // tada
-    m_ray_tracer.trace_rays(m_tracable);
+    m_ray_tracer.trace_rays(m_tracable, ray_asset.command_buffer.handle());
 
-    // trnasition storage image
-    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // transition storage image
+    m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ray_asset.command_buffer.handle());
+
+    ray_asset.command_buffer.end();
+
+    uint64_t ray_signal_value = 1;
+    VkTimelineSemaphoreSubmitInfo timeline_info;
+    timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+    timeline_info.pNext = nullptr;
+    timeline_info.waitSemaphoreValueCount = 0;
+    timeline_info.pWaitSemaphoreValues = nullptr;
+    timeline_info.signalSemaphoreValueCount = 1;
+    timeline_info.pSignalSemaphoreValues = &ray_signal_value;
+
+    auto semaphore_handle = ray_asset.semaphore.handle();
+    VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.pNext = &timeline_info;
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = &semaphore_handle;
+    ray_asset.command_buffer.submit(m_device->queues(vierkant::Device::Queue::GRAPHICS)[1], false, VK_NULL_HANDLE,
+                                    submit_info);
+
+    vierkant::semaphore_submit_info_t semaphore_submit_info = {};
+    semaphore_submit_info.semaphore = ray_asset.semaphore.handle();
+    semaphore_submit_info.wait_value = ray_signal_value;
+    semaphore_submit_info.signal_value = 2;
 
     // issue top-level draw-command
-    m_window->draw();
+    m_window->draw({semaphore_submit_info});
 }
 
 std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w)

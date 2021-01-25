@@ -69,7 +69,7 @@ Raytracer::Raytracer(const vierkant::DevicePtr &device) :
     m_descriptor_pool = vierkant::create_descriptor_pool(m_device, descriptor_counts, 512);
 }
 
-void Raytracer::add_mesh(const vierkant::MeshPtr& mesh, const glm::mat4 &transform)
+void Raytracer::add_mesh(const vierkant::MeshPtr &mesh, const glm::mat4 &transform)
 {
 
     const auto &vertex_attrib = mesh->vertex_attribs[vierkant::Mesh::AttribLocation::ATTRIB_POSITION];
@@ -428,9 +428,9 @@ void Raytracer::create_toplevel_structure()
     m_top_level = top_level_structure;
 }
 
-void Raytracer::trace_rays(tracable_t tracable)
+void Raytracer::trace_rays(tracable_t tracable, VkCommandBuffer commandbuffer)
 {
-    // create a raytracing pipeline
+    // create or retrieve an existing raytracing pipeline
     auto pipeline = m_pipeline_cache->pipeline(tracable.pipeline_info);
 
 //    // TODO: cache
@@ -442,7 +442,7 @@ void Raytracer::trace_rays(tracable_t tracable)
     // create the binding table
     shader_binding_table_t binding_table = {};
 
-    try {binding_table = m_binding_tables.get(pipeline->handle());}
+    try{ binding_table = m_binding_tables.get(pipeline->handle()); }
     catch(std::out_of_range &e)
     {
         binding_table = m_binding_tables.put(pipeline->handle(),
@@ -450,34 +450,46 @@ void Raytracer::trace_rays(tracable_t tracable)
                                                                          tracable.pipeline_info.shader_stages));
     }
 
-    // TODO: cache
     // fetch descriptor set
-    auto descriptor_set = vierkant::create_descriptor_set(m_device, m_descriptor_pool, tracable.descriptor_set_layout);
-
-    // update descriptor-set with actual descriptors
-    vierkant::update_descriptor_set(m_device, descriptor_set, tracable.descriptors);
+    DescriptorSetPtr descriptor_set;
+    try{ descriptor_set = m_descriptor_sets.get(tracable.descriptor_set_layout); }
+    catch(std::out_of_range &e)
+    {
+        descriptor_set = m_descriptor_sets.put(tracable.descriptor_set_layout,
+                                               vierkant::create_descriptor_set(m_device, m_descriptor_pool,
+                                                                               tracable.descriptor_set_layout));
+        // update descriptor-set with actual descriptors
+        vierkant::update_descriptor_set(m_device, descriptor_set, tracable.descriptors);
+    }
 
     VkDescriptorSet descriptor_set_handle = descriptor_set.get();
 
-    auto cmd_buffer = vierkant::CommandBuffer(m_device, m_command_pool.get());
-    cmd_buffer.begin();
+    vierkant::CommandBuffer local_commandbuffer;
+
+    if(commandbuffer == VK_NULL_HANDLE)
+    {
+        local_commandbuffer = vierkant::CommandBuffer(m_device, m_command_pool.get());
+        local_commandbuffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        commandbuffer = local_commandbuffer.handle();
+    }
 
     // bind raytracing pipeline
-    pipeline->bind(cmd_buffer.handle());
+    pipeline->bind(commandbuffer);
 
     // bind descriptor set (accelearation-structure, uniforms, storage-buffers, samplers, storage-image)
-    vkCmdBindDescriptorSets(cmd_buffer.handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->layout(),
+    vkCmdBindDescriptorSets(commandbuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->layout(),
                             0, 1, &descriptor_set_handle, 0, nullptr);
 
     // finally record the tracing command
-    vkCmdTraceRaysKHR(cmd_buffer.handle(),
+    vkCmdTraceRaysKHR(commandbuffer,
                       &binding_table.raygen,
                       &binding_table.miss,
                       &binding_table.hit,
                       &binding_table.callable,
                       tracable.extent.width, tracable.extent.height, tracable.extent.depth);
 
-    cmd_buffer.submit(m_device->queue(), true);
+    // submit only if we created the command buffer
+    if(local_commandbuffer){ local_commandbuffer.submit(m_device->queue(), true); }
 }
 
 Raytracer::shader_binding_table_t
