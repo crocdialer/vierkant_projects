@@ -79,8 +79,9 @@ void SimpleRayTracing::create_context_and_window()
     // create a swapchain
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
-    // create our raytracing-thingy
+    // create our raytracing-thingies
     m_ray_tracer = vierkant::Raytracer(m_device);
+    m_ray_builder = vierkant::RayBuilder(m_device);
 
     m_ray_assets.resize(m_window->swapchain().framebuffers().size());
 
@@ -169,7 +170,8 @@ void SimpleRayTracing::load_model()
     m_drawable.pipeline_format.shader_stages = vierkant::create_shader_stages(m_device,
                                                                               vierkant::ShaderType::UNLIT_COLOR);
 
-    m_ray_tracer.add_mesh(m_mesh);
+    m_ray_builder.add_mesh(m_mesh);
+    m_ray_builder.build_toplevel();
 
     // create a storage image
     vierkant::Image::Format img_format = {};
@@ -198,7 +200,7 @@ void SimpleRayTracing::load_model()
     vierkant::descriptor_t desc_acceleration_structure = {};
     desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_acceleration_structure.acceleration_structure = m_ray_tracer.acceleration_structure();
+    desc_acceleration_structure.acceleration_structure = m_ray_builder.acceleration_structure();
     m_tracable.descriptors[0] = desc_acceleration_structure;
 
     vierkant::descriptor_t desc_storage_image = {};
@@ -233,7 +235,9 @@ void SimpleRayTracing::update(double time_delta)
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
     // similar to a fence wait
-    ray_asset.semaphore.wait(2);
+    constexpr uint64_t ray_wait_value = 2;
+
+    ray_asset.semaphore.wait(ray_wait_value);
     ray_asset.semaphore = vierkant::Semaphore(m_device, 0);
 
     ray_asset.command_buffer.begin();
@@ -249,7 +253,7 @@ void SimpleRayTracing::update(double time_delta)
 
     ray_asset.command_buffer.end();
 
-    uint64_t ray_signal_value = 1;
+    constexpr uint64_t ray_signal_value = 1;
     VkTimelineSemaphoreSubmitInfo timeline_info;
     timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
     timeline_info.pNext = nullptr;

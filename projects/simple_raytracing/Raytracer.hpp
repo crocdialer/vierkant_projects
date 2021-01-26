@@ -14,13 +14,6 @@
 namespace vierkant
 {
 
-//! define a shared handle for a VkQueryPool
-using QueryPoolPtr = std::shared_ptr<VkQueryPool_T>;
-
-QueryPoolPtr create_query_pool(const vierkant::DevicePtr &device,
-                               uint32_t query_count,
-                               VkQueryType query_type);
-
 /**
  * @brief   Raytracer can be used to run raytracing pipelines.
  *
@@ -51,8 +44,6 @@ public:
 
     explicit Raytracer(const vierkant::DevicePtr &device);
 
-    void add_mesh(const vierkant::MeshPtr& mesh, const glm::mat4 &transform = glm::mat4(1));
-
     const VkPhysicalDeviceRayTracingPipelinePropertiesKHR &properties() const{ return m_properties; };
 
     /**
@@ -62,18 +53,7 @@ public:
      */
     void trace_rays(tracable_t tracable, VkCommandBuffer commandbuffer = VK_NULL_HANDLE);
 
-    vierkant::AccelerationStructurePtr acceleration_structure() const{ return m_top_level.structure; }
-
 private:
-
-    //! used for both bottom and toplevel acceleration-structures
-    struct acceleration_asset_t
-    {
-        vierkant::AccelerationStructurePtr structure = nullptr;
-        VkDeviceAddress device_address = 0;
-        vierkant::BufferPtr buffer = nullptr;
-        glm::mat4 transform = glm::mat4(1);
-    };
 
     struct shader_binding_table_t
     {
@@ -107,18 +87,9 @@ private:
 
     void set_function_pointers();
 
-    acceleration_asset_t create_acceleration_asset(VkAccelerationStructureCreateInfoKHR create_info,
-                                                   const glm::mat4 &transform = glm::mat4(1));
-
-    void create_toplevel_structure();
-
     vierkant::DevicePtr m_device;
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_properties = {};
-
-    acceleration_asset_t m_top_level = {};
-
-    std::unordered_map<vierkant::MeshPtr, std::vector<acceleration_asset_t>> m_acceleration_assets;
 
     vierkant::CommandPoolPtr m_command_pool;
 
@@ -131,17 +102,9 @@ private:
     crocore::Cache_<DescriptorSetLayoutPtr, DescriptorSetPtr> m_descriptor_sets;
 
     // process-addresses for raytracing related functions
-    PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
-    PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR = nullptr;
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR = nullptr;
-    PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = nullptr;
-    PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR = nullptr;
-    PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR = nullptr;
     PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
     PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
-    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
-    PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
-    PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR = nullptr;
 };
 
 }// namespace vierkant

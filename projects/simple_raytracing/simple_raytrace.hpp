@@ -9,6 +9,7 @@
 
 #include <vierkant/vierkant.hpp>
 
+#include "RayBuilder.hpp"
 #include "Raytracer.hpp"
 
 const int WIDTH = 1920;
@@ -51,7 +52,7 @@ private:
 
     void load_model();
 
-    bool m_use_msaa = true;
+    bool m_use_msaa = false;
 
     bool m_fullscreen = false;
 
@@ -87,6 +88,8 @@ private:
         vierkant::CommandBuffer command_buffer;
     };
     std::vector<ray_assets_t> m_ray_assets;
+
+    vierkant::RayBuilder m_ray_builder;
 
     //!
     vierkant::Raytracer m_ray_tracer;
