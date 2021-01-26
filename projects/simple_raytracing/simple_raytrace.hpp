@@ -9,8 +9,8 @@
 
 #include <vierkant/vierkant.hpp>
 
-#include "RayBuilder.hpp"
-#include "Raytracer.hpp"
+#include <vierkant/RayBuilder.hpp>
+#include <vierkant/Raytracer.hpp>
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
