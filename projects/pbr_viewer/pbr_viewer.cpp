@@ -150,7 +150,12 @@ void PBRViewer::create_ui()
     m_window->key_delegates[name()] = key_delegate;
 
     // create a gui and add a draw-delegate
-    m_gui_context = vk::gui::Context(m_device, g_font_path, 23.f);
+    vk::gui::Context::create_info_t gui_create_info = {};
+    gui_create_info.ui_scale = 2.f;
+    gui_create_info.font_path = g_font_path;
+    gui_create_info.font_size = 23.f;
+    m_gui_context = vk::gui::Context(m_device, gui_create_info);
+
     m_gui_context.delegates["application"] = [this]
     {
         vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);

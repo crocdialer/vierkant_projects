@@ -69,8 +69,6 @@ private:
 
     vierkant::DevicePtr m_device;
 
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_properties = {};
-
     acceleration_asset_t m_top_level = {};
 
     std::unordered_map<vierkant::MeshConstPtr, std::vector<acceleration_asset_t>> m_acceleration_assets;

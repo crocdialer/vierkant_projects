@@ -35,13 +35,6 @@ RayBuilder::RayBuilder(const vierkant::DevicePtr &device) :
     // get the ray tracing and acceleration-structure related function pointers
     set_function_pointers();
 
-    // query the ray tracing properties
-    m_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-    VkPhysicalDeviceProperties2 deviceProps2{};
-    deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    deviceProps2.pNext = &m_properties;
-    vkGetPhysicalDeviceProperties2(m_device->physical_device(), &deviceProps2);
-
     m_command_pool = vierkant::create_command_pool(device, vierkant::Device::Queue::GRAPHICS,
                                                    VK_COMMAND_POOL_CREATE_TRANSIENT_BIT |
                                                    VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -49,6 +42,14 @@ RayBuilder::RayBuilder(const vierkant::DevicePtr &device) :
 
 void RayBuilder::add_mesh(const vierkant::MeshConstPtr &mesh, const glm::mat4 &transform)
 {
+    auto search_it = m_acceleration_assets.find(mesh);
+
+    if(search_it != m_acceleration_assets.end())
+    {
+        for(auto &asset : search_it->second){ asset.transform = transform; }
+        return;
+    }
+
     const auto &vertex_attrib = mesh->vertex_attribs.at(vierkant::Mesh::AttribLocation::ATTRIB_POSITION);
     VkDeviceAddress vertex_base_address = vertex_attrib.buffer->device_address() + vertex_attrib.offset;
     VkDeviceAddress index_base_address = mesh->index_buffer->device_address();
@@ -250,7 +251,7 @@ void RayBuilder::set_function_pointers()
 
 RayBuilder::acceleration_asset_t
 RayBuilder::create_acceleration_asset(VkAccelerationStructureCreateInfoKHR create_info,
-                                     const glm::mat4 &transform)
+                                      const glm::mat4 &transform)
 {
     RayBuilder::acceleration_asset_t acceleration_asset = {};
     acceleration_asset.buffer = vierkant::Buffer::create(m_device, nullptr, create_info.size,
