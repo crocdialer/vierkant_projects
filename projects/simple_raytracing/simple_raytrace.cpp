@@ -87,7 +87,6 @@ void SimpleRayTracing::create_context_and_window()
 
     for(auto &ray_asset : m_ray_assets)
     {
-        ray_asset.semaphore = vierkant::Semaphore(m_device, 2);
         ray_asset.command_buffer = vierkant::CommandBuffer(m_device, m_device->command_pool());
     }
 
@@ -237,9 +236,8 @@ void SimpleRayTracing::update(double time_delta)
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
     // similar to a fence wait
-    constexpr uint64_t ray_wait_value = 2;
+    ray_asset.semaphore.wait(RENDER_FINISHED);
 
-    ray_asset.semaphore.wait(ray_wait_value);
     ray_asset.semaphore = vierkant::Semaphore(m_device, 0);
 
     ray_asset.command_buffer.begin();
@@ -255,7 +253,7 @@ void SimpleRayTracing::update(double time_delta)
 
     ray_asset.command_buffer.end();
 
-    constexpr uint64_t ray_signal_value = 1;
+    constexpr uint64_t ray_signal_value = RAYTRACING_FINISHED;
     VkTimelineSemaphoreSubmitInfo timeline_info;
     timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
     timeline_info.pNext = nullptr;
@@ -274,8 +272,8 @@ void SimpleRayTracing::update(double time_delta)
 
     vierkant::semaphore_submit_info_t semaphore_submit_info = {};
     semaphore_submit_info.semaphore = ray_asset.semaphore.handle();
-    semaphore_submit_info.wait_value = ray_signal_value;
-    semaphore_submit_info.signal_value = 2;
+    semaphore_submit_info.wait_value = RAYTRACING_FINISHED;
+    semaphore_submit_info.signal_value = RENDER_FINISHED;
 
     // issue top-level draw-command
     m_window->draw({semaphore_submit_info});

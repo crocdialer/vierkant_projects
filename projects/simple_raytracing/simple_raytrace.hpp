@@ -79,6 +79,12 @@ private:
 
     vierkant::DrawContext m_draw_context;
 
+    enum SemaphoreValue
+    {
+        RAYTRACING_FINISHED = 1,
+        RENDER_FINISHED = 2
+    };
+
     struct ray_assets_t
     {
         //! timeline semaphore to sync raytracing and draw-operations
