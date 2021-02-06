@@ -29,6 +29,9 @@ void SimpleRayTracing::create_context_and_window()
     // create instance
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::required_extensions());
 
+    // attach logger for debug-output
+    m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
+
     // grab first physical device
     VkPhysicalDevice physical_device = m_instance.physical_devices().front();
 
@@ -80,7 +83,9 @@ void SimpleRayTracing::create_context_and_window()
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
     // create our raytracing-thingies
-    m_ray_tracer = vierkant::Raytracer(m_device);
+    vierkant::Raytracer::create_info_t ray_tracer_create_info = {};
+    ray_tracer_create_info.num_frames_in_flight = m_window->swapchain().framebuffers().size();
+    m_ray_tracer = vierkant::Raytracer(m_device, ray_tracer_create_info);
     m_ray_builder = vierkant::RayBuilder(m_device);
 
     m_ray_assets.resize(m_window->swapchain().framebuffers().size());
@@ -130,7 +135,9 @@ void SimpleRayTracing::create_context_and_window()
 
     // camera
     m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
-    m_camera->set_position(glm::vec3(0.f, 0.f, 2.f));
+    m_camera->set_position(glm::vec3(0.f, 1.f, 2.f));
+
+    m_camera->set_look_at(glm::vec3(0.f));
 }
 
 void SimpleRayTracing::create_graphics_pipeline()
@@ -151,13 +158,18 @@ void SimpleRayTracing::create_graphics_pipeline()
 
 void SimpleRayTracing::load_model()
 {
-    // simple triangle geometry
-    auto geom = vk::Geometry::create();
-    geom->vertices = {glm::vec3(-0.5f, -0.5f, 0.f),
-                      glm::vec3(0.5f, -0.5f, 0.f),
-                      glm::vec3(0.f, 0.5f, 0.f)};
-    geom->colors = {glm::vec4(1.f), glm::vec4(1.f), glm::vec4(1.f)};
-    geom->indices = {0, 1, 2};
+//    // simple triangle geometry
+//    auto geom = vk::Geometry::create();
+//    geom->vertices = {glm::vec3(-0.5f, -0.5f, 0.f),
+//                      glm::vec3(0.5f, -0.5f, 0.f),
+//                      glm::vec3(0.f, 0.5f, 0.f)};
+//    geom->colors = {glm::vec4(1.f), glm::vec4(1.f), glm::vec4(1.f)};
+//    geom->indices = {0, 1, 2};
+
+    auto geom = vk::Geometry::Box();
+    geom->tex_coords.clear();
+    geom->normals.clear();
+    geom->tangents.clear();
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
 
@@ -171,8 +183,8 @@ void SimpleRayTracing::load_model()
     m_drawable.pipeline_format.shader_stages = vierkant::create_shader_stages(m_device,
                                                                               vierkant::ShaderType::UNLIT_COLOR);
 
+    // add the mesh, creating an acceleration-structure for it
     m_ray_builder.add_mesh(m_mesh);
-    m_ray_builder.build_toplevel();
 
     // create a storage image
     vierkant::Image::Format img_format = {};
@@ -201,7 +213,7 @@ void SimpleRayTracing::load_model()
     vierkant::descriptor_t desc_acceleration_structure = {};
     desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_acceleration_structure.acceleration_structure = m_ray_builder.acceleration_structure();
+    desc_acceleration_structure.acceleration_structure = m_ray_builder.create_toplevel();
     m_tracable.descriptors[0] = desc_acceleration_structure;
 
     vierkant::descriptor_t desc_storage_image = {};
