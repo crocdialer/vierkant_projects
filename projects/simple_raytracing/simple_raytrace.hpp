@@ -52,6 +52,8 @@ private:
 
     void load_model();
 
+    void update_trace_desctiptors();
+
     bool m_use_msaa = false;
 
     bool m_fullscreen = false;

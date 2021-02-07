@@ -9,8 +9,8 @@ void SimpleRayTracing::setup()
     crocore::g_logger.set_severity(crocore::Severity::DEBUG);
 
     create_context_and_window();
-    load_model();
     create_graphics_pipeline();
+    load_model();
 }
 
 void SimpleRayTracing::teardown()
@@ -154,6 +154,18 @@ void SimpleRayTracing::create_graphics_pipeline()
 
     m_renderer = vierkant::Renderer(m_device, create_info);
     m_gui_renderer = vierkant::Renderer(m_device, create_info);
+
+    // create a storage image
+    vierkant::Image::Format img_format = {};
+    img_format.extent = fb_extent;
+    img_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    img_format.initial_layout = VK_IMAGE_LAYOUT_GENERAL;
+    m_storage_image = vierkant::Image::create(m_device, img_format);
+
+    // set extent for trace-pipeline
+    m_tracable.extent = m_storage_image->extent();
+
+//    update_trace_desctiptors();
 }
 
 void SimpleRayTracing::load_model()
@@ -186,15 +198,6 @@ void SimpleRayTracing::load_model()
     // add the mesh, creating an acceleration-structure for it
     m_ray_builder.add_mesh(m_mesh);
 
-    // create a storage image
-    vierkant::Image::Format img_format = {};
-    img_format.extent = {static_cast<uint32_t>(m_window->size().x), static_cast<uint32_t>(m_window->size().y), 1};
-    img_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-    img_format.initial_layout = VK_IMAGE_LAYOUT_GENERAL;
-    m_storage_image = vierkant::Image::create(m_device, img_format);
-
-    m_tracable.extent = m_storage_image->extent();
-
     // raygen
     m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_RAYGEN_BIT_KHR,
                                                    vierkant::create_shader_module(m_device,
@@ -209,30 +212,7 @@ void SimpleRayTracing::load_model()
                                                    vierkant::create_shader_module(m_device,
                                                                                   vierkant::shaders::simple_ray::closesthit_rchit)});
 
-    // descriptors
-    vierkant::descriptor_t desc_acceleration_structure = {};
-    desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_acceleration_structure.acceleration_structure = m_ray_builder.create_toplevel();
-    m_tracable.descriptors[0] = desc_acceleration_structure;
-
-    vierkant::descriptor_t desc_storage_image = {};
-    desc_storage_image.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    desc_storage_image.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_storage_image.image_samplers = {m_storage_image};
-    m_tracable.descriptors[1] = desc_storage_image;
-
-    // provide inverse modelview and projection matrices
-    std::vector<glm::mat4> matrices = {glm::inverse(m_camera->view_matrix()),
-                                       glm::inverse(m_camera->projection_matrix())};
-
-    vierkant::descriptor_t desc_matrices = {};
-    desc_matrices.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    desc_matrices.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_matrices.buffer = vierkant::Buffer::create(m_device, matrices,
-                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
-    m_tracable.descriptors[2] = desc_matrices;
+    update_trace_desctiptors();
 
     m_tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device, m_tracable.descriptors);
     VkDescriptorSetLayout set_layout_handle = m_tracable.descriptor_set_layout.get();
@@ -242,10 +222,16 @@ void SimpleRayTracing::load_model()
 
 void SimpleRayTracing::update(double time_delta)
 {
-    m_drawable.matrices.modelview = m_camera->view_matrix();
+    auto model_transform = glm::rotate(glm::mat4(1), static_cast<float >(application_time()), glm::vec3(0, 1, 0));
+
+    m_drawable.matrices.modelview = m_camera->view_matrix() * model_transform;
     m_drawable.matrices.projection = m_camera->projection_matrix();
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
+
+    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
+    m_ray_builder.add_mesh(m_mesh, model_transform);
+    update_trace_desctiptors();
 
     // similar to a fence wait
     ray_asset.semaphore.wait(RENDER_FINISHED);
@@ -319,4 +305,33 @@ std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w
     std::vector<VkCommandBuffer> command_buffers;
     for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
     return command_buffers;
+}
+
+void SimpleRayTracing::update_trace_desctiptors()
+{
+    // descriptors
+    vierkant::descriptor_t desc_acceleration_structure = {};
+    desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    desc_acceleration_structure.acceleration_structure = m_ray_builder.create_toplevel(
+            m_tracable.descriptors[0].acceleration_structure);
+    m_tracable.descriptors[0] = desc_acceleration_structure;
+
+    vierkant::descriptor_t desc_storage_image = {};
+    desc_storage_image.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    desc_storage_image.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    desc_storage_image.image_samplers = {m_storage_image};
+    m_tracable.descriptors[1] = desc_storage_image;
+
+    // provide inverse modelview and projection matrices
+    std::vector<glm::mat4> matrices = {glm::inverse(m_camera->view_matrix()),
+                                       glm::inverse(m_camera->projection_matrix())};
+
+    vierkant::descriptor_t desc_matrices = {};
+    desc_matrices.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    desc_matrices.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    desc_matrices.buffer = vierkant::Buffer::create(m_device, matrices,
+                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
+    m_tracable.descriptors[2] = desc_matrices;
 }
