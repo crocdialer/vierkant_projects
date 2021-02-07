@@ -9,8 +9,8 @@ void SimpleRayTracing::setup()
     crocore::g_logger.set_severity(crocore::Severity::DEBUG);
 
     create_context_and_window();
-    create_graphics_pipeline();
     load_model();
+    create_graphics_pipeline();
 }
 
 void SimpleRayTracing::teardown()
@@ -165,7 +165,7 @@ void SimpleRayTracing::create_graphics_pipeline()
     // set extent for trace-pipeline
     m_tracable.extent = m_storage_image->extent();
 
-//    update_trace_desctiptors();
+    update_trace_descriptors();
 }
 
 void SimpleRayTracing::load_model()
@@ -212,7 +212,7 @@ void SimpleRayTracing::load_model()
                                                    vierkant::create_shader_module(m_device,
                                                                                   vierkant::shaders::simple_ray::closesthit_rchit)});
 
-    update_trace_desctiptors();
+    update_trace_descriptors();
 
     m_tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device, m_tracable.descriptors);
     VkDescriptorSetLayout set_layout_handle = m_tracable.descriptor_set_layout.get();
@@ -229,9 +229,8 @@ void SimpleRayTracing::update(double time_delta)
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
-    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
+//    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
     m_ray_builder.add_mesh(m_mesh, model_transform);
-    update_trace_desctiptors();
 
     // similar to a fence wait
     ray_asset.semaphore.wait(RENDER_FINISHED);
@@ -240,11 +239,17 @@ void SimpleRayTracing::update(double time_delta)
 
     ray_asset.command_buffer.begin();
 
+    // update top-level structure
+    ray_asset.acceleration_asset = m_ray_builder.create_toplevel(VK_NULL_HANDLE,
+                                                                 ray_asset.acceleration_asset.structure);
+
     // transition storage image
     m_storage_image->transition_layout(VK_IMAGE_LAYOUT_GENERAL, ray_asset.command_buffer.handle());
 
+    update_trace_descriptors();
+
     // tada
-    m_ray_tracer.trace_rays(m_tracable, ray_asset.command_buffer.handle());
+    m_ray_tracer.trace_rays(ray_asset.tracable, ray_asset.command_buffer.handle());
 
     // transition storage image
     m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ray_asset.command_buffer.handle());
@@ -307,14 +312,15 @@ std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w
     return command_buffers;
 }
 
-void SimpleRayTracing::update_trace_desctiptors()
+void SimpleRayTracing::update_trace_descriptors()
 {
+    auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
+
     // descriptors
     vierkant::descriptor_t desc_acceleration_structure = {};
     desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_acceleration_structure.acceleration_structure = m_ray_builder.create_toplevel(
-            m_tracable.descriptors[0].acceleration_structure);
+    desc_acceleration_structure.acceleration_structure = ray_asset.acceleration_asset.structure;
     m_tracable.descriptors[0] = desc_acceleration_structure;
 
     vierkant::descriptor_t desc_storage_image = {};
@@ -334,4 +340,6 @@ void SimpleRayTracing::update_trace_desctiptors()
                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                     VMA_MEMORY_USAGE_CPU_TO_GPU);
     m_tracable.descriptors[2] = desc_matrices;
+
+    ray_asset.tracable = m_tracable;
 }
