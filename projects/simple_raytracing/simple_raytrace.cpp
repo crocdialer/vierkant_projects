@@ -79,7 +79,7 @@ void SimpleRayTracing::create_context_and_window()
     device_info.surface = m_window->surface();
 
     // add the raytracing-extensions
-    device_info.extensions = vierkant::Raytracer::required_extensions();
+    device_info.extensions = vierkant::RayTracer::required_extensions();
 
     // pass populated extension-chain to enable the features
     device_info.create_device_pNext = &acceleration_structure_features;
@@ -91,9 +91,9 @@ void SimpleRayTracing::create_context_and_window()
     m_window->create_swapchain(m_device, m_use_msaa ? m_device->max_usable_samples() : VK_SAMPLE_COUNT_1_BIT, V_SYNC);
 
     // create our raytracing-thingies
-    vierkant::Raytracer::create_info_t ray_tracer_create_info = {};
+    vierkant::RayTracer::create_info_t ray_tracer_create_info = {};
     ray_tracer_create_info.num_frames_in_flight = m_window->swapchain().framebuffers().size();
-    m_ray_tracer = vierkant::Raytracer(m_device, ray_tracer_create_info);
+    m_ray_tracer = vierkant::RayTracer(m_device, ray_tracer_create_info);
     m_ray_builder = vierkant::RayBuilder(m_device);
 
     m_ray_assets.resize(m_window->swapchain().framebuffers().size());
@@ -363,6 +363,32 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_index_buffers.buffers = {m_mesh->index_buffer};
     desc_index_buffers.buffer_offsets = {m_mesh->index_buffer_offset};
     ray_asset.tracable.descriptors[4] = desc_index_buffers;
+
+    // entry-descriptor
+    struct entry_t
+    {
+        // per mesh
+        uint32_t buffer_index = 0;
+        uint32_t material_index = 0;
+
+        // per entry
+        uint32_t base_vertex = 0;
+        uint32_t base_index = 0;
+    };
+    std::vector<entry_t> entries(m_mesh->entries.size());
+    for(uint32_t i = 0; i < entries.size(); ++i)
+    {
+        entries[i].material_index = m_mesh->entries[i].material_index;
+        entries[i].base_index = m_mesh->entries[i].base_index;
+        entries[i].base_vertex = m_mesh->entries[i].base_vertex;
+    }
+    vierkant::descriptor_t desc_entries = {};
+    desc_entries.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    desc_entries.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    desc_entries.buffers = {vierkant::Buffer::create(m_device, entries,
+                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                     VMA_MEMORY_USAGE_CPU_TO_GPU)};
+    ray_asset.tracable.descriptors[5] = desc_entries;
 
     if(!ray_asset.tracable.descriptor_set_layout)
     {

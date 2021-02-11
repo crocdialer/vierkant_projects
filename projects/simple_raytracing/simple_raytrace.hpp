@@ -10,7 +10,7 @@
 #include <vierkant/vierkant.hpp>
 
 #include <vierkant/RayBuilder.hpp>
-#include <vierkant/Raytracer.hpp>
+#include <vierkant/RayTracer.hpp>
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -53,7 +53,7 @@ private:
         //! an accelaration structure and it's resources
         vierkant::RayBuilder::acceleration_asset_t acceleration_asset;
 
-        vierkant::Raytracer::tracable_t tracable = {};
+        vierkant::RayTracer::tracable_t tracable = {};
     };
 
     void setup() override;
@@ -106,13 +106,13 @@ private:
     vierkant::RayBuilder m_ray_builder;
 
     //!
-    vierkant::Raytracer m_ray_tracer;
+    vierkant::RayTracer m_ray_tracer;
 
     //! toggle raster / raytracer
     bool m_show_ray_tracer = true;
 
     // information about the raytracing-pipeline to run
-    vierkant::Raytracer::tracable_t m_tracable = {};
+    vierkant::RayTracer::tracable_t m_tracable = {};
 
     vierkant::ImagePtr m_storage_image;
 };
