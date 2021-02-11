@@ -55,10 +55,14 @@ void SimpleRayTracing::create_context_and_window()
     VkPhysicalDeviceScalarBlockLayoutFeatures scalar_block_features = {};
     scalar_block_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
 
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features = {};
+    descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
     // create a pNext-chain connecting the extension-structures
     acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
     ray_tracing_pipeline_features.pNext = &ray_query_features;
     ray_query_features.pNext = &scalar_block_features;
+    scalar_block_features.pNext = &descriptor_indexing_features;
 
     // query support for the required device-features
     VkPhysicalDeviceFeatures2 device_features = {};
@@ -169,7 +173,7 @@ void SimpleRayTracing::create_graphics_pipeline()
     // set extent for trace-pipeline
 //    m_tracable.extent = m_storage_image->extent();
 
-    update_trace_descriptors();
+    if(m_mesh){ update_trace_descriptors(); }
 }
 
 void SimpleRayTracing::load_model()
@@ -344,6 +348,21 @@ void SimpleRayTracing::update_trace_descriptors()
                                                       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                       VMA_MEMORY_USAGE_CPU_TO_GPU)};
     ray_asset.tracable.descriptors[2] = desc_matrices;
+
+    vierkant::descriptor_t desc_vertex_buffers = {};
+    desc_vertex_buffers.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    desc_vertex_buffers.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    desc_vertex_buffers.buffers = {m_mesh->vertex_attribs[vierkant::Mesh::AttribLocation::ATTRIB_POSITION].buffer};
+    desc_vertex_buffers.buffer_offsets = {
+            m_mesh->vertex_attribs[vierkant::Mesh::AttribLocation::ATTRIB_POSITION].buffer_offset};
+    ray_asset.tracable.descriptors[3] = desc_vertex_buffers;
+
+    vierkant::descriptor_t desc_index_buffers = {};
+    desc_index_buffers.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    desc_index_buffers.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    desc_index_buffers.buffers = {m_mesh->index_buffer};
+    desc_index_buffers.buffer_offsets = {m_mesh->index_buffer_offset};
+    ray_asset.tracable.descriptors[4] = desc_index_buffers;
 
     if(!ray_asset.tracable.descriptor_set_layout)
     {

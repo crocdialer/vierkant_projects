@@ -89,7 +89,7 @@ private:
 
     vk::PerspectiveCameraPtr m_camera;
 
-    vk::MeshPtr m_mesh = vk::Mesh::create();
+    vk::MeshPtr m_mesh;
 
     // drawable and renderer
     vk::Renderer::drawable_t m_drawable;
