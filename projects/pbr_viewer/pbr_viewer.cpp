@@ -382,7 +382,7 @@ void PBRViewer::load_model(const std::string &path)
 
                 auto vk_img = vk::Image::create(device, nullptr, fmt);
                 auto buf = vierkant::Buffer::create(device, img->data(), img->num_bytes(),
-                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
                 vk_img->copy_from(buf, cmd_buf_handle);
                 staging_buffers.push_back(std::move(buf));
                 return vk_img;
@@ -517,7 +517,7 @@ void PBRViewer::load_environment(const std::string &path)
                 panorama = vk::Image::create(m_device, nullptr, fmt);
 
                 auto buf = vierkant::Buffer::create(m_device, img->data(), img->num_bytes(),
-                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
                 // copy and layout transition
                 panorama->copy_from(buf, cmd_buf.handle());

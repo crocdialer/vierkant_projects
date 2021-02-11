@@ -9,8 +9,8 @@ void SimpleRayTracing::setup()
     crocore::g_logger.set_severity(crocore::Severity::DEBUG);
 
     create_context_and_window();
-    load_model();
     create_graphics_pipeline();
+    load_model();
 }
 
 void SimpleRayTracing::teardown()
@@ -52,11 +52,15 @@ void SimpleRayTracing::create_context_and_window()
     VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {};
     ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
 
+    VkPhysicalDeviceScalarBlockLayoutFeatures scalar_block_features = {};
+    scalar_block_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+
     // create a pNext-chain connecting the extension-structures
     acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
     ray_tracing_pipeline_features.pNext = &ray_query_features;
+    ray_query_features.pNext = &scalar_block_features;
 
-    // query available features for the raytracing-extensions
+    // query support for the required device-features
     VkPhysicalDeviceFeatures2 device_features = {};
     device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     device_features.pNext = &acceleration_structure_features;
@@ -163,7 +167,7 @@ void SimpleRayTracing::create_graphics_pipeline()
     m_storage_image = vierkant::Image::create(m_device, img_format);
 
     // set extent for trace-pipeline
-    m_tracable.extent = m_storage_image->extent();
+//    m_tracable.extent = m_storage_image->extent();
 
     update_trace_descriptors();
 }
@@ -179,9 +183,9 @@ void SimpleRayTracing::load_model()
 //    geom->indices = {0, 1, 2};
 
     auto geom = vk::Geometry::Box();
-    geom->tex_coords.clear();
-    geom->normals.clear();
-    geom->tangents.clear();
+//    geom->tex_coords.clear();
+//    geom->normals.clear();
+//    geom->tangents.clear();
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
 
@@ -213,11 +217,6 @@ void SimpleRayTracing::load_model()
                                                                                   vierkant::shaders::simple_ray::closesthit_rchit)});
 
     update_trace_descriptors();
-
-    m_tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device, m_tracable.descriptors);
-    VkDescriptorSetLayout set_layout_handle = m_tracable.descriptor_set_layout.get();
-
-    m_tracable.pipeline_info.descriptor_set_layouts = {set_layout_handle};
 }
 
 void SimpleRayTracing::update(double time_delta)
@@ -229,7 +228,6 @@ void SimpleRayTracing::update(double time_delta)
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
-//    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
     m_ray_builder.add_mesh(m_mesh, model_transform);
 
     // similar to a fence wait
@@ -240,7 +238,8 @@ void SimpleRayTracing::update(double time_delta)
     ray_asset.command_buffer.begin();
 
     // update top-level structure
-    ray_asset.acceleration_asset = m_ray_builder.create_toplevel(VK_NULL_HANDLE,
+    auto tmp = ray_asset.acceleration_asset;
+    ray_asset.acceleration_asset = m_ray_builder.create_toplevel(ray_asset.command_buffer.handle(),
                                                                  ray_asset.acceleration_asset.structure);
 
     // transition storage image
@@ -280,6 +279,8 @@ void SimpleRayTracing::update(double time_delta)
 
     // issue top-level draw-command
     m_window->draw({semaphore_submit_info});
+
+    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
 }
 
 std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w)
@@ -316,18 +317,21 @@ void SimpleRayTracing::update_trace_descriptors()
 {
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
+    ray_asset.tracable.pipeline_info = m_tracable.pipeline_info;
+    ray_asset.tracable.extent = m_storage_image->extent();
+
     // descriptors
     vierkant::descriptor_t desc_acceleration_structure = {};
     desc_acceleration_structure.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     desc_acceleration_structure.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
     desc_acceleration_structure.acceleration_structure = ray_asset.acceleration_asset.structure;
-    m_tracable.descriptors[0] = desc_acceleration_structure;
+    ray_asset.tracable.descriptors[0] = desc_acceleration_structure;
 
     vierkant::descriptor_t desc_storage_image = {};
     desc_storage_image.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     desc_storage_image.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
     desc_storage_image.image_samplers = {m_storage_image};
-    m_tracable.descriptors[1] = desc_storage_image;
+    ray_asset.tracable.descriptors[1] = desc_storage_image;
 
     // provide inverse modelview and projection matrices
     std::vector<glm::mat4> matrices = {glm::inverse(m_camera->view_matrix()),
@@ -336,10 +340,15 @@ void SimpleRayTracing::update_trace_descriptors()
     vierkant::descriptor_t desc_matrices = {};
     desc_matrices.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     desc_matrices.stage_flags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    desc_matrices.buffer = vierkant::Buffer::create(m_device, matrices,
-                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                    VMA_MEMORY_USAGE_CPU_TO_GPU);
-    m_tracable.descriptors[2] = desc_matrices;
+    desc_matrices.buffers = {vierkant::Buffer::create(m_device, matrices,
+                                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                      VMA_MEMORY_USAGE_CPU_TO_GPU)};
+    ray_asset.tracable.descriptors[2] = desc_matrices;
 
-    ray_asset.tracable = m_tracable;
+    if(!ray_asset.tracable.descriptor_set_layout)
+    {
+        ray_asset.tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device,
+                                                                                          ray_asset.tracable.descriptors);
+    }
+    ray_asset.tracable.pipeline_info.descriptor_set_layouts = {ray_asset.tracable.descriptor_set_layout.get()};
 }
