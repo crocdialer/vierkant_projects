@@ -364,30 +364,10 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_index_buffers.buffer_offsets = {m_mesh->index_buffer_offset};
     ray_asset.tracable.descriptors[4] = desc_index_buffers;
 
-    // entry-descriptor
-    struct entry_t
-    {
-        // per mesh
-        uint32_t buffer_index = 0;
-        uint32_t material_index = 0;
-
-        // per entry
-        uint32_t base_vertex = 0;
-        uint32_t base_index = 0;
-    };
-    std::vector<entry_t> entries(m_mesh->entries.size());
-    for(uint32_t i = 0; i < entries.size(); ++i)
-    {
-        entries[i].material_index = m_mesh->entries[i].material_index;
-        entries[i].base_index = m_mesh->entries[i].base_index;
-        entries[i].base_vertex = m_mesh->entries[i].base_vertex;
-    }
     vierkant::descriptor_t desc_entries = {};
     desc_entries.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     desc_entries.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    desc_entries.buffers = {vierkant::Buffer::create(m_device, entries,
-                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                     VMA_MEMORY_USAGE_CPU_TO_GPU)};
+    desc_entries.buffers = {ray_asset.acceleration_asset.entry_buffer};
     ray_asset.tracable.descriptors[5] = desc_entries;
 
     if(!ray_asset.tracable.descriptor_set_layout)
