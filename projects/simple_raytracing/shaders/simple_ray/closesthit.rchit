@@ -16,6 +16,14 @@ struct entry_t
     uint base_index;
 };
 
+struct material_t
+{
+    vec4 color;
+    vec4 emission;
+    float metalness;
+    float roughness;
+};
+
 struct Vertex
 {
     vec3 position;
@@ -34,6 +42,11 @@ layout(binding = 4, set = 0) readonly buffer Indices { uint i[]; } indices[];
 layout(binding = 5, set = 0) uniform Entries
 {
     entry_t entries[MAX_NUM_ENTRIES];
+};
+
+layout(binding = 6, set = 0) uniform Materials
+{
+    material_t materials[MAX_NUM_ENTRIES];
 };
 
 // the ray-payload written here
@@ -74,5 +87,7 @@ void main()
 {
 //    vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     Vertex v = interpolate_vertex();
-    hitValue = v.color.rgb;
+
+    material_t materials = materials[entries[gl_InstanceCustomIndexEXT].material_index];
+    hitValue = v.color.rgb * materials.color.rgb;
 }

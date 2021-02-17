@@ -504,6 +504,12 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_entries.buffers = {ray_asset.acceleration_asset.entry_buffer};
     ray_asset.tracable.descriptors[5] = desc_entries;
 
+    vierkant::descriptor_t desc_materials = {};
+    desc_materials.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    desc_materials.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    desc_materials.buffers = {ray_asset.acceleration_asset.material_buffer};
+    ray_asset.tracable.descriptors[6] = desc_materials;
+
     if(!ray_asset.tracable.descriptor_set_layout)
     {
         ray_asset.tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device,
