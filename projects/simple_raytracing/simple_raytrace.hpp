@@ -70,7 +70,7 @@ private:
 
     void create_graphics_pipeline();
 
-    void load_model();
+    void load_model(const std::filesystem::path &path = "");
 
     void update_trace_descriptors();
 
@@ -115,6 +115,8 @@ private:
     vierkant::RayTracer::tracable_t m_tracable = {};
 
     vierkant::ImagePtr m_storage_image;
+
+    float m_scale = 1.f;
 };
 
 int main(int argc, char *argv[])

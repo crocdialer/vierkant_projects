@@ -1,8 +1,33 @@
+#include <crocore/filesystem.hpp>
+
 #include <vierkant/imgui/imgui_util.h>
+#include <vierkant/assimp.hpp>
+#include <vierkant/MeshNode.hpp>
 
 #include "vierkant_projects/simple_raytracing_shaders.hpp"
-
 #include "simple_raytrace.hpp"
+
+VkFormat vk_format(const crocore::ImagePtr &img)
+{
+    VkFormat ret = VK_FORMAT_UNDEFINED;
+
+    switch(img->num_components())
+    {
+        case 1:
+            ret = VK_FORMAT_R8_UNORM;
+            break;
+        case 2:
+            ret = VK_FORMAT_R8G8_UNORM;
+            break;
+        case 3:
+            ret = VK_FORMAT_R8G8B8_UNORM;
+            break;
+        case 4:
+            ret = VK_FORMAT_R8G8B8A8_UNORM;
+            break;
+    }
+    return ret;
+}
 
 void SimpleRayTracing::setup()
 {
@@ -141,6 +166,24 @@ void SimpleRayTracing::create_context_and_window()
     m_window->key_delegates["gui"] = m_gui_context.key_delegate();
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
+    // attach drag/drop mouse-delegate
+    vierkant::mouse_delegate_t file_drop_delegate = {};
+    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
+    {
+        auto &f = files.back();
+
+        switch(crocore::filesystem::get_file_type(f))
+        {
+            case crocore::filesystem::FileType::MODEL:
+                load_model(f);
+                break;
+
+            default:
+                break;
+        }
+    };
+    m_window->mouse_delegates["filedrop"] = file_drop_delegate;
+
     // camera
     m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
     m_camera->set_position(glm::vec3(0.f, 1.f, 2.f));
@@ -176,56 +219,146 @@ void SimpleRayTracing::create_graphics_pipeline()
     if(m_mesh){ update_trace_descriptors(); }
 }
 
-void SimpleRayTracing::load_model()
+void SimpleRayTracing::load_model(const std::filesystem::path &path)
 {
-//    // simple triangle geometry
-//    auto geom = vk::Geometry::create();
-//    geom->vertices = {glm::vec3(-0.5f, -0.5f, 0.f),
-//                      glm::vec3(0.5f, -0.5f, 0.f),
-//                      glm::vec3(0.f, 0.5f, 0.f)};
-//    geom->colors = {glm::vec4(1.f), glm::vec4(1.f), glm::vec4(1.f)};
-//    geom->indices = {0, 1, 2};
-
-    auto geom = vk::Geometry::Box();
-//    geom->tex_coords.clear();
-//    geom->normals.clear();
-//    geom->tangents.clear();
-
-    vierkant::Mesh::create_info_t mesh_create_info = {};
-
     // additionally required buffer-flags for raytracing
-    mesh_create_info.buffer_usage_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                          VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    m_mesh = vk::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+    auto buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    auto load_mesh = [this, buffer_flags](const std::filesystem::path &path) -> vierkant::MeshPtr
+    {
+        auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
+
+        vierkant::Mesh::create_info_t mesh_create_info = {};
+        mesh_create_info.buffer_usage_flags = buffer_flags;
+        auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos, mesh_create_info);
+
+        if(!mesh)
+        {
+            LOG_WARNING << "could not load mesh: " << path;
+            return nullptr;
+        }
+
+        std::vector<vierkant::BufferPtr> staging_buffers;
+
+        VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+
+        // command pool for background transfer
+        auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
+                                                          VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+
+        auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+
+        auto create_texture = [device = m_device, cmd_buf_handle = cmd_buf.handle(), &staging_buffers](
+                const crocore::ImagePtr &img) -> vierkant::ImagePtr
+        {
+            vk::Image::Format fmt;
+            fmt.format = vk_format(img);
+            fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            fmt.extent = {img->width(), img->height(), 1};
+            fmt.use_mipmap = true;
+            fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            fmt.initial_cmd_buffer = cmd_buf_handle;
+
+            auto vk_img = vk::Image::create(device, nullptr, fmt);
+            auto buf = vierkant::Buffer::create(device, img->data(), img->num_bytes(),
+                                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+            vk_img->copy_from(buf, cmd_buf_handle);
+            staging_buffers.push_back(std::move(buf));
+            return vk_img;
+        };
+
+        cmd_buf.begin();
+
+        // skin + bones
+        mesh->root_bone = mesh_assets.root_bone;
+
+        // node hierarchy
+        mesh->root_node = mesh_assets.root_node;
+
+        // node animations
+        mesh->node_animations = std::move(mesh_assets.node_animations);
+
+        mesh->materials.resize(mesh_assets.materials.size());
+
+        for(uint32_t i = 0; i < mesh->materials.size(); ++i)
+        {
+            auto &material = mesh->materials[i];
+            material = vierkant::Material::create();
+
+            material->color = mesh_assets.materials[i].diffuse;
+            material->emission = mesh_assets.materials[i].emission;
+            material->roughness = mesh_assets.materials[i].roughness;
+            material->blending = mesh_assets.materials[i].blending;
+
+            auto color_img = mesh_assets.materials[i].img_diffuse;
+            auto emmission_img = mesh_assets.materials[i].img_emission;
+            auto normal_img = mesh_assets.materials[i].img_normals;
+            auto ao_rough_metal_img = mesh_assets.materials[i].img_ao_roughness_metal;
+
+            if(color_img){ material->textures[vierkant::Material::Color] = create_texture(color_img); }
+            if(emmission_img){ material->textures[vierkant::Material::Emission] = create_texture(emmission_img); }
+            if(normal_img){ material->textures[vierkant::Material::Normal] = create_texture(normal_img); }
+
+            if(ao_rough_metal_img)
+            {
+                material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img);
+            }
+        }
+
+        // submit transfer and sync
+        cmd_buf.submit(queue, true);
+
+        return mesh;
+    };
+
+    if(path.empty())
+    {
+        // simple bov geometry
+        auto geom = vk::Geometry::Box();
+        vierkant::Mesh::create_info_t mesh_create_info = {};
+
+        // additionally required buffer-flags for raytracing
+        mesh_create_info.buffer_usage_flags = buffer_flags;
+        m_mesh = vk::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+    }
+    else{ m_mesh = load_mesh(path); }
+
+    vierkant::AABB aabb;
+    for(const auto &entry : m_mesh->entries){ aabb += entry.boundingbox.transform(entry.transform); }
+    m_scale = 1.f / glm::length(aabb.half_extents());
 
     m_drawable = vk::Renderer::create_drawables(m_mesh).front();
     m_drawable.pipeline_format.shader_stages = vierkant::create_shader_stages(m_device,
                                                                               vierkant::ShaderType::UNLIT_COLOR);
 
     // add the mesh, creating an acceleration-structure for it
+    m_ray_builder = vierkant::RayBuilder(m_device);
     m_ray_builder.add_mesh(m_mesh);
 
     // raygen
-    m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-                                                   vierkant::create_shader_module(m_device,
-                                                                                  vierkant::shaders::simple_ray::raygen_rgen)});
-    // miss
-    m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_MISS_BIT_KHR,
-                                                   vierkant::create_shader_module(m_device,
-                                                                                  vierkant::shaders::simple_ray::miss_rmiss)});
+    m_tracable.pipeline_info.shader_stages = {{VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                                                      vierkant::create_shader_module(m_device,
+                                                                                     vierkant::shaders::simple_ray::raygen_rgen)},
+            // miss
+                                              {VK_SHADER_STAGE_MISS_BIT_KHR,
+                                                      vierkant::create_shader_module(m_device,
+                                                                                     vierkant::shaders::simple_ray::miss_rmiss)},
 
-    // closest hit
-    m_tracable.pipeline_info.shader_stages.insert({VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-                                                   vierkant::create_shader_module(m_device,
-                                                                                  vierkant::shaders::simple_ray::closesthit_rchit)});
+            // closest hit
+                                              {VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+                                                      vierkant::create_shader_module(m_device,
+                                                                                     vierkant::shaders::simple_ray::closesthit_rchit)}};
 
     update_trace_descriptors();
 }
 
 void SimpleRayTracing::update(double time_delta)
 {
-    auto model_transform = glm::rotate(glm::mat4(1), static_cast<float >(application_time()), glm::vec3(0, 1, 0));
+    auto model_transform = glm::scale(glm::rotate(glm::mat4(1), static_cast<float >(application_time()), glm::vec3(0, 1, 0)), glm::vec3(m_scale));
 
     m_drawable.matrices.modelview = m_camera->view_matrix() * model_transform;
     m_drawable.matrices.projection = m_camera->projection_matrix();
@@ -241,15 +374,16 @@ void SimpleRayTracing::update(double time_delta)
 
     ray_asset.command_buffer.begin();
 
-    // update top-level structure
+    // keep-alive workaround
     auto tmp = ray_asset.acceleration_asset;
-    ray_asset.acceleration_asset = m_ray_builder.create_toplevel(ray_asset.command_buffer.handle(),
-                                                                 ray_asset.acceleration_asset.structure);
+
+    // update top-level structure
+    ray_asset.acceleration_asset = m_ray_builder.create_toplevel(ray_asset.command_buffer.handle());
+
+    update_trace_descriptors();
 
     // transition storage image
     m_storage_image->transition_layout(VK_IMAGE_LAYOUT_GENERAL, ray_asset.command_buffer.handle());
-
-    update_trace_descriptors();
 
     // tada
     m_ray_tracer.trace_rays(ray_asset.tracable, ray_asset.command_buffer.handle());
