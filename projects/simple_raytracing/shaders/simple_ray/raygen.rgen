@@ -12,6 +12,11 @@ layout(binding = 2, set = 0) uniform CameraProperties
     mat4 projInverse;
 } cam;
 
+layout(push_constant) uniform PushConstants
+{
+    push_constants_t push_constants;
+};
+
 layout(location = 0) rayPayloadEXT hit_record_t hit_record;
 
 //! random number generation using pcg32i_random_t, using inc = 1. Our random state is a uint.
@@ -48,7 +53,7 @@ vec3 rng_lambert(vec3 normal, inout uint rngState)
 vec3 trace(vec2 coord, vec2 size)
 {
     // State of the random number generator.
-    uint rngState = uint(size.x * coord.y + coord.x);// Initial seed
+    uint rngState = uint(push_constants.time * size.x * coord.y + coord.x);// Initial seed
 
     // The sum of the colors of all of the samples.
     vec3 sample_sum = vec3(0.0);
@@ -78,7 +83,7 @@ vec3 trace(vec2 coord, vec2 size)
         float tmin = 0.0001;
         float tmax = 10000.0;
 
-        const uint max_num_bounces = 6;
+        const uint max_num_bounces = 4;
 
         // models light absorbtion through materials
         vec3 accumulated_color = vec3(1);
@@ -100,7 +105,7 @@ vec3 trace(vec2 coord, vec2 size)
             hit_record.normal = faceforward(hit_record.normal, direction, hit_record.normal);
 
             // offset position it slightly along the normal
-            origin = hit_record.position + hit_record.normal;
+            origin = hit_record.position + 0.0001 * hit_record.normal;
 
             // scatter ray direction
             direction = rng_lambert(hit_record.normal, rngState);

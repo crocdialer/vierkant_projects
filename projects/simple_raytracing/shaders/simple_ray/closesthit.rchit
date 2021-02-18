@@ -104,5 +104,5 @@ void main()
     hit_record.intersection = true;
     hit_record.position = v.position;
     hit_record.normal = v.normal;
-    hit_record.color = v.color.rgb * material.color.rgb;
+    hit_record.color = v.color.rgb * material.color.rgb + material.emission.rgb;
 }

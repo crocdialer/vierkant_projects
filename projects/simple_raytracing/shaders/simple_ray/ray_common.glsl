@@ -13,3 +13,8 @@ struct hit_record_t
     // material color
     vec3 color;
 };
+
+struct push_constants_t
+{
+    float time;
+};
