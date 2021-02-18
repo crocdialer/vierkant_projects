@@ -189,6 +189,27 @@ void SimpleRayTracing::create_context_and_window()
     m_camera->set_position(glm::vec3(0.f, 1.f, 2.f));
 
     m_camera->set_look_at(glm::vec3(0.f));
+
+    // create arcball
+    m_arcball = vk::Arcball(m_window->size());
+
+    // attach arcball mouse delegate
+    auto arcball_delegeate = m_arcball.mouse_delegate();
+    arcball_delegeate.enabled = [this]()
+    {
+        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
+    };
+    m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
+
+    vierkant::mouse_delegate_t simple_mouse = {};
+    simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
+    {
+        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
+        {
+            m_arcball.distance = std::max(.1f, m_arcball.distance - e.wheel_increment().y);
+        }
+    };
+    m_window->mouse_delegates["simple_mouse"] = simple_mouse;
 }
 
 void SimpleRayTracing::create_graphics_pipeline()
@@ -327,13 +348,11 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
     }
     else{ m_mesh = load_mesh(path); }
 
+    // create a scaling matrix to normalize mesh-sizes
     vierkant::AABB aabb;
     for(const auto &entry : m_mesh->entries){ aabb += entry.boundingbox.transform(entry.transform); }
-    m_scale = 1.f / glm::length(aabb.half_extents());
-
-    m_drawable = vk::Renderer::create_drawables(m_mesh).front();
-    m_drawable.pipeline_format.shader_stages = vierkant::create_shader_stages(m_device,
-                                                                              vierkant::ShaderType::UNLIT_COLOR);
+    auto scale = 1.f / glm::length(aabb.half_extents());
+    m_model_transform = glm::scale(glm::mat4(1), glm::vec3(scale));
 
     // add the mesh, creating an acceleration-structure for it
     m_ray_builder = vierkant::RayBuilder(m_device);
@@ -358,14 +377,12 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
 
 void SimpleRayTracing::update(double time_delta)
 {
-    auto model_transform = glm::scale(glm::rotate(glm::mat4(1), static_cast<float >(application_time()), glm::vec3(0, 1, 0)), glm::vec3(m_scale));
-
-    m_drawable.matrices.modelview = m_camera->view_matrix() * model_transform;
-    m_drawable.matrices.projection = m_camera->projection_matrix();
+    // update camera with arcball
+    m_camera->set_global_transform(m_arcball.transform());
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
-    m_ray_builder.add_mesh(m_mesh, model_transform);
+    m_ray_builder.add_mesh(m_mesh, m_model_transform);
 
     // similar to a fence wait
     ray_asset.semaphore.wait(RENDER_FINISHED);
@@ -429,7 +446,12 @@ std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w
     auto render_mesh = [this, &framebuffer]() -> VkCommandBuffer
     {
         if(m_show_ray_tracer){ m_draw_context.draw_image_fullscreen(m_renderer, m_storage_image); }
-        else{ m_renderer.stage_drawable(m_drawable); }
+        else
+        {
+            m_draw_context.draw_mesh(m_renderer, m_mesh, m_camera->view_matrix() * m_model_transform,
+                                     m_camera->projection_matrix(),
+                                     vierkant::ShaderType::UNLIT_COLOR);
+        }
         return m_renderer.render(framebuffer);
     };
 

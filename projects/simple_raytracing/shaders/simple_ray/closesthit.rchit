@@ -2,11 +2,17 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "ray_common.glsl"
 
 const uint MAX_NUM_ENTRIES = 1024;
 
 struct entry_t
 {
+    mat4 modelview;
+    mat4 normal_matrix;
+
     // per mesh
     uint buffer_index;
     uint material_index;
@@ -50,7 +56,7 @@ layout(binding = 6, set = 0) uniform Materials
 };
 
 // the ray-payload written here
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
+layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
 
 // builtin barycentric coords
 hitAttributeEXT vec2 attribs;
@@ -80,6 +86,11 @@ Vertex interpolate_vertex()
     out_vert.normal = v0.normal * triangle_coords.x + v1.normal * triangle_coords.y + v2.normal * triangle_coords.z;
     out_vert.tangent = v0.tangent * triangle_coords.x + v1.tangent * triangle_coords.y + v2.tangent * triangle_coords.z;
 
+    // bring surfel into worldspace
+    out_vert.position = (entry.modelview * vec4(out_vert.position, 1.0)).xyz;
+    out_vert.normal = (entry.normal_matrix * vec4(out_vert.normal, 1.0)).xyz;
+    out_vert.tangent = (entry.normal_matrix * vec4(out_vert.tangent, 1.0)).xyz;
+
     return out_vert;
 }
 
@@ -88,6 +99,10 @@ void main()
 //    vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     Vertex v = interpolate_vertex();
 
-    material_t materials = materials[entries[gl_InstanceCustomIndexEXT].material_index];
-    hitValue = v.color.rgb * materials.color.rgb;
+    material_t material = materials[entries[gl_InstanceCustomIndexEXT].material_index];
+
+    hit_record.intersection = true;
+    hit_record.position = v.position;
+    hit_record.normal = v.normal;
+    hit_record.color = v.color.rgb * material.color.rgb;
 }

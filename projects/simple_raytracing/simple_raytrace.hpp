@@ -91,9 +91,6 @@ private:
 
     vk::MeshPtr m_mesh;
 
-    // drawable and renderer
-    vk::Renderer::drawable_t m_drawable;
-
     vk::Renderer m_renderer, m_gui_renderer;
 
     // gui context
@@ -116,7 +113,10 @@ private:
 
     vierkant::ImagePtr m_storage_image;
 
-    float m_scale = 1.f;
+//    float m_scale = 1.f;
+    glm::mat4 m_model_transform;
+
+    vk::Arcball m_arcball;
 };
 
 int main(int argc, char *argv[])
