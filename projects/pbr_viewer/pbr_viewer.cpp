@@ -192,14 +192,11 @@ void PBRViewer::create_ui()
     };
     m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
 
+    // update camera with arcball
+    m_arcball.transform_cb = [this](const glm::mat4 &transform){ m_camera->set_global_transform(transform); };
+    m_camera->set_global_transform(m_arcball.transform());
+
     vierkant::mouse_delegate_t simple_mouse = {};
-    simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
-    {
-        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
-        {
-            m_arcball.distance = std::max(.1f, m_arcball.distance - e.wheel_increment().y);
-        }
-    };
     simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
     {
         if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
@@ -571,9 +568,6 @@ void PBRViewer::load_environment(const std::string &path)
 
 void PBRViewer::update(double time_delta)
 {
-    // update camera with arcball
-    m_camera->set_global_transform(m_arcball.transform());
-
     // update animated objects in the scene
     m_scene->update(time_delta);
 

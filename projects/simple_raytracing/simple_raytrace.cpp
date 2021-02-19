@@ -201,15 +201,16 @@ void SimpleRayTracing::create_context_and_window()
     };
     m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
 
-    vierkant::mouse_delegate_t simple_mouse = {};
-    simple_mouse.mouse_wheel = [this](const vierkant::MouseEvent &e)
+    m_arcball.transform_cb = [this](const glm::mat4 &transform)
     {
-        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
-        {
-            m_arcball.distance = std::max(.1f, m_arcball.distance - e.wheel_increment().y);
-        }
+        // update camera with arcball
+        m_camera->set_global_transform(transform);
+
+        // reset ray-batch
+        auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
+        ray_asset.tracable.batch_index = 0;
     };
-    m_window->mouse_delegates["simple_mouse"] = simple_mouse;
+    m_camera->set_global_transform(m_arcball.transform());
 }
 
 void SimpleRayTracing::create_graphics_pipeline()
@@ -377,8 +378,8 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
 
 void SimpleRayTracing::update(double time_delta)
 {
-    // update camera with arcball
-    m_camera->set_global_transform(m_arcball.transform());
+//    // update camera with arcball
+//    m_camera->set_global_transform(m_arcball.transform());
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
@@ -404,6 +405,7 @@ void SimpleRayTracing::update(double time_delta)
 
     // tada
     m_ray_tracer.trace_rays(ray_asset.tracable, ray_asset.command_buffer.handle());
+    ray_asset.tracable.batch_index++;
 
     // transition storage image
     m_storage_image->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ray_asset.command_buffer.handle());

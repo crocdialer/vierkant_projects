@@ -19,47 +19,20 @@ layout(push_constant) uniform PushConstants
 
 layout(location = 0) rayPayloadEXT hit_record_t hit_record;
 
-//! random number generation using pcg32i_random_t, using inc = 1. Our random state is a uint.
-uint step_RNG(uint rngState)
-{
-    return rngState * 747796405 + 1;
-}
-
-//! steps the RNG and returns a floating-point value between 0 and 1 inclusive.
-float rng_float(inout uint rngState)
-{
-    // condensed version of pcg_output_rxs_m_xs_32_32, with simple conversion to floating-point [0,1].
-    rngState  = step_RNG(rngState);
-    uint word = ((rngState >> ((rngState >> 28) + 4)) ^ rngState) * 277803737;
-    word      = (word >> 22) ^ word;
-    return float(word) / 4294967295.0f;
-}
-
-//! random point on a unit-sphere, centered at the normal
-vec3 rng_lambert(vec3 normal, inout uint rngState)
-{
-    // [0, 2pi]
-    const float theta = 6.2831853 * rng_float(rngState);
-
-    // [-1, 1]
-    const float u = 2.0 * rng_float(rngState) - 1.0;
-
-    const float r = sqrt(1.0 - u * u);
-    vec3 dir = normal + vec3(r * cos(theta), r * sin(theta), u);
-
-    return normalize(dir);
-}
-
 vec3 trace(vec2 coord, vec2 size)
 {
     // State of the random number generator.
-    uint rngState = uint(push_constants.time * size.x * coord.y + coord.x);// Initial seed
+    uint rngState = uint(push_constants.batch_index + push_constants.time * (size.x * coord.y + coord.x));
+
+    vec3 camera_position = (cam.viewInverse * vec4(0, 0, 0, 1)).xyz;
 
     // The sum of the colors of all of the samples.
     vec3 sample_sum = vec3(0.0);
 
     // Limit the kernel to trace at most 64 samples.
     const int NUM_SAMPLES = 8;
+
+    float sample_offset = rng_float(rngState);
 
     // sample random dirctions around the pixel's center
     //           1
@@ -71,19 +44,22 @@ vec3 trace(vec2 coord, vec2 size)
     //          -1
     for (int sampleIdx = 0; sampleIdx < NUM_SAMPLES; sampleIdx++)
     {
-        const vec2 randomPixelCenter = coord + vec2(rng_float(rngState), rng_float(rngState));
+//        const vec2 randomPixelCenter = coord + vec2(rng_float(rngState), rng_float(rngState));
+
+        // random+stratified sampling
+        const vec2 randomPixelCenter = coord + fract(Hammersley(sampleIdx, NUM_SAMPLES) + vec2(sample_offset));
         const vec2 inUV = randomPixelCenter / size;
         vec2 d = inUV * 2.0 - 1.0;
 
         // ray direction:
-        vec3 origin = (cam.viewInverse * vec4(0, 0, 0, 1)).xyz;
+        vec3 origin = camera_position;
         vec3 target = (cam.projInverse * vec4(d.x, d.y, 1, 1)).xyz;
         vec3 direction = (cam.viewInverse * vec4(normalize(target.xyz), 0)).xyz;
 
         float tmin = 0.0001;
         float tmax = 10000.0;
 
-        const uint max_num_bounces = 4;
+        const uint max_num_bounces = 8;
 
         // models light absorbtion through materials
         vec3 accumulated_color = vec3(1);
@@ -99,7 +75,13 @@ vec3 trace(vec2 coord, vec2 size)
             accumulated_color *= hit_record.color;
 
             // nothing hit, end recursion
-            if (!hit_record.intersection){ break; }
+            if (!hit_record.intersection)
+            {
+                // sum colors for all samples
+                sample_sum += accumulated_color;
+
+                break;
+            }
 
             // flip the normal so it points against the ray direction:
             hit_record.normal = faceforward(hit_record.normal, direction, hit_record.normal);
@@ -109,10 +91,9 @@ vec3 trace(vec2 coord, vec2 size)
 
             // scatter ray direction
             direction = rng_lambert(hit_record.normal, rngState);
+//            vec2 Xi = fract(Hammersley(i, max_num_bounces) + vec2(rng_float(rngState)));
+//            direction = ImportanceSampleCosine(Xi, hit_record.normal);
         }
-
-        // sum colors for all samples
-        sample_sum += accumulated_color;
     }
     return sample_sum / NUM_SAMPLES;
 }
@@ -120,6 +101,13 @@ vec3 trace(vec2 coord, vec2 size)
 void main()
 {
     vec3 color = trace(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy);
+
+    if(push_constants.batch_index != 0)
+    {
+        uint size = push_constants.batch_index;
+
+        color = (size * imageLoad(image, ivec2(gl_LaunchIDEXT.xy)).rgb + color) / (size + 1);
+    }
 
     imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
 }

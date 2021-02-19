@@ -101,8 +101,8 @@ void main()
 
     material_t material = materials[entries[gl_InstanceCustomIndexEXT].material_index];
 
-    hit_record.intersection = true;
+    hit_record.intersection = !any(greaterThan(material.emission.rgb, vec3(0.0)));
     hit_record.position = v.position;
     hit_record.normal = v.normal;
-    hit_record.color = v.color.rgb * material.color.rgb + material.emission.rgb;
+    hit_record.color = mix(v.color.rgb * material.color.rgb, material.emission.rgb, float(!hit_record.intersection));
 }
