@@ -19,5 +19,5 @@ vec3 sky_color(vec3 direction)
 void main()
 {
     hit_record.intersection = false;
-    hit_record.color = sky_color(gl_WorldRayDirectionEXT);//vec3(0.0, 0.0, 0.2);
+    hit_record.color = sky_color(gl_WorldRayDirectionEXT);
 }

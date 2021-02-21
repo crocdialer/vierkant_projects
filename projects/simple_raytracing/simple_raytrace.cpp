@@ -3,6 +3,7 @@
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/assimp.hpp>
 #include <vierkant/MeshNode.hpp>
+#include <vierkant/cubemap_utils.hpp>
 
 #include "vierkant_projects/simple_raytracing_shaders.hpp"
 #include "simple_raytrace.hpp"
@@ -179,6 +180,10 @@ void SimpleRayTracing::create_context_and_window()
         {
             case crocore::filesystem::FileType::MODEL:
                 load_model(f);
+                break;
+
+            case crocore::filesystem::FileType::IMAGE:
+                load_environment(f);
                 break;
 
             default:
@@ -371,19 +376,26 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
     m_ray_builder = vierkant::RayBuilder(m_device);
     m_ray_builder.add_mesh(m_mesh);
 
-    // raygen
-    m_tracable.pipeline_info.shader_stages = {{VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-                                                      vierkant::create_shader_module(m_device,
-                                                                                     vierkant::shaders::simple_ray::raygen_rgen)},
-            // miss
-                                              {VK_SHADER_STAGE_MISS_BIT_KHR,
-                                                      vierkant::create_shader_module(m_device,
-                                                                                     vierkant::shaders::simple_ray::miss_rmiss)},
+    auto raygen = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::raygen_rgen);
+    auto ray_closest_hit = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::closesthit_rchit);
 
-            // closest hit
-                                              {VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-                                                      vierkant::create_shader_module(m_device,
-                                                                                     vierkant::shaders::simple_ray::closesthit_rchit)}};
+    vierkant::ShaderModulePtr ray_miss;
+
+    if(m_scene->environment())
+    {
+        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_environment_rmiss);
+    }
+    else
+    {
+        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_rmiss);
+    }
+
+
+    m_tracable.pipeline_info.shader_stages = {{VK_SHADER_STAGE_RAYGEN_BIT_KHR,      raygen},
+                                              {VK_SHADER_STAGE_MISS_BIT_KHR,        ray_miss},
+                                              {VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, ray_closest_hit}};
+
+    for(auto &ray_asset : m_ray_assets){ ray_asset.tracable.descriptor_set_layout = nullptr; }
 
     update_trace_descriptors();
 }
@@ -545,10 +557,81 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_materials.buffers = {ray_asset.acceleration_asset.material_buffer};
     ray_asset.tracable.descriptors[6] = desc_materials;
 
+    if(m_scene->environment())
+    {
+        vierkant::descriptor_t desc_environment = {};
+        desc_environment.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        desc_environment.stage_flags = VK_SHADER_STAGE_MISS_BIT_KHR;
+        desc_environment.image_samplers = {m_scene->environment()};
+        ray_asset.tracable.descriptors[7] = desc_environment;
+    }
+
     if(!ray_asset.tracable.descriptor_set_layout)
     {
         ray_asset.tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device,
                                                                                           ray_asset.tracable.descriptors);
     }
     ray_asset.tracable.pipeline_info.descriptor_set_layouts = {ray_asset.tracable.descriptor_set_layout.get()};
+}
+
+void SimpleRayTracing::load_environment(const std::filesystem::path &path)
+{
+    auto load_task = [&, path]()
+    {
+        auto start_time = std::chrono::steady_clock::now();
+
+        auto img = crocore::create_image_from_file(path, 4);
+
+        vierkant::ImagePtr panorama, skybox;
+
+        if(img)
+        {
+            bool use_float = (img->num_bytes() /
+                              (img->width() * img->height() * img->num_components())) > 1;
+
+            // command pool for background transfer
+            auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
+                                                              VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            // some "specific" queue lol
+            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+
+            {
+                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+                cmd_buf.begin();
+
+                vk::Image::Format fmt = {};
+                fmt.extent = {img->width(), img->height(), 1};
+                fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+                fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
+                fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                fmt.initial_cmd_buffer = cmd_buf.handle();
+                panorama = vk::Image::create(m_device, nullptr, fmt);
+
+                auto buf = vierkant::Buffer::create(m_device, img->data(), img->num_bytes(),
+                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+                // copy and layout transition
+                panorama->copy_from(buf, cmd_buf.handle());
+                panorama->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
+
+                // submit and sync
+                cmd_buf.submit(queue, true);
+
+                // derive sane resolution for cube from panorama-width
+                float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
+                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, queue, true);
+            }
+        }
+
+        main_queue().post([this, path, skybox, start_time]()
+                          {
+                              m_scene->set_enironment(skybox);
+                              load_model();
+
+                              using double_second = std::chrono::duration<double>;
+                              auto dur = double_second(std::chrono::steady_clock::now() - start_time);
+                              LOG_DEBUG << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(), dur.count());
+                          });
+    };
+    background_queue().post(load_task);
 }

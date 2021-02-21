@@ -72,6 +72,8 @@ private:
 
     void load_model(const std::filesystem::path &path = "");
 
+    void load_environment(const std::filesystem::path &path);
+
     void update_trace_descriptors();
 
     bool m_use_msaa = false;
