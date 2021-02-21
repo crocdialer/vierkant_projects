@@ -28,6 +28,7 @@ struct material_t
     vec4 emission;
     float metalness;
     float roughness;
+    uint texture_index;
 };
 
 struct Vertex
@@ -54,6 +55,8 @@ layout(binding = 6, set = 0) uniform Materials
 {
     material_t materials[MAX_NUM_ENTRIES];
 };
+
+layout(binding = 7) uniform sampler2D u_sampler_2D[];
 
 // the ray-payload written here
 layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
@@ -104,5 +107,7 @@ void main()
     hit_record.intersection = !any(greaterThan(material.emission.rgb, vec3(0.0)));
     hit_record.position = v.position;
     hit_record.normal = v.normal;
-    hit_record.color = mix(v.color.rgb * material.color.rgb, material.emission.rgb, float(!hit_record.intersection));
+
+    vec3 color = material.color.rgb * texture(u_sampler_2D[material.texture_index], v.tex_coord).rgb;
+    hit_record.color = mix(color, material.emission.rgb, float(!hit_record.intersection));
 }

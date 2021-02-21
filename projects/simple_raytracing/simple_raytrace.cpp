@@ -406,6 +406,11 @@ void SimpleRayTracing::update(double time_delta)
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
+    if(m_mesh && !m_mesh->node_animations.empty() && m_mesh->node_animations[m_mesh->animation_index].playing)
+    {
+        ray_asset.tracable.batch_index = 0;
+    }
+
     m_ray_builder.add_mesh(m_mesh_node->mesh, m_mesh_node->transform());
 
     // similar to a fence wait
@@ -504,6 +509,7 @@ void SimpleRayTracing::update_trace_descriptors()
 
     ray_asset.tracable.pipeline_info = m_tracable.pipeline_info;
     ray_asset.tracable.extent = m_storage_image->extent();
+    ray_asset.acceleration_asset.textures.resize(256);
 
     // descriptors
     vierkant::descriptor_t desc_acceleration_structure = {};
@@ -557,13 +563,19 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_materials.buffers = {ray_asset.acceleration_asset.material_buffer};
     ray_asset.tracable.descriptors[6] = desc_materials;
 
+    vierkant::descriptor_t desc_textures = {};
+    desc_textures.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    desc_textures.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    desc_textures.image_samplers = ray_asset.acceleration_asset.textures;
+    ray_asset.tracable.descriptors[7] = desc_textures;
+
     if(m_scene->environment())
     {
         vierkant::descriptor_t desc_environment = {};
         desc_environment.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         desc_environment.stage_flags = VK_SHADER_STAGE_MISS_BIT_KHR;
         desc_environment.image_samplers = {m_scene->environment()};
-        ray_asset.tracable.descriptors[7] = desc_environment;
+        ray_asset.tracable.descriptors[8] = desc_environment;
     }
 
     if(!ray_asset.tracable.descriptor_set_layout)

@@ -4,7 +4,7 @@
 
 #include "ray_common.glsl"
 
-layout(binding = 7) uniform samplerCube u_sampler_cube;
+layout(binding = 8) uniform samplerCube u_sampler_cube;
 
 layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
 
