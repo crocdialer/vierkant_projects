@@ -160,6 +160,9 @@ void SimpleRayTracing::create_context_and_window()
         vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
     };
 
+    // scenegraph window
+    m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
+
     m_draw_context = vierkant::DrawContext(m_device);
 
     // attach gui input-delegates to window
@@ -329,6 +332,9 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
             {
                 material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img);
             }
+
+            // raytrace hack
+            material->color = glm::vec4(glm::min(material->color.rgb(), glm::vec3(.9)), 1.0);
         }
 
         // submit transfer and sync
@@ -349,11 +355,17 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
     }
     else{ m_mesh = load_mesh(path); }
 
+    m_mesh_node = vierkant::MeshNode::create(m_mesh);
+    m_scene->clear();
+    m_scene->add_object(m_mesh_node);
+
     // create a scaling matrix to normalize mesh-sizes
     vierkant::AABB aabb;
     for(const auto &entry : m_mesh->entries){ aabb += entry.boundingbox.transform(entry.transform); }
     auto scale = 1.f / glm::length(aabb.half_extents());
     m_model_transform = glm::scale(glm::mat4(1), glm::vec3(scale));
+
+    m_mesh_node->set_transform(m_model_transform);
 
     // add the mesh, creating an acceleration-structure for it
     m_ray_builder = vierkant::RayBuilder(m_device);
@@ -378,12 +390,11 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
 
 void SimpleRayTracing::update(double time_delta)
 {
-//    // update camera with arcball
-//    m_camera->set_global_transform(m_arcball.transform());
+    m_scene->update(time_delta);
 
     auto &ray_asset = m_ray_assets[m_window->swapchain().image_index()];
 
-    m_ray_builder.add_mesh(m_mesh, m_model_transform);
+    m_ray_builder.add_mesh(m_mesh_node->mesh, m_mesh_node->transform());
 
     // similar to a fence wait
     ray_asset.semaphore.wait(RENDER_FINISHED);

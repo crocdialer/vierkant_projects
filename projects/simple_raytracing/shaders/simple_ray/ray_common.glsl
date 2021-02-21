@@ -43,6 +43,21 @@ float rng_float(inout uint rngState)
 }
 
 //! random point on a unit-sphere, centered at the normal
+vec3 rng_lambert_2(vec3 normal, float u, float v)
+{
+    // [0, 2pi]
+    const float theta = 2.0 * PI * v;
+
+    // [-1, 1]
+    u = 2.0 * u - 1.0;
+
+    const float r = sqrt(1.0 - u * u);
+    vec3 dir = normal + vec3(r * cos(theta), r * sin(theta), u);
+
+    return normalize(dir);
+}
+
+//! random point on a unit-sphere, centered at the normal
 vec3 rng_lambert(vec3 normal, inout uint rngState)
 {
     // [0, 2pi]

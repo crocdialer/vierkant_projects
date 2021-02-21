@@ -113,10 +113,13 @@ private:
 
     vierkant::ImagePtr m_storage_image;
 
-//    float m_scale = 1.f;
     glm::mat4 m_model_transform;
 
     vk::Arcball m_arcball;
+
+    vierkant::MeshNodePtr m_mesh_node;
+    std::set<vierkant::Object3DPtr> m_selected_objects;
+    vierkant::ScenePtr m_scene = vierkant::Scene::create();
 };
 
 int main(int argc, char *argv[])

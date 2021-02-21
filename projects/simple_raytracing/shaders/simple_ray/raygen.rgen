@@ -56,18 +56,16 @@ vec3 trace(vec2 coord, vec2 size)
         vec3 target = (cam.projInverse * vec4(d.x, d.y, 1, 1)).xyz;
         vec3 direction = (cam.viewInverse * vec4(normalize(target.xyz), 0)).xyz;
 
-        float tmin = 0.0001;
+        float tmin = 0;
         float tmax = 10000.0;
 
-        const uint max_num_bounces = 8;
+        const uint max_num_bounces = 4;
 
         // models light absorbtion through materials
         vec3 accumulated_color = vec3(1);
 
         for (int i = 0; i < max_num_bounces; i++)
         {
-            hit_record.intersection = false;
-
             // trace one ray
             traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, tmin, direction, tmax, 0);
 
@@ -91,7 +89,9 @@ vec3 trace(vec2 coord, vec2 size)
 
             // scatter ray direction
             direction = rng_lambert(hit_record.normal, rngState);
+
 //            vec2 Xi = fract(Hammersley(i, max_num_bounces) + vec2(rng_float(rngState)));
+//            direction = rng_lambert_2(hit_record.normal, Xi.y, Xi.x);
 //            direction = ImportanceSampleCosine(Xi, hit_record.normal);
         }
     }
@@ -105,7 +105,7 @@ void main()
     if(push_constants.batch_index != 0)
     {
         uint size = push_constants.batch_index;
-
+//        size = min(size, 10);
         color = (size * imageLoad(image, ivec2(gl_LaunchIDEXT.xy)).rgb + color) / (size + 1);
     }
 
