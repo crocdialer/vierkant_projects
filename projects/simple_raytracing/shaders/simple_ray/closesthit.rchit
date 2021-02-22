@@ -13,11 +13,11 @@ struct entry_t
     mat4 modelview;
     mat4 normal_matrix;
 
-    // per mesh
+// per mesh
     uint buffer_index;
     uint material_index;
 
-    // per entry
+// per entry
     uint base_vertex;
     uint base_index;
 };
@@ -29,6 +29,8 @@ struct material_t
     float metalness;
     float roughness;
     uint texture_index;
+    uint normalmap_index;
+    uint emission_index;
 };
 
 struct Vertex
@@ -48,7 +50,7 @@ layout(binding = 4, set = 0) readonly buffer Indices { uint i[]; } indices[];
 
 layout(binding = 5, set = 0) uniform Entries
 {
-    entry_t entries[MAX_NUM_ENTRIES];
+    entry_t u_entries[MAX_NUM_ENTRIES];
 };
 
 layout(binding = 6, set = 0) uniform Materials
@@ -56,7 +58,11 @@ layout(binding = 6, set = 0) uniform Materials
     material_t materials[MAX_NUM_ENTRIES];
 };
 
-layout(binding = 7) uniform sampler2D u_sampler_2D[];
+layout(binding = 7) uniform sampler2D u_albedos[];
+
+layout(binding = 8) uniform sampler2D u_normalmaps[];
+
+layout(binding = 9) uniform sampler2D u_emissionmaps[];
 
 // the ray-payload written here
 layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
@@ -69,7 +75,7 @@ Vertex interpolate_vertex()
     const vec3 triangle_coords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 
     // entry aka instance
-    entry_t entry = entries[gl_InstanceCustomIndexEXT];
+    entry_t entry = u_entries[gl_InstanceCustomIndexEXT];
 
     // triangle indices
     ivec3 ind = ivec3(indices[nonuniformEXT(entry.buffer_index)].i[entry.base_index + 3 * gl_PrimitiveID + 0],
@@ -99,15 +105,36 @@ Vertex interpolate_vertex()
 
 void main()
 {
-//    vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+    //    vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     Vertex v = interpolate_vertex();
 
-    material_t material = materials[entries[gl_InstanceCustomIndexEXT].material_index];
+    material_t material = materials[u_entries[gl_InstanceCustomIndexEXT].material_index];
 
-    hit_record.intersection = !any(greaterThan(material.emission.rgb, vec3(0.0)));
     hit_record.position = v.position;
     hit_record.normal = v.normal;
 
-    vec3 color = material.color.rgb * texture(u_sampler_2D[material.texture_index], v.tex_coord).rgb;
-    hit_record.color = mix(color, material.emission.rgb, float(!hit_record.intersection));
+    bool tangent_valid = any(greaterThan(abs(v.tangent), vec3(0.0)));
+
+    if (tangent_valid)
+    {
+        // sample normalmap
+        vec3 normal = normalize(2.0 * (texture(u_normalmaps[material.normalmap_index], v.tex_coord).xyz - vec3(0.5)));
+
+        // normal, tangent, bi-tangent
+        vec3 t = normalize(v.tangent);
+        vec3 n = normalize(v.normal);
+        vec3 b = normalize(cross(n, t));
+        mat3 transpose_tbn = mat3(t, b, n);
+        hit_record.normal = transpose_tbn * normal;
+    }
+
+    // max emission from material/map
+    const float emission_tex_gain = 10.0;
+    vec3 emission = max(material.emission.rgb, emission_tex_gain * texture(u_emissionmaps[material.emission_index], v.tex_coord).rgb);
+
+    //
+    hit_record.intersection = !any(greaterThan(emission, vec3(0.01)));
+
+    vec3 color = material.color.rgb * texture(u_albedos[material.texture_index], v.tex_coord).rgb;
+    hit_record.color = mix(color, emission, float(!hit_record.intersection));
 }

@@ -44,8 +44,6 @@ vec3 trace(vec2 coord, vec2 size)
     //          -1
     for (int sampleIdx = 0; sampleIdx < NUM_SAMPLES; sampleIdx++)
     {
-//        const vec2 randomPixelCenter = coord + vec2(rng_float(rngState), rng_float(rngState));
-
         // random+stratified sampling
         const vec2 randomPixelCenter = coord + fract(Hammersley(sampleIdx, NUM_SAMPLES) + vec2(sample_offset));
         const vec2 inUV = randomPixelCenter / size;
