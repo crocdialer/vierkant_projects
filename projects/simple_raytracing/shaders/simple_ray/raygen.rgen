@@ -19,6 +19,12 @@ layout(push_constant) uniform PushConstants
 
 layout(location = 0) rayPayloadEXT hit_record_t hit_record;
 
+// Schlick's fresnel approximation
+vec3 F_schlick(vec3 f0, float u)
+{
+    return f0 + (vec3(1.0) - f0) * pow(1.0 - u, 5.0);
+}
+
 vec3 trace(vec2 coord, vec2 size)
 {
     // State of the random number generator.
@@ -64,11 +70,14 @@ vec3 trace(vec2 coord, vec2 size)
 
         for (int i = 0; i < max_num_bounces; i++)
         {
+            hit_record.intersection = false;
+            hit_record.metalness = 0.0;
+
             // trace one ray
             traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, tmin, direction, tmax, 0);
-
+        
             // light absorbtion
-            accumulated_color *= hit_record.color;
+            accumulated_color *= hit_record.intersection ? hit_record.color : mix(hit_record.color, vec3(0.04), hit_record.metalness);
 
             // nothing hit, end recursion
             if (!hit_record.intersection)
@@ -82,15 +91,26 @@ vec3 trace(vec2 coord, vec2 size)
             // flip the normal so it points against the ray direction:
             hit_record.normal = faceforward(hit_record.normal, direction, hit_record.normal);
 
-            // offset position it slightly along the normal
+            // offset position along the normal
             origin = hit_record.position + 0.0001 * hit_record.normal;
 
             // scatter ray direction
-            direction = rng_lambert(hit_record.normal, rngState);
+            vec2 Xi = vec2(rng_float(rngState), rng_float(rngState));
 
-//            vec2 Xi = fract(Hammersley(i, max_num_bounces) + vec2(rng_float(rngState)));
-//            direction = rng_lambert_2(hit_record.normal, Xi.y, Xi.x);
-//            direction = ImportanceSampleCosine(Xi, hit_record.normal);
+            // diffuse reflection
+            vec3 reflect_dir_cosine = ImportanceSampleCosine(Xi, hit_record.normal);
+
+            // no diffuse rays for metal
+            float prob = rng_float(rngState) * (1.0 - hit_record.metalness) < 0.5 ? 1.0 : 0.0;
+
+            // possible half-vector from GGX distribution
+            vec3 H = ImportanceSampleGGX(Xi, hit_record.roughness, hit_record.normal);
+            vec3 reflect_dir_ggx = reflect(direction, H);
+
+            direction = mix(reflect_dir_cosine, reflect_dir_ggx, prob);
+
+            float NoL = max(dot(hit_record.normal, direction), 0.0);
+            if (NoL <= 0.0){ break; }
         }
     }
     return sample_sum / NUM_SAMPLES;
@@ -100,10 +120,10 @@ void main()
 {
     vec3 color = trace(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy);
 
-    if(push_constants.batch_index != 0)
+    if (push_constants.batch_index != 0)
     {
         uint size = push_constants.batch_index;
-//        size = min(size, 10);
+        //        size = min(size, 10);
         color = (size * imageLoad(image, ivec2(gl_LaunchIDEXT.xy)).rgb + color) / (size + 1);
     }
 

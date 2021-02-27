@@ -15,6 +15,12 @@ struct hit_record_t
 
     // material color
     vec3 color;
+
+    // material roughness
+    float roughness;
+
+    // material metalness
+    float metalness;
 };
 
 struct push_constants_t
@@ -43,28 +49,13 @@ float rng_float(inout uint rngState)
 }
 
 //! random point on a unit-sphere, centered at the normal
-vec3 rng_lambert_2(vec3 normal, float u, float v)
+vec3 rng_lambert(vec2 Xi, vec3 normal)
 {
     // [0, 2pi]
-    const float theta = 2.0 * PI * v;
+    const float theta = 2.0 * PI * Xi.y;
 
     // [-1, 1]
-    u = 2.0 * u - 1.0;
-
-    const float r = sqrt(1.0 - u * u);
-    vec3 dir = normal + vec3(r * cos(theta), r * sin(theta), u);
-
-    return normalize(dir);
-}
-
-//! random point on a unit-sphere, centered at the normal
-vec3 rng_lambert(vec3 normal, inout uint rngState)
-{
-    // [0, 2pi]
-    const float theta = 6.2831853 * rng_float(rngState);
-
-    // [-1, 1]
-    const float u = 2.0 * rng_float(rngState) - 1.0;
+    float u = 2.0 * Xi.x - 1.0;
 
     const float r = sqrt(1.0 - u * u);
     vec3 dir = normal + vec3(r * cos(theta), r * sin(theta), u);
@@ -91,4 +82,22 @@ vec3 ImportanceSampleCosine(vec2 Xi, vec3 N)
     vec3 bitangent = cross(N, tangent);
 
     return tangent * L.x + bitangent * L.y + N * L.z;
+}
+
+// Sample a half-vector in world space
+vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N)
+{
+    float a = roughness * roughness;
+
+    float phi = 2.0 * PI * Xi.x;
+    float cosTheta = sqrt(clamp((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y), 0.0, 1.0));
+    float sinTheta = sqrt(clamp(1.0 - cosTheta * cosTheta, 0.0, 1.0));
+
+    vec3 H = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+
+    vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+    vec3 tangent = normalize(cross(up, N));
+    vec3 bitangent = cross(N, tangent);
+
+    return tangent * H.x + bitangent * H.y + N * H.z;
 }

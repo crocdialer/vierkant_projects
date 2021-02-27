@@ -4,12 +4,11 @@
 
 #include "ray_common.glsl"
 
-layout(binding = 10) uniform samplerCube u_sampler_cube;
+layout(binding = 11) uniform samplerCube u_sampler_cube;
 
 layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
 
 void main()
 {
-    hit_record.intersection = false;
     hit_record.color = texture(u_sampler_cube, gl_WorldRayDirectionEXT).rgb;
 }

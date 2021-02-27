@@ -514,6 +514,7 @@ void SimpleRayTracing::update_trace_descriptors()
     ray_asset.acceleration_asset.textures.resize(max_num_maps);
     ray_asset.acceleration_asset.normalmaps.resize(max_num_maps);
     ray_asset.acceleration_asset.emissions.resize(max_num_maps);
+    ray_asset.acceleration_asset.ao_rough_metal_maps.resize(max_num_maps);
 
     // descriptors
     vierkant::descriptor_t desc_acceleration_structure = {};
@@ -585,13 +586,19 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_emissions.image_samplers = ray_asset.acceleration_asset.emissions;
     ray_asset.tracable.descriptors[9] = desc_emissions;
 
+    vierkant::descriptor_t desc_ao_rough_metal_maps = {};
+    desc_ao_rough_metal_maps.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    desc_ao_rough_metal_maps.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    desc_ao_rough_metal_maps.image_samplers = ray_asset.acceleration_asset.ao_rough_metal_maps;
+    ray_asset.tracable.descriptors[10] = desc_ao_rough_metal_maps;
+
     if(m_scene->environment())
     {
         vierkant::descriptor_t desc_environment = {};
         desc_environment.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         desc_environment.stage_flags = VK_SHADER_STAGE_MISS_BIT_KHR;
         desc_environment.image_samplers = {m_scene->environment()};
-        ray_asset.tracable.descriptors[10] = desc_environment;
+        ray_asset.tracable.descriptors[11] = desc_environment;
     }
 
     if(!ray_asset.tracable.descriptor_set_layout)

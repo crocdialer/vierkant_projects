@@ -13,11 +13,11 @@ struct entry_t
     mat4 modelview;
     mat4 normal_matrix;
 
-// per mesh
+    // per mesh
     uint buffer_index;
     uint material_index;
 
-// per entry
+    // per entry
     uint base_vertex;
     uint base_index;
 };
@@ -31,6 +31,7 @@ struct material_t
     uint texture_index;
     uint normalmap_index;
     uint emission_index;
+    uint ao_rough_metal_index;
 };
 
 struct Vertex
@@ -63,6 +64,8 @@ layout(binding = 7) uniform sampler2D u_albedos[];
 layout(binding = 8) uniform sampler2D u_normalmaps[];
 
 layout(binding = 9) uniform sampler2D u_emissionmaps[];
+
+layout(binding = 10) uniform sampler2D u_ao_rough_metal_maps[];
 
 // the ray-payload written here
 layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
@@ -132,9 +135,14 @@ void main()
     const float emission_tex_gain = 10.0;
     vec3 emission = max(material.emission.rgb, emission_tex_gain * texture(u_emissionmaps[material.emission_index], v.tex_coord).rgb);
 
-    //
+    // if we emit light, flag as non-hit to terminate light-transport
     hit_record.intersection = !any(greaterThan(emission, vec3(0.01)));
 
     vec3 color = material.color.rgb * texture(u_albedos[material.texture_index], v.tex_coord).rgb;
     hit_record.color = mix(color, emission, float(!hit_record.intersection));
+
+    // roughness / metalness
+    vec3 ao_rough_metal = texture(u_ao_rough_metal_maps[material.ao_rough_metal_index], v.tex_coord).xyz;
+    hit_record.roughness = material.roughness * ao_rough_metal.y;
+    hit_record.metalness = material.metalness * ao_rough_metal.z;
 }
