@@ -43,6 +43,11 @@ struct Vertex
     vec3 tangent;
 };
 
+layout(push_constant) uniform PushConstants
+{
+    push_constants_t push_constants;
+};
+
 // array of vertex-buffers
 layout(binding = 3, set = 0, scalar) readonly buffer Vertices { Vertex v[]; } vertices[];
 
@@ -68,11 +73,12 @@ layout(binding = 9) uniform sampler2D u_emissionmaps[];
 layout(binding = 10) uniform sampler2D u_ao_rough_metal_maps[];
 
 // the ray-payload written here
-layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
+layout(location = 0) rayPayloadInEXT payload_t payload;
 
 // builtin barycentric coords
 hitAttributeEXT vec2 attribs;
 
+// TODO: simplify code with mix
 Vertex interpolate_vertex()
 {
     const vec3 triangle_coords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
@@ -113,8 +119,8 @@ void main()
 
     material_t material = materials[u_entries[gl_InstanceCustomIndexEXT].material_index];
 
-    hit_record.position = v.position;
-    hit_record.normal = v.normal;
+    payload.position = v.position;
+    payload.normal = v.normal;
 
     bool tangent_valid = any(greaterThan(abs(v.tangent), vec3(0.0)));
 
@@ -128,21 +134,49 @@ void main()
         vec3 n = normalize(v.normal);
         vec3 b = normalize(cross(n, t));
         mat3 transpose_tbn = mat3(t, b, n);
-        hit_record.normal = transpose_tbn * normal;
+        payload.normal = transpose_tbn * normal;
     }
+
+    // flip the normal so it points against the ray direction:
+    payload.ffnormal = faceforward(payload.normal, gl_WorldRayDirectionEXT, payload.normal);
 
     // max emission from material/map
     const float emission_tex_gain = 10.0;
     vec3 emission = max(material.emission.rgb, emission_tex_gain * texture(u_emissionmaps[material.emission_index], v.tex_coord).rgb);
 
-    // if we emit light, flag as non-hit to terminate light-transport
-    hit_record.intersection = !any(greaterThan(emission, vec3(0.01)));
+    // add radiance from emission
+    payload.radiance += payload.beta * emission;
 
+    // modulate beta with albedo
     vec3 color = material.color.rgb * texture(u_albedos[material.texture_index], v.tex_coord).rgb;
-    hit_record.color = mix(color, emission, float(!hit_record.intersection));
+    payload.beta *= color;
 
     // roughness / metalness
     vec3 ao_rough_metal = texture(u_ao_rough_metal_maps[material.ao_rough_metal_index], v.tex_coord).xyz;
-    hit_record.roughness = material.roughness * ao_rough_metal.y;
-    hit_record.metalness = material.metalness * ao_rough_metal.z;
+    float roughness = material.roughness * ao_rough_metal.y;
+    float metalness = material.metalness * ao_rough_metal.z;
+
+    // generate a bounce ray
+
+    // offset position along the normal
+    payload.ray.origin = payload.position + 0.0001 * payload.ffnormal;
+
+    // scatter ray direction
+    uint rngState = uint(push_constants.batch_index + push_constants.time * (gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x));
+    vec2 Xi = vec2(rng_float(rngState), rng_float(rngState));
+
+    // no diffuse rays for metal
+    float diffuse_ratio = 0.5 * (1.0 - metalness);
+    float reflect_prob = rng_float(rngState);
+
+    if(reflect_prob < diffuse_ratio){ payload.ray.direction = ImportanceSampleCosine(Xi, payload.ffnormal); }
+    else
+    {
+        // possible half-vector from GGX distribution
+        vec3 H = ImportanceSampleGGX(Xi, roughness, payload.ffnormal);
+        payload.ray.direction = reflect(gl_WorldRayDirectionEXT, H);
+    }
+
+    float NoL = max(dot(payload.ffnormal, payload.ray.direction), 0.0);
+    if (NoL <= 0.0){ payload.stop = true; }
 }

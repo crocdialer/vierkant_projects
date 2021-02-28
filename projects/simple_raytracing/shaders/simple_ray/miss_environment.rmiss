@@ -6,9 +6,13 @@
 
 layout(binding = 11) uniform samplerCube u_sampler_cube;
 
-layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
+layout(location = 0) rayPayloadInEXT payload_t payload;
 
 void main()
 {
-    hit_record.color = texture(u_sampler_cube, gl_WorldRayDirectionEXT).rgb;
+    // stop path tracing loop from rgen shader
+    payload.stop = true;
+    payload.ffnormal = vec3(0.);
+    payload.position = vec3(0.);
+    payload.radiance += payload.beta * texture(u_sampler_cube, gl_WorldRayDirectionEXT).rgb;
 }

@@ -4,7 +4,7 @@
 
 #include "ray_common.glsl"
 
-layout(location = 0) rayPayloadInEXT hit_record_t hit_record;
+layout(location = 0) rayPayloadInEXT payload_t payload;
 
 // Returns the color of the sky in a given direction (in linear color space)
 vec3 sky_color(vec3 direction)
@@ -18,5 +18,9 @@ vec3 sky_color(vec3 direction)
 
 void main()
 {
-    hit_record.color = sky_color(gl_WorldRayDirectionEXT);
+    // stop path tracing loop from rgen shader
+    payload.stop = true;
+    payload.ffnormal = vec3(0.);
+    payload.position = vec3(0.);
+    payload.radiance += payload.beta * sky_color(gl_WorldRayDirectionEXT);
 }

@@ -1,11 +1,20 @@
 #define PI 3.1415926535897932384626433832795
 #define ONE_OVER_PI 0.31830988618379067153776752674503
 
-//! simple struct to groupt rayhit-parameters
-struct hit_record_t
+struct Ray
 {
-    // ray/object intersection
-    bool intersection;
+    vec3 origin;
+    vec3 direction;
+};
+
+//! simple struct to groupt rayhit-parameters
+struct payload_t
+{
+    // the ray that generated this payload
+    Ray ray;
+
+    // terminate path
+    bool stop;
 
     // worldspace position
     vec3 position;
@@ -13,14 +22,14 @@ struct hit_record_t
     // worldspace normal
     vec3 normal;
 
-    // material color
-    vec3 color;
+    // faceforward normal
+    vec3 ffnormal;
 
-    // material roughness
-    float roughness;
+    // accumulated radiance along a path
+    vec3 radiance;
 
-    // material metalness
-    float metalness;
+    // material absorbtion
+    vec3 beta;
 };
 
 struct push_constants_t
@@ -69,6 +78,14 @@ vec2 Hammersley(uint i, uint N)
     return vec2(float(i) / float(N), vdc);
 }
 
+mat3 local_frame(vec3 N)
+{
+    vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+    vec3 tangent = normalize(cross(N, up));
+    vec3 bitangent = cross(N, tangent);
+    return mat3(tangent, bitangent, N);
+}
+
 vec3 ImportanceSampleCosine(vec2 Xi, vec3 N)
 {
     float cosTheta = sqrt(max(1.0 - Xi.y, 0.0));
@@ -77,10 +94,11 @@ vec3 ImportanceSampleCosine(vec2 Xi, vec3 N)
 
     vec3 L = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 
+
+    // TODO: replace with local_frame
     vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
     vec3 tangent = normalize(cross(N, up));
     vec3 bitangent = cross(N, tangent);
-
     return tangent * L.x + bitangent * L.y + N * L.z;
 }
 
@@ -95,9 +113,42 @@ vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N)
 
     vec3 H = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 
+    // TODO: replace with local_frame
     vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
     vec3 tangent = normalize(cross(up, N));
     vec3 bitangent = cross(N, tangent);
-
     return tangent * H.x + bitangent * H.y + N * H.z;
 }
+
+//vec3 UE4Eval(in Material material, in vec3 bsdfDir)
+//{
+//    vec3 N = payload.ffnormal;
+//    vec3 V = -gl_WorldRayDirectionNV;
+//    vec3 L = bsdfDir;
+//    vec3 albedo = material.albedo.xyz;
+//
+//    float NDotL = dot(N, L);
+//    float NDotV = dot(N, V);
+//
+//    if (NDotL <= 0.0 || NDotV <= 0.0)
+//    return vec3(0.0);
+//
+//    vec3 H = normalize(L + V);
+//    float NDotH = dot(N, H);
+//    float LDotH = dot(L, H);
+//
+//    // Specular
+//    float specular = 0.5;
+//    vec3 specularCol = mix(vec3(1.0) * 0.08 * specular, albedo, material.metallic);
+//    float a = max(0.001, material.roughness);
+//    float D = GTR2(NDotH, a);
+//    float FH = SchlickFresnel(LDotH);
+//    vec3 F = mix(specularCol, vec3(1.0), FH);
+//    float roughg = (material.roughness * 0.5 + 0.5);
+//    roughg = roughg * roughg;
+//
+//    float G = SmithGGX(NDotL, roughg) * SmithGGX(NDotV, roughg);
+//
+//    // Diffuse + Specular components
+//    return (INV_PI * albedo) * (1.0 - material.metallic) + F * D * G;
+//}
