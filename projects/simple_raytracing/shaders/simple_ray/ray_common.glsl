@@ -1,6 +1,8 @@
 #define PI 3.1415926535897932384626433832795
 #define ONE_OVER_PI 0.31830988618379067153776752674503
 
+#define EPS 0.001
+
 struct Ray
 {
     vec3 origin;
@@ -30,6 +32,18 @@ struct payload_t
 
     // material absorbtion
     vec3 beta;
+};
+
+struct material_t
+{
+    vec4 color;
+    vec4 emission;
+    float metalness;
+    float roughness;
+    uint texture_index;
+    uint normalmap_index;
+    uint emission_index;
+    uint ao_rough_metal_index;
 };
 
 struct push_constants_t
@@ -78,12 +92,15 @@ vec2 Hammersley(uint i, uint N)
     return vec2(float(i) / float(N), vdc);
 }
 
-mat3 local_frame(vec3 N)
+/*
+ * Calculates local coordinate frame for a given normal
+ */
+mat3 localFrame(in vec3 normal)
 {
-    vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-    vec3 tangent = normalize(cross(N, up));
-    vec3 bitangent = cross(N, tangent);
-    return mat3(tangent, bitangent, N);
+    vec3 up       = abs(normal.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+    vec3 tangentX = normalize(cross(up, normal));
+    vec3 tangentY = cross(normal, tangentX);
+    return mat3(tangentX, tangentY, normal);
 }
 
 vec3 ImportanceSampleCosine(vec2 Xi, vec3 N)
@@ -120,35 +137,97 @@ vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N)
     return tangent * H.x + bitangent * H.y + N * H.z;
 }
 
-//vec3 UE4Eval(in Material material, in vec3 bsdfDir)
-//{
-//    vec3 N = payload.ffnormal;
-//    vec3 V = -gl_WorldRayDirectionNV;
-//    vec3 L = bsdfDir;
-//    vec3 albedo = material.albedo.xyz;
-//
-//    float NDotL = dot(N, L);
-//    float NDotV = dot(N, V);
-//
-//    if (NDotL <= 0.0 || NDotV <= 0.0)
-//    return vec3(0.0);
-//
-//    vec3 H = normalize(L + V);
-//    float NDotH = dot(N, H);
-//    float LDotH = dot(L, H);
-//
-//    // Specular
-//    float specular = 0.5;
-//    vec3 specularCol = mix(vec3(1.0) * 0.08 * specular, albedo, material.metallic);
-//    float a = max(0.001, material.roughness);
-//    float D = GTR2(NDotH, a);
-//    float FH = SchlickFresnel(LDotH);
-//    vec3 F = mix(specularCol, vec3(1.0), FH);
-//    float roughg = (material.roughness * 0.5 + 0.5);
-//    roughg = roughg * roughg;
-//
-//    float G = SmithGGX(NDotL, roughg) * SmithGGX(NDotV, roughg);
-//
-//    // Diffuse + Specular components
-//    return (INV_PI * albedo) * (1.0 - material.metallic) + F * D * G;
-//}
+/*
+ * Schlick's approximation of the specular reflection coefficient R
+ * (1 - cosTheta)^5
+ */
+float SchlickFresnel(float u)
+{
+    float m = clamp(1.0 - u, 0.0, 1.0);
+    return m * m * m * m * m; // power of 5
+}
+
+/*
+ * Generalized-Trowbridge-Reitz (D)
+ * Describes differential area of microfacets for the surface normal
+ */
+float GTR2(float NDotH, float a)
+{
+    float a2 = a * a;
+    float t = 1.0 + (a2 - 1.0)*NDotH*NDotH;
+    return a2 / (PI * t*t);
+}
+
+/*
+ * The masking shadowing function Smith for GGX noraml distribution (G)
+ */
+float SmithGGX(float NDotv, float alphaG)
+{
+    float a = alphaG * alphaG;
+    float b = NDotv * NDotv;
+    return 1.0 / (NDotv + sqrt(a + b - a * b));
+}
+
+/*
+ * Power heuristic often reduces variance even further for multiple importance sampling
+ * Chapter 13.10.1 of pbrbook
+ */
+float powerHeuristic(float a, float b)
+{
+    float t = a * a;
+    return t / (b * b + t);
+}
+
+vec3 UE4Eval(in vec3 L, in vec3 N, in vec3 V, in vec3 albedo,
+             float roughness, float metalness)
+{
+    float NDotL = dot(N, L);
+    float NDotV = dot(N, V);
+
+    if (NDotL <= 0.0 || NDotV <= 0.0)
+    return vec3(0.0);
+
+    vec3 H = normalize(L + V);
+    float NDotH = dot(N, H);
+    float LDotH = dot(L, H);
+
+    // Specular
+    float specular = 0.5;
+    vec3 specularCol = mix(vec3(1.0) * 0.08 * specular, albedo, metalness);
+    float a = max(0.001, roughness);
+    float D = GTR2(NDotH, a);
+    float FH = SchlickFresnel(LDotH);
+    vec3 F = mix(specularCol, vec3(1.0), FH);
+    float roughg = (roughness * 0.5 + 0.5);
+    roughg = roughg * roughg;
+
+    float G = SmithGGX(NDotL, roughg) * SmithGGX(NDotV, roughg);
+
+    // Diffuse + Specular components
+    return (ONE_OVER_PI * albedo) * (1.0 - metalness) + F * D * G;
+}
+
+/*
+ *	Based on    https://github.com/knightcrawler25/GLSL-PathTracer
+ *  UE4 SIGGAPH https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+ */
+
+float UE4Pdf(in vec3 L, in vec3 N, in vec3 V, float roughness, float metalness)
+{
+    float specularAlpha = max(0.001, roughness);
+
+    float diffuseRatio = 0.5 * (1.0 - metalness);
+    float specularRatio = 1.0 - diffuseRatio;
+
+    vec3 halfVec = normalize(L + V);
+
+    float cosTheta = abs(dot(halfVec, N));
+    float pdfGTR2 = GTR2(cosTheta, specularAlpha) * cosTheta;
+
+    // calculate diffuse and specular pdfs and mix ratio
+    float pdfSpec = pdfGTR2 / (4.0 * abs(dot(L, halfVec)));
+    float pdfDiff = abs(dot(L, N)) * ONE_OVER_PI;
+
+    // weight pdfs according to ratios
+    return diffuseRatio * pdfDiff + specularRatio * pdfSpec;
+}

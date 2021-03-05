@@ -22,18 +22,6 @@ struct entry_t
     uint base_index;
 };
 
-struct material_t
-{
-    vec4 color;
-    vec4 emission;
-    float metalness;
-    float roughness;
-    uint texture_index;
-    uint normalmap_index;
-    uint emission_index;
-    uint ao_rough_metal_index;
-};
-
 struct Vertex
 {
     vec3 position;
@@ -139,6 +127,7 @@ void main()
 
     // flip the normal so it points against the ray direction:
     payload.ffnormal = faceforward(payload.normal, gl_WorldRayDirectionEXT, payload.normal);
+//    payload.ffnormal = dot(payload.normal, gl_WorldRayDirectionEXT) <= 0.0 ? payload.normal : -payload.normal;
 
     // max emission from material/map
     const float emission_tex_gain = 10.0;
@@ -146,6 +135,12 @@ void main()
 
     // add radiance from emission
     payload.radiance += payload.beta * emission;
+
+    if(any(greaterThan(emission, vec3(0.01))))
+    {
+        payload.stop = true;
+        return;
+    }
 
     // modulate beta with albedo
     vec3 color = material.color.rgb * texture(u_albedos[material.texture_index], v.tex_coord).rgb;
@@ -176,6 +171,14 @@ void main()
         vec3 H = ImportanceSampleGGX(Xi, roughness, payload.ffnormal);
         payload.ray.direction = reflect(gl_WorldRayDirectionEXT, H);
     }
+
+//    payload.radiance += directLight(material) * payload.beta;
+//    bsdfSample.bsdfDir = UE4Sample(material);
+
+    float pdf = UE4Pdf(payload.ray.direction, payload.ffnormal, -gl_WorldRayDirectionEXT, roughness, metalness);
+    float cosTheta = abs(dot(payload.ffnormal, payload.ray.direction));
+    vec3 F = UE4Eval(payload.ray.direction, payload.ffnormal, -gl_WorldRayDirectionEXT, color, roughness, metalness);
+    payload.beta *= F * cosTheta / (pdf + EPS);
 
     float NoL = max(dot(payload.ffnormal, payload.ray.direction), 0.0);
     if (NoL <= 0.0){ payload.stop = true; }
