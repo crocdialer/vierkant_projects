@@ -239,6 +239,7 @@ void SimpleRayTracing::create_graphics_pipeline()
     // create a storage image
     vierkant::Image::Format img_format = {};
     img_format.extent = fb_extent;
+    img_format.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     img_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     img_format.initial_layout = VK_IMAGE_LAYOUT_GENERAL;
     m_storage_image = vierkant::Image::create(m_device, img_format);
@@ -322,6 +323,7 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
             material->color = mesh_assets.materials[i].diffuse;
             material->emission = mesh_assets.materials[i].emission;
             material->roughness = mesh_assets.materials[i].roughness;
+            material->metalness = mesh_assets.materials[i].metalness;
             material->blending = mesh_assets.materials[i].blending;
 
             auto color_img = mesh_assets.materials[i].img_diffuse;

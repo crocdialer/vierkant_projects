@@ -148,9 +148,9 @@ void main()
     vec3 color = material.color.rgb * texture(u_albedos[material.texture_index], v.tex_coord).rgb;
 
     // roughness / metalness
-    vec3 ao_rough_metal = texture(u_ao_rough_metal_maps[material.ao_rough_metal_index], v.tex_coord).xyz;
-    float roughness = material.roughness * ao_rough_metal.y;
-    float metalness = material.metalness * ao_rough_metal.z;
+    vec2 rough_metal = texture(u_ao_rough_metal_maps[material.ao_rough_metal_index], v.tex_coord).gb;
+    float roughness = material.roughness * rough_metal.x;
+    float metalness = material.metalness * rough_metal.y;
 
     // generate a bounce ray
 
