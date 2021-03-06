@@ -56,7 +56,7 @@ vec3 trace(vec2 coord, vec2 size)
         // next ray
         Ray ray = Ray(camera_position, direction);
 
-        float tmin = 0;
+        float tmin = 0.0001;
         float tmax = 10000.0;
 
         const uint max_depth = 4;
@@ -76,8 +76,8 @@ vec3 trace(vec2 coord, vec2 size)
             traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ray.origin, tmin, ray.direction, tmax, 0);
 
             ray = payload.ray;
-            path_radiance = payload.radiance;
             beta = payload.beta;
+            path_radiance = payload.radiance;
 
             // nothing hit, end recursion
             if (payload.stop){ break; }

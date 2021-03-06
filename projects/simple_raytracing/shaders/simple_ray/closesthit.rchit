@@ -112,6 +112,9 @@ void main()
 
     bool tangent_valid = any(greaterThan(abs(v.tangent), vec3(0.0)));
 
+    // local frame aka tbn-matrix
+    mat3 local_frame = local_frame(payload.normal);
+
     if (tangent_valid)
     {
         // sample normalmap
@@ -121,13 +124,12 @@ void main()
         vec3 t = normalize(v.tangent);
         vec3 n = normalize(v.normal);
         vec3 b = normalize(cross(n, t));
-        mat3 transpose_tbn = mat3(t, b, n);
-        payload.normal = transpose_tbn * normal;
+        local_frame = mat3(t, b, n);
+        payload.normal = local_frame * normal;
     }
 
     // flip the normal so it points against the ray direction:
-    payload.ffnormal = faceforward(payload.normal, gl_WorldRayDirectionEXT, payload.normal);
-//    payload.ffnormal = dot(payload.normal, gl_WorldRayDirectionEXT) <= 0.0 ? payload.normal : -payload.normal;
+    payload.normal = faceforward(payload.normal, gl_WorldRayDirectionEXT, payload.normal);
 
     // max emission from material/map
     const float emission_tex_gain = 10.0;
@@ -144,7 +146,6 @@ void main()
 
     // modulate beta with albedo
     vec3 color = material.color.rgb * texture(u_albedos[material.texture_index], v.tex_coord).rgb;
-    payload.beta *= color;
 
     // roughness / metalness
     vec3 ao_rough_metal = texture(u_ao_rough_metal_maps[material.ao_rough_metal_index], v.tex_coord).xyz;
@@ -154,7 +155,7 @@ void main()
     // generate a bounce ray
 
     // offset position along the normal
-    payload.ray.origin = payload.position + 0.0001 * payload.ffnormal;
+    payload.ray.origin = payload.position;// + 0.0001 * payload.normal;
 
     // scatter ray direction
     uint rngState = uint(push_constants.batch_index + push_constants.time * (gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x));
@@ -164,22 +165,23 @@ void main()
     float diffuse_ratio = 0.5 * (1.0 - metalness);
     float reflect_prob = rng_float(rngState);
 
-    if(reflect_prob < diffuse_ratio){ payload.ray.direction = ImportanceSampleCosine(Xi, payload.ffnormal); }
+    if(reflect_prob < diffuse_ratio){ payload.ray.direction = local_frame * ImportanceSampleCosine(Xi); }
     else
     {
         // possible half-vector from GGX distribution
-        vec3 H = ImportanceSampleGGX(Xi, roughness, payload.ffnormal);
+        vec3 H = local_frame * ImportanceSampleGGX(Xi, roughness);
         payload.ray.direction = reflect(gl_WorldRayDirectionEXT, H);
     }
 
+    // TODO: decide on recursion here
 //    payload.radiance += directLight(material) * payload.beta;
-//    bsdfSample.bsdfDir = UE4Sample(material);
 
-    float pdf = UE4Pdf(payload.ray.direction, payload.ffnormal, -gl_WorldRayDirectionEXT, roughness, metalness);
-    float cosTheta = abs(dot(payload.ffnormal, payload.ray.direction));
-    vec3 F = UE4Eval(payload.ray.direction, payload.ffnormal, -gl_WorldRayDirectionEXT, color, roughness, metalness);
-    payload.beta *= F * cosTheta / (pdf + EPS);
+    const float eps =  0.0;//0.001;
+    float pdf = UE4Pdf(payload.ray.direction, payload.normal, -gl_WorldRayDirectionEXT, roughness, metalness);
+    float cosTheta = abs(dot(payload.normal, payload.ray.direction));
+    vec3 F = UE4Eval(payload.ray.direction, payload.normal, -gl_WorldRayDirectionEXT, color, roughness, metalness);
+    payload.beta *= F * cosTheta / (pdf + eps);
 
-    float NoL = max(dot(payload.ffnormal, payload.ray.direction), 0.0);
-    if (NoL <= 0.0){ payload.stop = true; }
+    // check if needed
+    if (cosTheta <= 0.0){ payload.stop = true; }
 }

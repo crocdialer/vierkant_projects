@@ -20,7 +20,7 @@ void main()
 {
     // stop path tracing loop from rgen shader
     payload.stop = true;
-    payload.ffnormal = vec3(0.);
+    payload.normal = vec3(0.);
     payload.position = vec3(0.);
     payload.radiance += payload.beta * sky_color(gl_WorldRayDirectionEXT);
 }

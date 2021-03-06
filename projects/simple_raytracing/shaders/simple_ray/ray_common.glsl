@@ -24,8 +24,8 @@ struct payload_t
     // worldspace normal
     vec3 normal;
 
-    // faceforward normal
-    vec3 ffnormal;
+//    // faceforward normal
+//    vec3 ffnormal;
 
     // accumulated radiance along a path
     vec3 radiance;
@@ -95,32 +95,26 @@ vec2 Hammersley(uint i, uint N)
 /*
  * Calculates local coordinate frame for a given normal
  */
-mat3 localFrame(in vec3 normal)
+mat3 local_frame(in vec3 normal)
 {
-    vec3 up       = abs(normal.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-    vec3 tangentX = normalize(cross(up, normal));
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+    vec3 tangentX = normalize(cross(normal, up));
     vec3 tangentY = cross(normal, tangentX);
     return mat3(tangentX, tangentY, normal);
 }
 
-vec3 ImportanceSampleCosine(vec2 Xi, vec3 N)
+vec3 ImportanceSampleCosine(vec2 Xi)
 {
     float cosTheta = sqrt(max(1.0 - Xi.y, 0.0));
     float sinTheta = sqrt(max(1.0 - cosTheta * cosTheta, 0.0));
     float phi = 2.0 * PI * Xi.x;
 
-    vec3 L = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
-
-
-    // TODO: replace with local_frame
-    vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-    vec3 tangent = normalize(cross(N, up));
-    vec3 bitangent = cross(N, tangent);
-    return tangent * L.x + bitangent * L.y + N * L.z;
+    // L
+    return vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 }
 
 // Sample a half-vector in world space
-vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N)
+vec3 ImportanceSampleGGX(vec2 Xi, float roughness)
 {
     float a = roughness * roughness;
 
@@ -128,13 +122,8 @@ vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N)
     float cosTheta = sqrt(clamp((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y), 0.0, 1.0));
     float sinTheta = sqrt(clamp(1.0 - cosTheta * cosTheta, 0.0, 1.0));
 
-    vec3 H = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
-
-    // TODO: replace with local_frame
-    vec3 up = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-    vec3 tangent = normalize(cross(up, N));
-    vec3 bitangent = cross(N, tangent);
-    return tangent * H.x + bitangent * H.y + N * H.z;
+    // H
+    return vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 }
 
 /*
@@ -192,8 +181,7 @@ vec3 UE4Eval(in vec3 L, in vec3 N, in vec3 V, in vec3 albedo,
     float LDotH = dot(L, H);
 
     // Specular
-    float specular = 0.5;
-    vec3 specularCol = mix(vec3(1.0) * 0.08 * specular, albedo, metalness);
+    vec3 specularCol = mix(vec3(0.04), albedo, metalness);
     float a = max(0.001, roughness);
     float D = GTR2(NDotH, a);
     float FH = SchlickFresnel(LDotH);
