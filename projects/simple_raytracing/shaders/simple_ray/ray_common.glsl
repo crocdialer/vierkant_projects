@@ -21,11 +21,8 @@ struct payload_t
     // worldspace position
     vec3 position;
 
-    // worldspace normal
+    // faceforward, worldspace normal
     vec3 normal;
-
-//    // faceforward normal
-//    vec3 ffnormal;
 
     // accumulated radiance along a path
     vec3 radiance;
@@ -72,7 +69,7 @@ float rng_float(inout uint rngState)
 }
 
 //! random point on a unit-sphere, centered at the normal
-vec3 rng_lambert(vec2 Xi, vec3 normal)
+vec3 sample_unit_sphere(vec2 Xi, vec3 normal)
 {
     // [0, 2pi]
     const float theta = 2.0 * PI * Xi.y;
@@ -81,9 +78,7 @@ vec3 rng_lambert(vec2 Xi, vec3 normal)
     float u = 2.0 * Xi.x - 1.0;
 
     const float r = sqrt(1.0 - u * u);
-    vec3 dir = normal + vec3(r * cos(theta), r * sin(theta), u);
-
-    return normalize(dir);
+    return vec3(r * cos(theta), r * sin(theta), u);
 }
 
 vec2 Hammersley(uint i, uint N)
@@ -103,7 +98,7 @@ mat3 local_frame(in vec3 normal)
     return mat3(tangentX, tangentY, normal);
 }
 
-vec3 ImportanceSampleCosine(vec2 Xi)
+vec3 sample_cosine(vec2 Xi)
 {
     float cosTheta = sqrt(max(1.0 - Xi.y, 0.0));
     float sinTheta = sqrt(max(1.0 - cosTheta * cosTheta, 0.0));
@@ -114,7 +109,7 @@ vec3 ImportanceSampleCosine(vec2 Xi)
 }
 
 // Sample a half-vector in world space
-vec3 ImportanceSampleGGX(vec2 Xi, float roughness)
+vec3 sample_GGX(vec2 Xi, float roughness)
 {
     float a = roughness * roughness;
 

@@ -74,6 +74,8 @@ private:
 
     void load_environment(const std::filesystem::path &path);
 
+    void load_shader_stages();
+
     void update_trace_descriptors();
 
     bool m_use_msaa = false;

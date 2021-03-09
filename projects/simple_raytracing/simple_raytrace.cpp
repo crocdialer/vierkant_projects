@@ -378,28 +378,9 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
     m_ray_builder = vierkant::RayBuilder(m_device);
     m_ray_builder.add_mesh(m_mesh);
 
-    auto raygen = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::raygen_rgen);
-    auto ray_closest_hit = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::closesthit_rchit);
+    load_shader_stages();
 
-    vierkant::ShaderModulePtr ray_miss;
-
-    if(m_scene->environment())
-    {
-        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_environment_rmiss);
-    }
-    else
-    {
-        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_rmiss);
-    }
-
-
-    m_tracable.pipeline_info.shader_stages = {{VK_SHADER_STAGE_RAYGEN_BIT_KHR,      raygen},
-                                              {VK_SHADER_STAGE_MISS_BIT_KHR,        ray_miss},
-                                              {VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, ray_closest_hit}};
-
-    for(auto &ray_asset : m_ray_assets){ ray_asset.tracable.descriptor_set_layout = nullptr; }
-
-    update_trace_descriptors();
+//    update_trace_descriptors();
 }
 
 void SimpleRayTracing::update(double time_delta)
@@ -594,14 +575,11 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_ao_rough_metal_maps.image_samplers = ray_asset.acceleration_asset.ao_rough_metal_maps;
     ray_asset.tracable.descriptors[10] = desc_ao_rough_metal_maps;
 
-    if(m_scene->environment())
-    {
-        vierkant::descriptor_t desc_environment = {};
-        desc_environment.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        desc_environment.stage_flags = VK_SHADER_STAGE_MISS_BIT_KHR;
-        desc_environment.image_samplers = {m_scene->environment()};
-        ray_asset.tracable.descriptors[11] = desc_environment;
-    }
+    vierkant::descriptor_t desc_environment = {};
+    desc_environment.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    desc_environment.stage_flags = VK_SHADER_STAGE_MISS_BIT_KHR;
+    desc_environment.image_samplers = {m_scene->environment()};
+    ray_asset.tracable.descriptors[11] = desc_environment;
 
     if(!ray_asset.tracable.descriptor_set_layout)
     {
@@ -663,7 +641,7 @@ void SimpleRayTracing::load_environment(const std::filesystem::path &path)
         main_queue().post([this, path, skybox, start_time]()
                           {
                               m_scene->set_enironment(skybox);
-                              load_model();
+                              load_shader_stages();
 
                               using double_second = std::chrono::duration<double>;
                               auto dur = double_second(std::chrono::steady_clock::now() - start_time);
@@ -671,4 +649,34 @@ void SimpleRayTracing::load_environment(const std::filesystem::path &path)
                           });
     };
     background_queue().post(load_task);
+}
+
+void SimpleRayTracing::load_shader_stages()
+{
+    auto raygen = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::raygen_rgen);
+    auto ray_closest_hit = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::closesthit_rchit);
+
+    vierkant::ShaderModulePtr ray_miss;
+
+    if(m_scene->environment())
+    {
+        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_environment_rmiss);
+    }
+    else
+    {
+        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_rmiss);
+    }
+
+
+    m_tracable.pipeline_info.shader_stages = {{VK_SHADER_STAGE_RAYGEN_BIT_KHR,      raygen},
+                                              {VK_SHADER_STAGE_MISS_BIT_KHR,        ray_miss},
+                                              {VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, ray_closest_hit}};
+
+    for(auto &ray_asset : m_ray_assets)
+    {
+        ray_asset.tracable.descriptor_set_layout = nullptr;
+        ray_asset.tracable.batch_index = 0;
+    }
+
+    m_tracable.batch_index = 0;
 }

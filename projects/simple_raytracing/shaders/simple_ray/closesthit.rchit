@@ -94,7 +94,7 @@ Vertex interpolate_vertex()
 
     // bring surfel into worldspace
     out_vert.position = (entry.modelview * vec4(out_vert.position, 1.0)).xyz;
-    out_vert.normal = (entry.normal_matrix * vec4(out_vert.normal, 1.0)).xyz;
+    out_vert.normal = normalize((entry.normal_matrix * vec4(out_vert.normal, 1.0)).xyz);
     out_vert.tangent = (entry.normal_matrix * vec4(out_vert.tangent, 1.0)).xyz;
 
     return out_vert;
@@ -113,18 +113,19 @@ void main()
     bool tangent_valid = any(greaterThan(abs(v.tangent), vec3(0.0)));
 
     // local frame aka tbn-matrix
-    mat3 local_frame = local_frame(payload.normal);
+    mat3 local_frame = local_frame(v.normal);
 
     if (tangent_valid)
     {
+        // normalize after checking for validity
+        v.tangent = normalize(v.tangent);
+
         // sample normalmap
         vec3 normal = normalize(2.0 * (texture(u_normalmaps[material.normalmap_index], v.tex_coord).xyz - vec3(0.5)));
 
         // normal, tangent, bi-tangent
-        vec3 t = normalize(v.tangent);
-        vec3 n = normalize(v.normal);
-        vec3 b = normalize(cross(n, t));
-        local_frame = mat3(t, b, n);
+        vec3 b = normalize(cross(v.normal, v.tangent));
+        local_frame = mat3(v.tangent, b, v.normal);
         payload.normal = local_frame * normal;
     }
 
@@ -165,23 +166,23 @@ void main()
     float diffuse_ratio = 0.5 * (1.0 - metalness);
     float reflect_prob = rng_float(rngState);
 
-    if(reflect_prob < diffuse_ratio){ payload.ray.direction = local_frame * ImportanceSampleCosine(Xi); }
+    if(reflect_prob < diffuse_ratio){ payload.ray.direction = local_frame * sample_cosine(Xi); }
     else
     {
         // possible half-vector from GGX distribution
-        vec3 H = local_frame * ImportanceSampleGGX(Xi, roughness);
+        vec3 H = local_frame * sample_GGX(Xi, roughness);
         payload.ray.direction = reflect(gl_WorldRayDirectionEXT, H);
     }
 
     // TODO: decide on recursion here
 //    payload.radiance += directLight(material) * payload.beta;
 
-    const float eps =  0.0;//0.001;
+    const float eps =  0.001;
     float pdf = UE4Pdf(payload.ray.direction, payload.normal, -gl_WorldRayDirectionEXT, roughness, metalness);
     float cosTheta = abs(dot(payload.normal, payload.ray.direction));
     vec3 F = UE4Eval(payload.ray.direction, payload.normal, -gl_WorldRayDirectionEXT, color, roughness, metalness);
     payload.beta *= F * cosTheta / (pdf + eps);
 
-    // check if needed
-    if (cosTheta <= 0.0){ payload.stop = true; }
+    // new rays won't contribute much
+    if (all(lessThan(payload.beta, vec3(0.01)))){ payload.stop = true; }
 }
