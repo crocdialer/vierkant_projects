@@ -69,7 +69,7 @@ hitAttributeEXT vec2 attribs;
 // TODO: simplify code with mix
 Vertex interpolate_vertex()
 {
-    const vec3 triangle_coords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+    const vec3 barycentric = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 
     // entry aka instance
     entry_t entry = u_entries[gl_InstanceCustomIndexEXT];
@@ -86,11 +86,11 @@ Vertex interpolate_vertex()
 
     // interpolated vertex
     Vertex out_vert;
-    out_vert.position = v0.position * triangle_coords.x + v1.position * triangle_coords.y + v2.position * triangle_coords.z;
-    out_vert.color = v0.color * triangle_coords.x + v1.color * triangle_coords.y + v2.color * triangle_coords.z;
-    out_vert.tex_coord = v0.tex_coord * triangle_coords.x + v1.tex_coord * triangle_coords.y + v2.tex_coord * triangle_coords.z;
-    out_vert.normal = v0.normal * triangle_coords.x + v1.normal * triangle_coords.y + v2.normal * triangle_coords.z;
-    out_vert.tangent = v0.tangent * triangle_coords.x + v1.tangent * triangle_coords.y + v2.tangent * triangle_coords.z;
+    out_vert.position = v0.position * barycentric.x + v1.position * barycentric.y + v2.position * barycentric.z;
+    out_vert.color = v0.color * barycentric.x + v1.color * barycentric.y + v2.color * barycentric.z;
+    out_vert.tex_coord = v0.tex_coord * barycentric.x + v1.tex_coord * barycentric.y + v2.tex_coord * barycentric.z;
+    out_vert.normal = v0.normal * barycentric.x + v1.normal * barycentric.y + v2.normal * barycentric.z;
+    out_vert.tangent = v0.tangent * barycentric.x + v1.tangent * barycentric.y + v2.tangent * barycentric.z;
 
     // bring surfel into worldspace
     out_vert.position = (entry.modelview * vec4(out_vert.position, 1.0)).xyz;
