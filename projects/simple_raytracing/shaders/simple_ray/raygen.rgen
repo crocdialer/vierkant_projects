@@ -5,7 +5,7 @@
 #include "ray_common.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1, set = 0, rgba8) uniform image2D image;
+layout(binding = 1, set = 0, rgba32f) uniform image2D image;
 layout(binding = 2, set = 0) uniform CameraProperties
 {
     mat4 viewInverse;
@@ -72,8 +72,20 @@ vec3 trace(vec2 coord, vec2 size)
             payload.beta = beta;
             payload.ray = ray;
 
+            const uint ray_flags = gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT;
+
             // trace one ray
-            traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ray.origin, tmin, ray.direction, tmax, 0);
+            traceRayEXT(topLevelAS,     // acceleration structure
+                        ray_flags,      // rayflags
+                        0xff,           // cullMask
+                        0,              // sbtRecordOffset
+                        0,              // sbtRecordStride
+                        0,              // missIndex
+                        ray.origin,     // ray origin
+                        tmin,           // ray min range
+                        ray.direction,  // ray direction
+                        tmax,           // ray max range
+                        0);             // payload (location = 0)
 
             ray = payload.ray;
             beta = payload.beta;
