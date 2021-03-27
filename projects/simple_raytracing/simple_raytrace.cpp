@@ -527,16 +527,15 @@ void SimpleRayTracing::update_trace_descriptors()
     vierkant::descriptor_t desc_vertex_buffers = {};
     desc_vertex_buffers.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     desc_vertex_buffers.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    desc_vertex_buffers.buffers = {m_mesh->vertex_attribs[vierkant::Mesh::AttribLocation::ATTRIB_POSITION].buffer};
-    desc_vertex_buffers.buffer_offsets = {
-            m_mesh->vertex_attribs[vierkant::Mesh::AttribLocation::ATTRIB_POSITION].buffer_offset};
+    desc_vertex_buffers.buffers = ray_asset.acceleration_asset.vertex_buffers;
+    desc_vertex_buffers.buffer_offsets = ray_asset.acceleration_asset.vertex_buffer_offsets;
     ray_asset.tracable.descriptors[3] = desc_vertex_buffers;
 
     vierkant::descriptor_t desc_index_buffers = {};
     desc_index_buffers.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     desc_index_buffers.stage_flags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    desc_index_buffers.buffers = {m_mesh->index_buffer};
-    desc_index_buffers.buffer_offsets = {m_mesh->index_buffer_offset};
+    desc_index_buffers.buffers = ray_asset.acceleration_asset.index_buffers;
+    desc_index_buffers.buffer_offsets = ray_asset.acceleration_asset.index_buffer_offsets;
     ray_asset.tracable.descriptors[4] = desc_index_buffers;
 
     vierkant::descriptor_t desc_entries = {};
