@@ -448,7 +448,7 @@ void SimpleRayTracing::update(double time_delta)
     // issue top-level draw-command
     m_window->draw({semaphore_submit_info});
 
-    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
+//    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
 }
 
 std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w)
@@ -634,6 +634,9 @@ void SimpleRayTracing::load_environment(const std::filesystem::path &path)
                 // derive sane resolution for cube from panorama-width
                 float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
                 skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, queue, true);
+
+//                constexpr uint32_t lambert_size = 128;
+//                skybox = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, queue);
             }
         }
 

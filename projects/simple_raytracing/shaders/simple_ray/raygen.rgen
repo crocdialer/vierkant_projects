@@ -22,7 +22,7 @@ layout(location = 0) rayPayloadEXT payload_t payload;
 vec3 trace(vec2 coord, vec2 size)
 {
     // State of the random number generator.
-    uint rngState = uint(push_constants.batch_index + push_constants.time * (size.x * coord.y + coord.x));
+    uint rngState = rng_seed(push_constants);
 
     vec3 camera_position = (cam.viewInverse * vec4(0, 0, 0, 1)).xyz;
 

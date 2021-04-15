@@ -159,7 +159,7 @@ void main()
     payload.ray.origin = payload.position;// + 0.0001 * payload.normal;
 
     // scatter ray direction
-    uint rngState = uint(push_constants.batch_index + push_constants.time * (gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x));
+    uint rngState = rng_seed(push_constants);
     vec2 Xi = vec2(rng_float(rngState), rng_float(rngState));
 
     // no diffuse rays for metal

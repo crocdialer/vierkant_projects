@@ -52,24 +52,31 @@ struct push_constants_t
     uint batch_index;
 };
 
-//! random number generation using pcg32i_random_t, using inc = 1. Our random state is a uint.
-uint step_RNG(uint rngState)
+//! helper to generate a seed
+uint rng_seed(in const push_constants_t push_constants)
 {
-    return rngState * 747796405 + 1;
+    return uint(push_constants.batch_index + mod(push_constants.time, 60.0) *
+    (gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x));
+}
+
+//! random number generation using pcg32i_random_t, using inc = 1. Our random state is a uint.
+uint rng_step(uint rng_state)
+{
+    return rng_state * 747796405 + 1;
 }
 
 //! steps the RNG and returns a floating-point value between 0 and 1 inclusive.
-float rng_float(inout uint rngState)
+float rng_float(inout uint rng_state)
 {
     // condensed version of pcg_output_rxs_m_xs_32_32, with simple conversion to floating-point [0,1].
-    rngState  = step_RNG(rngState);
-    uint word = ((rngState >> ((rngState >> 28) + 4)) ^ rngState) * 277803737;
+    rng_state  = rng_step(rng_state);
+    uint word = ((rng_state >> ((rng_state >> 28) + 4)) ^ rng_state) * 277803737;
     word      = (word >> 22) ^ word;
     return float(word) / 4294967295.0f;
 }
 
-//! random point on a unit-sphere, centered at the normal
-vec3 sample_unit_sphere(vec2 Xi, vec3 normal)
+//! random point on a unit-sphere
+vec3 sample_unit_sphere(vec2 Xi)
 {
     // [0, 2pi]
     const float theta = 2.0 * PI * Xi.y;
@@ -81,6 +88,7 @@ vec3 sample_unit_sphere(vec2 Xi, vec3 normal)
     return vec3(r * cos(theta), r * sin(theta), u);
 }
 
+//! return a Hammersley point in range [0, 1]
 vec2 Hammersley(uint i, uint N)
 {
     float vdc = float(bitfieldReverse(i)) * 2.3283064365386963e-10; // Van der Corput
@@ -168,8 +176,7 @@ vec3 UE4Eval(in vec3 L, in vec3 N, in vec3 V, in vec3 albedo,
     float NDotL = dot(N, L);
     float NDotV = dot(N, V);
 
-    if (NDotL <= 0.0 || NDotV <= 0.0)
-    return vec3(0.0);
+    if (NDotL <= 0.0 || NDotV <= 0.0){ return vec3(0.0); }
 
     vec3 H = normalize(L + V);
     float NDotH = dot(N, H);
