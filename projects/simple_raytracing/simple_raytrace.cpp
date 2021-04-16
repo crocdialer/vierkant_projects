@@ -68,47 +68,15 @@ void SimpleRayTracing::create_context_and_window()
     window_info.fullscreen = m_fullscreen;
     m_window = vk::Window::create(window_info);
 
-    // prepare extension-features query
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features = {};
-    acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features = {};
-    ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-
-    VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {};
-    ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-
-    VkPhysicalDeviceScalarBlockLayoutFeatures scalar_block_features = {};
-    scalar_block_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
-
-    VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features = {};
-    descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-
-    // create a pNext-chain connecting the extension-structures
-    acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
-    ray_tracing_pipeline_features.pNext = &ray_query_features;
-    ray_query_features.pNext = &scalar_block_features;
-    scalar_block_features.pNext = &descriptor_indexing_features;
-
-    // query support for the required device-features
-    VkPhysicalDeviceFeatures2 device_features = {};
-    device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    device_features.pNext = &acceleration_structure_features;
-    vkGetPhysicalDeviceFeatures2(physical_device, &device_features);
-
     // create device
     vk::Device::create_info_t device_info = {};
     device_info.instance = m_instance.handle();
     device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
-    device_info.enable_device_address = true;
     device_info.surface = m_window->surface();
 
     // add the raytracing-extensions
     device_info.extensions = vierkant::RayTracer::required_extensions();
-
-    // pass populated extension-chain to enable the features
-    device_info.create_device_pNext = &acceleration_structure_features;
 
     // create a device
     m_device = vk::Device::create(device_info);
