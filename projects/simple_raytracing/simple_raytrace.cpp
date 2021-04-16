@@ -4,8 +4,8 @@
 #include <vierkant/assimp.hpp>
 #include <vierkant/MeshNode.hpp>
 #include <vierkant/cubemap_utils.hpp>
+#include <vierkant/shaders.hpp>
 
-#include "vierkant_projects/simple_raytracing_shaders.hpp"
 #include "simple_raytrace.hpp"
 
 VkFormat vk_format(const crocore::ImagePtr &img)
@@ -120,7 +120,7 @@ void SimpleRayTracing::create_context_and_window()
     vierkant::RayTracer::create_info_t ray_tracer_create_info = {};
     ray_tracer_create_info.num_frames_in_flight = m_window->swapchain().framebuffers().size();
     m_ray_tracer = vierkant::RayTracer(m_device, ray_tracer_create_info);
-    m_ray_builder = vierkant::RayBuilder(m_device);
+    m_ray_builder = vierkant::RayBuilder(m_device, m_device->queue());
 
     m_ray_assets.resize(m_window->swapchain().framebuffers().size());
 
@@ -352,7 +352,7 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
 
     if(path.empty())
     {
-        // simple bov geometry
+        // simple box geometry
         auto geom = vk::Geometry::Box();
         vierkant::Mesh::create_info_t mesh_create_info = {};
 
@@ -375,7 +375,7 @@ void SimpleRayTracing::load_model(const std::filesystem::path &path)
     m_mesh_node->set_transform(m_model_transform);
 
     // add the mesh, creating an acceleration-structure for it
-    m_ray_builder = vierkant::RayBuilder(m_device);
+    m_ray_builder = vierkant::RayBuilder(m_device, m_device->queue());
     m_ray_builder.add_mesh(m_mesh);
 
     load_shader_stages();
@@ -447,8 +447,6 @@ void SimpleRayTracing::update(double time_delta)
 
     // issue top-level draw-command
     m_window->draw({semaphore_submit_info});
-
-//    ray_asset.semaphore.wait(RAYTRACING_FINISHED);
 }
 
 std::vector<VkCommandBuffer> SimpleRayTracing::draw(const vierkant::WindowPtr &w)
@@ -655,18 +653,18 @@ void SimpleRayTracing::load_environment(const std::filesystem::path &path)
 
 void SimpleRayTracing::load_shader_stages()
 {
-    auto raygen = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::raygen_rgen);
-    auto ray_closest_hit = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::closesthit_rchit);
+    auto raygen = vierkant::create_shader_module(m_device, vierkant::shaders::ray::raygen_rgen);
+    auto ray_closest_hit = vierkant::create_shader_module(m_device, vierkant::shaders::ray::closesthit_rchit);
 
     vierkant::ShaderModulePtr ray_miss;
 
     if(m_scene->environment())
     {
-        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_environment_rmiss);
+        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::ray::miss_environment_rmiss);
     }
     else
     {
-        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::simple_ray::miss_rmiss);
+        ray_miss = vierkant::create_shader_module(m_device, vierkant::shaders::ray::miss_rmiss);
     }
 
 
