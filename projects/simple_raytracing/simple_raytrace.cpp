@@ -371,9 +371,6 @@ void SimpleRayTracing::update(double time_delta)
 
     ray_asset.command_buffer.begin();
 
-    // keep-alive workaround
-    auto tmp = ray_asset.acceleration_asset;
-
     // update top-level structure
     ray_asset.acceleration_asset = m_ray_builder.create_toplevel(ray_asset.command_buffer.handle());
 
@@ -546,12 +543,12 @@ void SimpleRayTracing::update_trace_descriptors()
     desc_environment.image_samplers = {m_scene->environment()};
     ray_asset.tracable.descriptors[11] = desc_environment;
 
-    if(!ray_asset.tracable.descriptor_set_layout)
-    {
-        ray_asset.tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device,
-                                                                                          ray_asset.tracable.descriptors);
-    }
-    ray_asset.tracable.pipeline_info.descriptor_set_layouts = {ray_asset.tracable.descriptor_set_layout.get()};
+//    if(!ray_asset.tracable.descriptor_set_layout)
+//    {
+//        ray_asset.tracable.descriptor_set_layout = vierkant::create_descriptor_set_layout(m_device,
+//                                                                                          ray_asset.tracable.descriptors);
+//    }
+//    ray_asset.tracable.pipeline_info.descriptor_set_layouts = {ray_asset.tracable.descriptor_set_layout.get()};
 }
 
 void SimpleRayTracing::load_environment(const std::filesystem::path &path)
@@ -608,7 +605,7 @@ void SimpleRayTracing::load_environment(const std::filesystem::path &path)
 
         main_queue().post([this, path, skybox, start_time]()
                           {
-                              m_scene->set_enironment(skybox);
+                              m_scene->set_environment(skybox);
                               load_shader_stages();
 
                               using double_second = std::chrono::duration<double>;
@@ -642,7 +639,7 @@ void SimpleRayTracing::load_shader_stages()
 
     for(auto &ray_asset : m_ray_assets)
     {
-        ray_asset.tracable.descriptor_set_layout = nullptr;
+//        ray_asset.tracable.descriptor_set_layout = nullptr;
         ray_asset.tracable.batch_index = 0;
     }
 

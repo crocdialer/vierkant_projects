@@ -8,6 +8,7 @@
 
 #include <crocore/Application.hpp>
 #include <vierkant/vierkant.hpp>
+#include <vierkant/PBRPathTracer.hpp>
 #include "serialization.hpp"
 
 const int WIDTH = 1920;
@@ -50,6 +51,8 @@ public:
         vierkant::SceneRenderer::settings_t render_settings = {};
 
         bool draw_aabbs = true;
+
+        bool path_tracing = false;
 
         glm::quat view_rotation = {1.0f, 0.0f, 0.0f, 0.0f};
         glm::vec3 view_look_at = {};
@@ -115,9 +118,12 @@ private:
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
 
+    // selection of scene-renderers
     vierkant::PBRDeferredPtr m_pbr_renderer;
 
-    vierkant::SceneRendererPtr m_unlit_renderer;
+    vierkant::PBRPathTracerPtr m_path_tracer;
+
+    vierkant::SceneRendererPtr m_unlit_renderer, m_current_scene_renderer;
 
     vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
 
@@ -145,6 +151,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("window", settings.window_info),
        cereal::make_nvp("render_settings", settings.render_settings),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
+       cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("view_rotation", settings.view_rotation),
        cereal::make_nvp("view_look_at", settings.view_look_at),
        cereal::make_nvp("view_distance", settings.view_distance));

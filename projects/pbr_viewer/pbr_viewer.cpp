@@ -95,6 +95,10 @@ void PBRViewer::create_context_and_window()
     device_info.physical_device = m_instance.physical_devices().front();
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.surface = m_window->surface();
+
+    // add the raytracing-extensions
+    device_info.extensions = vierkant::RayTracer::required_extensions();
+
     m_device = vk::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
                                m_settings.window_info.vsync);
@@ -136,6 +140,12 @@ void PBRViewer::create_ui()
                 case vk::Key::_G:
                     m_pbr_renderer->settings.draw_grid = !m_pbr_renderer->settings.draw_grid;
                     break;
+
+                case vk::Key::_P:
+                    if(m_current_scene_renderer == m_pbr_renderer){ m_current_scene_renderer = m_path_tracer; }
+                    else{ m_current_scene_renderer = m_pbr_renderer; }
+                    break;
+
                 case vk::Key::_B:
                     m_settings.draw_aabbs = !m_settings.draw_aabbs;
                     break;
@@ -271,6 +281,16 @@ void PBRViewer::create_graphics_pipeline()
         pbr_render_info.settings = m_pbr_renderer->settings;
     }
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
+
+    vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
+    path_tracer_info.num_frames_in_flight = framebuffers.size();
+    path_tracer_info.size = fb_extent;
+    path_tracer_info.pipeline_cache = m_pipeline_cache;
+    path_tracer_info.settings = m_settings.render_settings;
+    path_tracer_info.queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+    m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
+
+    m_current_scene_renderer = m_pbr_renderer;
 }
 
 void PBRViewer::create_offscreen_assets()
@@ -307,13 +327,13 @@ void PBRViewer::create_offscreen_assets()
 void PBRViewer::create_texture_image()
 {
     // try to fetch cool image
-    auto http_resonse = crocore::net::http::get(g_texture_url);
+    auto http_response = crocore::net::http::get(g_texture_url);
 
     crocore::ImagePtr img;
     vk::Image::Format fmt;
 
     // create from downloaded data
-    if(!http_resonse.data.empty()){ img = crocore::create_image_from_data(http_resonse.data, 4); }
+    if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 4); }
     else
     {
         // create 2x2 black/white checkerboard image
@@ -337,15 +357,21 @@ void PBRViewer::load_model(const std::string &path)
 {
     vierkant::MeshPtr mesh;
 
+    // additionally required buffer-flags for raytracing
+    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
     if(!path.empty())
     {
         m_settings.model_path = path;
 
-        auto load_mesh = [this, path]() -> vierkant::MeshNodePtr
+        auto load_mesh = [this, path, buffer_flags]() -> vierkant::MeshNodePtr
         {
             auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
 
             vierkant::Mesh::create_info_t mesh_create_info = {};
+            mesh_create_info.buffer_usage_flags = buffer_flags;
             auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos, mesh_create_info);
 
             if(!mesh)
@@ -356,7 +382,7 @@ void PBRViewer::load_model(const std::string &path)
 
             std::vector<vierkant::BufferPtr> staging_buffers;
 
-            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS).back();
 
             // command pool for background transfer
             auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
@@ -463,6 +489,7 @@ void PBRViewer::load_model(const std::string &path)
     else
     {
         vierkant::Mesh::create_info_t mesh_create_info = {};
+        mesh_create_info.buffer_usage_flags = buffer_flags;
         mesh = vk::Mesh::create_from_geometry(m_device, vk::Geometry::Box(glm::vec3(.5f)), mesh_create_info);
         auto mat = vk::Material::create();
 
@@ -549,10 +576,7 @@ void PBRViewer::load_environment(const std::string &path)
 
         main_queue().post([this, path, skybox, conv_lambert, conv_ggx, start_time]()
                           {
-                              // tmp
-//                              m_textures["environment"] = panorama;
-
-                              m_scene->set_enironment(skybox);
+                              m_scene->set_environment(skybox);
 
                               m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
 
@@ -571,18 +595,6 @@ void PBRViewer::update(double time_delta)
     // update animated objects in the scene
     m_scene->update(time_delta);
 
-//    auto image_index = m_window->swapchain().image_index();
-//    auto &framebuffer = m_framebuffers_offscreen[image_index];
-//
-//    m_textures["offscreen"] = render_offscreen(framebuffer, m_renderer_offscreen, [this, &framebuffer]()
-//    {
-//        auto cam = vierkant::PerspectiveCamera::create(framebuffer.extent().width / (float) framebuffer.extent().height,
-//                                                       m_camera->fov());
-//        cam->set_transform(m_camera->transform());
-//
-//        m_unlit_renderer->render_scene(m_renderer_offscreen, m_scene, cam, {});
-//    });
-
     // issue top-level draw-command
     m_window->draw();
 }
@@ -594,7 +606,7 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
 
     auto render_scene = [this, &framebuffer]() -> VkCommandBuffer
     {
-        m_pbr_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+        m_current_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
 
         if(m_settings.draw_aabbs)
         {
@@ -661,6 +673,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.view_look_at = m_arcball.look_at;
     settings.view_distance = m_arcball.distance;
     settings.render_settings = m_pbr_renderer->settings;
+    settings.path_tracing = m_current_scene_renderer == m_path_tracer;
 
     // create and open a character archive for output
     std::ofstream ofs(path.string());
