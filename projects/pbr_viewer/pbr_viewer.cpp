@@ -60,7 +60,6 @@ void PBRViewer::setup()
 
     create_texture_image();
     create_graphics_pipeline();
-    create_offscreen_assets();
 
     // load stuff
     load_model(m_settings.model_path);
@@ -122,6 +121,10 @@ void PBRViewer::create_context_and_window()
     m_font = vk::Font::create(m_device, g_font_path, 64);
 
     m_pipeline_cache = vk::PipelineCache::create(m_device);
+
+    // set some seperate queues for background stuff
+    m_queue_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
 }
 
 void PBRViewer::create_ui()
@@ -287,41 +290,10 @@ void PBRViewer::create_graphics_pipeline()
     path_tracer_info.size = fb_extent;
     path_tracer_info.pipeline_cache = m_pipeline_cache;
     path_tracer_info.settings = m_settings.render_settings;
-    path_tracer_info.queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+    path_tracer_info.queue = m_queue_path_tracer;
     m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
 
     m_current_scene_renderer = m_pbr_renderer;
-}
-
-void PBRViewer::create_offscreen_assets()
-{
-    glm::uvec2 size(1024, 1024);
-
-    m_framebuffers_offscreen.resize(m_window->swapchain().images().size());
-
-    vierkant::Framebuffer::create_info_t fb_info = {};
-    fb_info.color_attachment_format.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    fb_info.size = {size.x, size.y, 1};
-    fb_info.depth = true;
-
-    vierkant::RenderPassPtr renderpass;
-
-    for(auto &frambuffer : m_framebuffers_offscreen)
-    {
-        frambuffer = vierkant::Framebuffer(m_device, fb_info, renderpass);
-        frambuffer.clear_color = {{0.f, 0.f, 0.f, 0.f}};
-        renderpass = frambuffer.renderpass();
-    }
-
-    vierkant::Renderer::create_info_t create_info = {};
-    create_info.num_frames_in_flight = m_window->swapchain().images().size();
-    create_info.sample_count = fb_info.color_attachment_format.sample_count;
-    create_info.viewport.width = size.x;
-    create_info.viewport.height = size.y;
-    create_info.viewport.maxDepth = 1;
-    create_info.pipeline_cache = m_pipeline_cache;
-    m_renderer_offscreen = vierkant::Renderer(m_device, create_info);
-    m_unlit_renderer = vierkant::UnlitForward::create(m_device);
 }
 
 void PBRViewer::create_texture_image()
@@ -381,8 +353,6 @@ void PBRViewer::load_model(const std::string &path)
             }
 
             std::vector<vierkant::BufferPtr> staging_buffers;
-
-            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS).back();
 
             // command pool for background transfer
             auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
@@ -450,7 +420,7 @@ void PBRViewer::load_model(const std::string &path)
             }
 
             // submit transfer and sync
-            cmd_buf.submit(queue, true);
+            cmd_buf.submit(m_queue_loading, true);
 
             auto mesh_node = vierkant::MeshNode::create(mesh);
 
@@ -525,8 +495,6 @@ void PBRViewer::load_environment(const std::string &path)
             // command pool for background transfer
             auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
                                                               VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-            // some "specific" queue lol
-            VkQueue queue = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
 
             {
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
@@ -548,19 +516,19 @@ void PBRViewer::load_environment(const std::string &path)
                 panorama->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(queue, true);
+                cmd_buf.submit(m_queue_loading, true);
 
                 // derive sane resolution for cube from panorama-width
                 float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
-                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, queue, true);
+                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_loading, true);
             }
 
             if(skybox)
             {
                 constexpr uint32_t lambert_size = 128;
 
-                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, queue);
-                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), queue);
+                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, m_queue_loading);
+                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), m_queue_loading);
 
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
@@ -570,7 +538,7 @@ void PBRViewer::load_environment(const std::string &path)
                 conv_ggx->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(queue, true);
+                cmd_buf.submit(m_queue_loading, true);
             }
         }
 
@@ -599,14 +567,17 @@ void PBRViewer::update(double time_delta)
     m_window->draw();
 }
 
-std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
+vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::WindowPtr &w)
 {
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
 
-    auto render_scene = [this, &framebuffer]() -> VkCommandBuffer
+    std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
+
+    auto render_scene = [this, &framebuffer, &semaphore_infos]() -> VkCommandBuffer
     {
-        m_current_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+        auto render_result = m_current_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+        semaphore_infos = render_result.semaphore_infos;
 
         if(m_settings.draw_aabbs)
         {
@@ -644,6 +615,8 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
         return m_renderer_gui.render(framebuffer);
     };
 
+    vierkant::window_delegate_t::draw_result_t ret;
+
     // submit and wait for all command-creation tasks to complete
     std::vector<std::future<VkCommandBuffer>> cmd_futures;
     cmd_futures.push_back(background_queue().post(render_scene));
@@ -651,9 +624,14 @@ std::vector<VkCommandBuffer> PBRViewer::draw(const vierkant::WindowPtr &w)
     crocore::wait_all(cmd_futures);
 
     // get values from completed futures
-    std::vector<VkCommandBuffer> command_buffers;
-    for(auto &f : cmd_futures){ command_buffers.push_back(f.get()); }
-    return command_buffers;
+    for(auto &f : cmd_futures){ ret.command_buffers.push_back(f.get()); }
+
+//    ret.command_buffers = {render_scene(), render_gui()};
+
+    // get semaphore infos
+    ret.semaphore_infos = std::move(semaphore_infos);
+
+    return ret;
 }
 
 void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path) const

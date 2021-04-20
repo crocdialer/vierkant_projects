@@ -19,8 +19,9 @@ bool DEMO_GUI = false;
 const char *g_texture_url = "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32b33240f_-_hasselhoff_kr_pr_nbc-lg.jpg";
 
 const char *g_font_path = "/usr/local/share/fonts/Courier New Bold.ttf";
+//const char *g_font_path = "/home/crocdialer/Desktop/Ubuntu-Medium.ttf";
 
-//const char *g_font_path = "https://github.com/google/fonts/raw/master/ufl/ubuntu/Ubuntu-Medium.ttf";
+//const char *g_font_path = "https://github.com/google/fonts/raw/main/ufl/ubuntu/Ubuntu-Medium.ttf";
 
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress = true);
 
@@ -71,7 +72,7 @@ private:
 
     void poll_events() override;
 
-    std::vector<VkCommandBuffer> draw(const vierkant::WindowPtr &w);
+    vierkant::window_delegate_t::draw_result_t draw(const vierkant::WindowPtr &w);
 
     void create_context_and_window();
 
@@ -84,8 +85,6 @@ private:
     void load_model(const std::string &path = "");
 
     void load_environment(const std::string &path);
-
-    void create_offscreen_assets();
 
     void save_settings(settings_t settings, const std::filesystem::path &path = "settings.json") const;
 
@@ -101,6 +100,8 @@ private:
     // device
     vierkant::DevicePtr m_device;
 
+    VkQueue m_queue_loading, m_queue_path_tracer;
+
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
 
@@ -112,8 +113,6 @@ private:
 
     std::set<vierkant::Object3DPtr> m_selected_objects;
 
-    std::vector<vierkant::Framebuffer> m_framebuffers_offscreen;
-
     vk::PipelineCachePtr m_pipeline_cache;
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
@@ -123,9 +122,9 @@ private:
 
     vierkant::PBRPathTracerPtr m_path_tracer;
 
-    vierkant::SceneRendererPtr m_unlit_renderer, m_current_scene_renderer;
+    vierkant::SceneRendererPtr m_current_scene_renderer;
 
-    vk::Renderer m_renderer, m_renderer_gui, m_renderer_offscreen;
+    vk::Renderer m_renderer, m_renderer_gui;
 
     vierkant::FontPtr m_font;
 
