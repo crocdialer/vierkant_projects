@@ -122,7 +122,7 @@ private:
 
     vierkant::PBRPathTracerPtr m_path_tracer;
 
-    vierkant::SceneRendererPtr m_current_scene_renderer;
+    vierkant::SceneRendererPtr m_scene_renderer;
 
     vk::Renderer m_renderer, m_renderer_gui;
 

@@ -145,8 +145,8 @@ void PBRViewer::create_ui()
                     break;
 
                 case vk::Key::_P:
-                    if(m_current_scene_renderer == m_pbr_renderer){ m_current_scene_renderer = m_path_tracer; }
-                    else{ m_current_scene_renderer = m_pbr_renderer; }
+                    if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer; }
+                    else{ m_scene_renderer = m_pbr_renderer; }
                     break;
 
                 case vk::Key::_B:
@@ -175,7 +175,7 @@ void PBRViewer::create_ui()
     };
 
     // renderer window
-    m_gui_context.delegates["renderer"] = [this]{ vk::gui::draw_scene_renderer_ui(m_pbr_renderer, m_camera); };
+    m_gui_context.delegates["renderer"] = [this]{ vk::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera); };
 
     // scenegraph window
     m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
@@ -206,7 +206,11 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
 
     // update camera with arcball
-    m_arcball.transform_cb = [this](const glm::mat4 &transform){ m_camera->set_global_transform(transform); };
+    m_arcball.transform_cb = [this](const glm::mat4 &transform)
+    {
+        m_camera->set_global_transform(transform);
+        if(m_path_tracer){ m_path_tracer->reset_batch(); }
+    };
     m_camera->set_global_transform(m_arcball.transform());
 
     vierkant::mouse_delegate_t simple_mouse = {};
@@ -293,7 +297,8 @@ void PBRViewer::create_graphics_pipeline()
     path_tracer_info.queue = m_queue_path_tracer;
     m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
 
-    m_current_scene_renderer = m_pbr_renderer;
+    if(m_settings.path_tracing){ m_scene_renderer = m_path_tracer; }
+    else{ m_scene_renderer = m_pbr_renderer; }
 }
 
 void PBRViewer::create_texture_image()
@@ -402,6 +407,7 @@ void PBRViewer::load_model(const std::string &path)
                 material->color = mesh_assets.materials[i].diffuse;
                 material->emission = mesh_assets.materials[i].emission;
                 material->roughness = mesh_assets.materials[i].roughness;
+                material->metalness = mesh_assets.materials[i].metalness;
                 material->blending = mesh_assets.materials[i].blending;
 
                 auto color_img = mesh_assets.materials[i].img_diffuse;
@@ -548,6 +554,8 @@ void PBRViewer::load_environment(const std::string &path)
 
                               m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
 
+                              m_path_tracer->reset_batch();
+
                               m_settings.environment_path = path;
 
                               auto dur = double_second(std::chrono::steady_clock::now() - start_time);
@@ -576,7 +584,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene = [this, &framebuffer, &semaphore_infos]() -> VkCommandBuffer
     {
-        auto render_result = m_current_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+        auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
 
         if(m_settings.draw_aabbs)
@@ -651,7 +659,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.view_look_at = m_arcball.look_at;
     settings.view_distance = m_arcball.distance;
     settings.render_settings = m_pbr_renderer->settings;
-    settings.path_tracing = m_current_scene_renderer == m_path_tracer;
+    settings.path_tracing = m_scene_renderer == m_path_tracer;
 
     // create and open a character archive for output
     std::ofstream ofs(path.string());
