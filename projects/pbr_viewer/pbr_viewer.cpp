@@ -69,6 +69,8 @@ void PBRViewer::setup()
 void PBRViewer::teardown()
 {
     LOG_INFO << "ciao " << name();
+
+    background_queue().join_all();
     vkDeviceWaitIdle(m_device->handle());
 }
 
@@ -373,6 +375,7 @@ void PBRViewer::load_model(const std::string &path)
                 fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
                 fmt.extent = {img->width(), img->height(), 1};
                 fmt.use_mipmap = true;
+                fmt.max_anisotropy = device->properties().limits.maxSamplerAnisotropy;
                 fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                 fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
                 fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -452,6 +455,8 @@ void PBRViewer::load_model(const std::string &path)
                                                           m_selected_objects.clear();
                                                           m_scene->clear();
                                                           m_scene->add_object(mesh_node);
+
+                                                          if(m_path_tracer){ m_path_tracer->reset_batch(); }
 
                                                           auto dur = double_second(
                                                                   std::chrono::steady_clock::now() - start_time);
