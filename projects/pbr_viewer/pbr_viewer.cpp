@@ -281,7 +281,7 @@ void PBRViewer::create_graphics_pipeline()
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.size = fb_extent;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
-    pbr_render_info.settings = m_settings.render_settings;
+    pbr_render_info.settings = m_settings.pbr_settings;
 
     if(m_pbr_renderer)
     {
@@ -295,8 +295,10 @@ void PBRViewer::create_graphics_pipeline()
     path_tracer_info.num_frames_in_flight = framebuffers.size();
     path_tracer_info.size = fb_extent;
     path_tracer_info.pipeline_cache = m_pipeline_cache;
-    path_tracer_info.settings = m_settings.render_settings;
+
+    path_tracer_info.settings = m_settings.path_tracer_settings;
     path_tracer_info.queue = m_queue_path_tracer;
+
     m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
 
     if(m_settings.path_tracing){ m_scene_renderer = m_path_tracer; }
@@ -663,7 +665,8 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.view_rotation = m_arcball.rotation;
     settings.view_look_at = m_arcball.look_at;
     settings.view_distance = m_arcball.distance;
-    settings.render_settings = m_pbr_renderer->settings;
+    settings.pbr_settings = m_pbr_renderer->settings;
+    settings.path_tracer_settings = m_path_tracer->settings;
     settings.path_tracing = m_scene_renderer == m_path_tracer;
 
     // create and open a character archive for output

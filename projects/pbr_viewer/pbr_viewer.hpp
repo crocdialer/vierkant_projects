@@ -49,7 +49,8 @@ public:
                         .vsync = true
                 };
 
-        vierkant::SceneRenderer::settings_t render_settings = {};
+        vierkant::PBRDeferred::settings_t pbr_settings = {};
+        vierkant::PBRPathTracer::settings_t path_tracer_settings = {};
 
         bool draw_aabbs = true;
 
@@ -148,7 +149,8 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("model_path", settings.model_path),
        cereal::make_nvp("environment_path", settings.environment_path),
        cereal::make_nvp("window", settings.window_info),
-       cereal::make_nvp("render_settings", settings.render_settings),
+       cereal::make_nvp("pbr_settings", settings.pbr_settings),
+       cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("view_rotation", settings.view_rotation),

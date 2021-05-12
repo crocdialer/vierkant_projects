@@ -11,7 +11,8 @@
 
 #include <vierkant/math.hpp>
 #include <vierkant/Window.hpp>
-#include <vierkant/SceneRenderer.hpp>
+#include <vierkant/PBRDeferred.hpp>
+#include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/DepthOfField.h>
 
 namespace vierkant
@@ -31,7 +32,7 @@ void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
 }
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::SceneRenderer::settings_t &render_settings)
+void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_settings)
 {
     archive(cereal::make_nvp("disable_material", render_settings.disable_material),
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
@@ -41,6 +42,18 @@ void serialize(Archive &archive, vierkant::SceneRenderer::settings_t &render_set
             cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
             cereal::make_nvp("dof", render_settings.dof)
+    );
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_settings)
+{
+    archive(cereal::make_nvp("disable_material", render_settings.disable_material),
+            cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
+            cereal::make_nvp("use_denoiser", render_settings.denoising),
+            cereal::make_nvp("use_bloom", render_settings.use_bloom),
+            cereal::make_nvp("gamma", render_settings.gamma),
+            cereal::make_nvp("exposure", render_settings.exposure)
     );
 }
 
