@@ -101,7 +101,7 @@ private:
     // device
     vierkant::DevicePtr m_device;
 
-    VkQueue m_queue_loading, m_queue_path_tracer;
+    VkQueue m_queue_loading = VK_NULL_HANDLE, m_queue_path_tracer = VK_NULL_HANDLE;
 
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
