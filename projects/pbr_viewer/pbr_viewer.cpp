@@ -177,7 +177,21 @@ void PBRViewer::create_ui()
     };
 
     // renderer window
-    m_gui_context.delegates["renderer"] = [this]{ vk::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera); };
+    m_gui_context.delegates["renderer"] = [this]
+    {
+        bool is_path_tracer = m_scene_renderer == m_path_tracer;
+
+        ImGui::Begin("renderer");
+
+        if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)){ m_scene_renderer = m_pbr_renderer; }
+        ImGui::SameLine();
+        if(ImGui::RadioButton("pathtracer", is_path_tracer)){ m_scene_renderer = m_path_tracer; }
+        ImGui::Separator();
+
+        vk::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera);
+
+        ImGui::End();
+    };
 
     // scenegraph window
     m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
