@@ -25,8 +25,6 @@ const char *g_font_path = "/usr/local/share/fonts/Courier New Bold.ttf";
 
 VkFormat vk_format(const crocore::ImagePtr &img, bool compress = true);
 
-void render_scene(vierkant::Renderer &renderer, vierkant::ScenePtr scene, vierkant::CameraPtr camera);
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 class PBRViewer : public crocore::Application

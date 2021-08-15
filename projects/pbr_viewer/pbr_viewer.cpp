@@ -46,6 +46,100 @@ VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
     return ret;
 }
 
+vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
+                             const vierkant::DevicePtr &device,
+                             VkQueue load_queue,
+                             VkBufferUsageFlags buffer_flags,
+                             const crocore::ThreadPool &background_pool)
+{
+    auto mesh_assets = vierkant::assimp::load_model(model_path, background_pool);
+
+    vierkant::Mesh::create_info_t mesh_create_info = {};
+    mesh_create_info.buffer_usage_flags = buffer_flags;
+    auto mesh = vk::Mesh::create_with_entries(device, mesh_assets.entry_create_infos, mesh_create_info);
+
+    if(!mesh)
+    {
+        LOG_WARNING << "could not load mesh: " << model_path;
+        return nullptr;
+    }
+
+    std::vector<vierkant::BufferPtr> staging_buffers;
+
+    // command pool for background transfer
+    auto command_pool = vierkant::create_command_pool(device, vierkant::Device::Queue::GRAPHICS,
+                                                      VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+
+    auto cmd_buf = vierkant::CommandBuffer(device, command_pool.get());
+
+    auto create_texture = [device = device, cmd_buf_handle = cmd_buf.handle(), &staging_buffers](
+            const crocore::ImagePtr &img) -> vierkant::ImagePtr
+    {
+        vk::Image::Format fmt;
+        fmt.format = vk_format(img);
+        fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        fmt.extent = {img->width(), img->height(), 1};
+        fmt.use_mipmap = true;
+        fmt.max_anisotropy = device->properties().limits.maxSamplerAnisotropy;
+        fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        fmt.initial_cmd_buffer = cmd_buf_handle;
+
+        auto vk_img = vk::Image::create(device, nullptr, fmt);
+        auto buf = vierkant::Buffer::create(device, img->data(), img->num_bytes(),
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+        vk_img->copy_from(buf, cmd_buf_handle);
+        staging_buffers.push_back(std::move(buf));
+        return vk_img;
+    };
+
+    cmd_buf.begin();
+
+    // skin + bones
+    mesh->root_bone = mesh_assets.root_bone;
+
+    // node hierarchy
+    mesh->root_node = mesh_assets.root_node;
+
+    // node animations
+    mesh->node_animations = std::move(mesh_assets.node_animations);
+
+    mesh->materials.resize(mesh_assets.materials.size());
+
+    for(uint32_t i = 0; i < mesh->materials.size(); ++i)
+    {
+        auto &material = mesh->materials[i];
+        material = vierkant::Material::create();
+
+        material->color = mesh_assets.materials[i].diffuse;
+        material->emission = mesh_assets.materials[i].emission;
+        material->roughness = mesh_assets.materials[i].roughness;
+        material->metalness = mesh_assets.materials[i].metalness;
+        material->blend_mode = mesh_assets.materials[i].blend_mode;
+        material->alpha_cutoff = mesh_assets.materials[i].alpha_cutoff;
+
+        auto color_img = mesh_assets.materials[i].img_diffuse;
+        auto emmission_img = mesh_assets.materials[i].img_emission;
+        auto normal_img = mesh_assets.materials[i].img_normals;
+        auto ao_rough_metal_img = mesh_assets.materials[i].img_ao_roughness_metal;
+
+        if(color_img){ material->textures[vierkant::Material::Color] = create_texture(color_img); }
+        if(emmission_img){ material->textures[vierkant::Material::Emission] = create_texture(emmission_img); }
+        if(normal_img){ material->textures[vierkant::Material::Normal] = create_texture(normal_img); }
+
+        if(ao_rough_metal_img)
+        {
+            material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img);
+        }
+    }
+
+    // submit transfer and sync
+    cmd_buf.submit(load_queue, true);
+
+    return mesh;
+}
+
 void PBRViewer::setup()
 {
     // try to read settings
@@ -124,7 +218,7 @@ void PBRViewer::create_context_and_window()
 
     m_pipeline_cache = vk::PipelineCache::create(m_device);
 
-    // set some seperate queues for background stuff
+    // set some separate queues for background stuff
     m_queue_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
     m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
 }
@@ -277,6 +371,8 @@ void PBRViewer::create_graphics_pipeline()
 {
     m_pipeline_cache->clear();
 
+    bool use_raytracer = m_scene_renderer == m_path_tracer;
+
     const auto &framebuffers = m_window->swapchain().framebuffers();
     auto fb_extent = framebuffers.front().extent();
 
@@ -315,7 +411,7 @@ void PBRViewer::create_graphics_pipeline()
 
     m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
 
-    if(m_settings.path_tracing){ m_scene_renderer = m_path_tracer; }
+    if(use_raytracer){ m_scene_renderer = m_path_tracer; }
     else{ m_scene_renderer = m_pbr_renderer; }
 }
 
@@ -361,115 +457,39 @@ void PBRViewer::load_model(const std::string &path)
     {
         m_settings.model_path = path;
 
-        auto load_mesh = [this, path, buffer_flags]() -> vierkant::MeshNodePtr
-        {
-            auto mesh_assets = vierkant::assimp::load_model(path, background_queue());
-
-            vierkant::Mesh::create_info_t mesh_create_info = {};
-            mesh_create_info.buffer_usage_flags = buffer_flags;
-            auto mesh = vk::Mesh::create_with_entries(m_device, mesh_assets.entry_create_infos, mesh_create_info);
-
-            if(!mesh)
-            {
-                LOG_WARNING << "could not load mesh: " << path;
-                return nullptr;
-            }
-
-            std::vector<vierkant::BufferPtr> staging_buffers;
-
-            // command pool for background transfer
-            auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
-                                                              VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-
-            auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
-
-            auto create_texture = [device = m_device, cmd_buf_handle = cmd_buf.handle(), &staging_buffers](
-                    const crocore::ImagePtr &img) -> vierkant::ImagePtr
-            {
-                vk::Image::Format fmt;
-                fmt.format = vk_format(img);
-                fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-                fmt.extent = {img->width(), img->height(), 1};
-                fmt.use_mipmap = true;
-                fmt.max_anisotropy = device->properties().limits.maxSamplerAnisotropy;
-                fmt.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                fmt.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-                fmt.initial_cmd_buffer = cmd_buf_handle;
-
-                auto vk_img = vk::Image::create(device, nullptr, fmt);
-                auto buf = vierkant::Buffer::create(device, img->data(), img->num_bytes(),
-                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-                vk_img->copy_from(buf, cmd_buf_handle);
-                staging_buffers.push_back(std::move(buf));
-                return vk_img;
-            };
-
-            cmd_buf.begin();
-
-            // skin + bones
-            mesh->root_bone = mesh_assets.root_bone;
-
-            // node hierarchy
-            mesh->root_node = mesh_assets.root_node;
-
-            // node animations
-            mesh->node_animations = std::move(mesh_assets.node_animations);
-
-            mesh->materials.resize(mesh_assets.materials.size());
-
-            for(uint32_t i = 0; i < mesh->materials.size(); ++i)
-            {
-                auto &material = mesh->materials[i];
-                material = vierkant::Material::create();
-
-                material->color = mesh_assets.materials[i].diffuse;
-                material->emission = mesh_assets.materials[i].emission;
-                material->roughness = mesh_assets.materials[i].roughness;
-                material->metalness = mesh_assets.materials[i].metalness;
-                material->blending = mesh_assets.materials[i].blending;
-
-                auto color_img = mesh_assets.materials[i].img_diffuse;
-                auto emmission_img = mesh_assets.materials[i].img_emission;
-                auto normal_img = mesh_assets.materials[i].img_normals;
-                auto ao_rough_metal_img = mesh_assets.materials[i].img_ao_roughness_metal;
-
-                if(color_img){ material->textures[vierkant::Material::Color] = create_texture(color_img); }
-                if(emmission_img){ material->textures[vierkant::Material::Emission] = create_texture(emmission_img); }
-                if(normal_img){ material->textures[vierkant::Material::Normal] = create_texture(normal_img); }
-
-                if(ao_rough_metal_img)
-                {
-                    material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img);
-                }
-            }
-
-            // submit transfer and sync
-            cmd_buf.submit(m_queue_loading, true);
-
-            auto mesh_node = vierkant::MeshNode::create(mesh);
-
-            // scale
-            float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
-            mesh_node->set_scale(scale);
-
-            // center aabb
-            auto aabb = mesh_node->aabb().transform(mesh_node->transform());
-            mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
-
-            return mesh_node;
-        };
-
-        background_queue().post([this, load_mesh, path]()
+        background_queue().post([this, path, buffer_flags]()
                                 {
                                     m_num_loading++;
                                     auto start_time = std::chrono::steady_clock::now();
 
-                                    auto mesh_node = load_mesh();
-                                    main_queue().post([this, mesh_node, start_time, path]()
+                                    auto mesh = load_mesh(path, m_device, m_queue_loading, buffer_flags,
+                                                          background_queue());
+
+                                    if(!mesh)
+                                    {
+                                        LOG_WARNING << crocore::format("loading '%s' failed ...", path.c_str());
+                                        m_num_loading--;
+                                        return;
+                                    }
+                                    main_queue().post([this, mesh, start_time, path]()
                                                       {
                                                           m_selected_objects.clear();
                                                           m_scene->clear();
+
+                                                          auto mesh_node = vierkant::MeshNode::create(mesh);
+
+                                                          // scale
+                                                          float scale =
+                                                                  5.f / glm::length(mesh_node->aabb().half_extents());
+                                                          mesh_node->set_scale(scale);
+
+                                                          // center aabb
+                                                          auto aabb = mesh_node->aabb().transform(
+                                                                  mesh_node->transform());
+                                                          mesh_node->set_position(-aabb.center() +
+                                                                                  glm::vec3(0.f, aabb.height() / 2.f,
+                                                                                            0.f));
+
                                                           m_scene->add_object(mesh_node);
 
                                                           if(m_path_tracer){ m_path_tracer->reset_batch(); }
