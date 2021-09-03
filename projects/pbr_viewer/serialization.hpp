@@ -48,7 +48,8 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
 template<class Archive>
 void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_settings)
 {
-    archive(cereal::make_nvp("disable_material", render_settings.disable_material),
+    archive(cereal::make_nvp("max num batches", render_settings.max_num_batches),
+            cereal::make_nvp("disable_material", render_settings.disable_material),
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
             cereal::make_nvp("use_denoiser", render_settings.denoising),
             cereal::make_nvp("use_bloom", render_settings.use_bloom),

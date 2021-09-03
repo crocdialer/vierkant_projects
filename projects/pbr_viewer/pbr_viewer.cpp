@@ -6,11 +6,12 @@
 #include <crocore/json.hpp>
 
 #include <vierkant/imgui/imgui_util.h>
-#include <vierkant/assimp.hpp>
 #include <vierkant/Visitor.hpp>
-#include <vierkant/UnlitForward.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
+
+#include <vierkant/assimp.hpp>
+#include <vierkant/gltf.hpp>
 
 #include "pbr_viewer.hpp"
 
@@ -52,7 +53,8 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
                              VkBufferUsageFlags buffer_flags,
                              const crocore::ThreadPool &background_pool)
 {
-    auto mesh_assets = vierkant::assimp::load_model(model_path, background_pool);
+    auto mesh_assets = vierkant::model::load_model(model_path, background_pool);
+    vierkant::model::gltf(model_path);
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
     mesh_create_info.buffer_usage_flags = buffer_flags;
@@ -319,7 +321,7 @@ void PBRViewer::create_ui()
     m_arcball.transform_cb = [this](const glm::mat4 &transform)
     {
         m_camera->set_global_transform(transform);
-        if(m_path_tracer){ m_path_tracer->reset_batch(); }
+        if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
     };
     m_camera->set_global_transform(m_arcball.transform());
 
@@ -492,7 +494,7 @@ void PBRViewer::load_model(const std::string &path)
 
                                                           m_scene->add_object(mesh_node);
 
-                                                          if(m_path_tracer){ m_path_tracer->reset_batch(); }
+                                                          if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
 
                                                           auto dur = double_second(
                                                                   std::chrono::steady_clock::now() - start_time);
@@ -595,7 +597,7 @@ void PBRViewer::load_environment(const std::string &path)
 
                               m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
 
-                              m_path_tracer->reset_batch();
+                              m_path_tracer->reset_accumulator();
 
                               m_settings.environment_path = path;
 
