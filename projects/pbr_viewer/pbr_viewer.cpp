@@ -53,8 +53,8 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
                              VkBufferUsageFlags buffer_flags,
                              const crocore::ThreadPool &background_pool)
 {
-    auto mesh_assets = vierkant::model::load_model(model_path, background_pool);
-    vierkant::model::gltf(model_path);
+//    auto old_mesh_assets = vierkant::model::load_model(model_path, background_pool);
+    auto mesh_assets = vierkant::model::gltf(model_path);
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
     mesh_create_info.buffer_usage_flags = buffer_flags;
@@ -114,12 +114,19 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
         auto &material = mesh->materials[i];
         material = vierkant::Material::create();
 
+        material->name = mesh_assets.materials[i].name;
         material->color = mesh_assets.materials[i].diffuse;
         material->emission = mesh_assets.materials[i].emission;
         material->roughness = mesh_assets.materials[i].roughness;
         material->metalness = mesh_assets.materials[i].metalness;
         material->blend_mode = mesh_assets.materials[i].blend_mode;
         material->alpha_cutoff = mesh_assets.materials[i].alpha_cutoff;
+
+        material->transmission = mesh_assets.materials[i].transmission;
+        material->attenuation_color = mesh_assets.materials[i].attenuation_color;
+        material->attenuation_distance = mesh_assets.materials[i].attenuation_distance;
+        material->ior = mesh_assets.materials[i].ior;
+//        material
 
         auto color_img = mesh_assets.materials[i].img_diffuse;
         auto emmission_img = mesh_assets.materials[i].img_emission;
