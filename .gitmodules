@@ -1,3 +1,6 @@
 [submodule "vierkant"]
 	path = vierkant
 	url = git@github.com:crocdialer/vierkant.git
+[submodule "cereal"]
+	path = cereal
+	url = git@github.com:USCiLab/cereal.git

@@ -28,5 +28,8 @@ option(BUILD_TESTS "Build Tests" OFF)
 add_subdirectory("vierkant")
 set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 
+# cereal
+include_directories("cereal/include")
+
 # projects
 add_subdirectory("projects")
