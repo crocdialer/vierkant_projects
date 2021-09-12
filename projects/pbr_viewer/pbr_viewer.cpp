@@ -121,6 +121,7 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
         material->metalness = mesh_assets.materials[i].metalness;
         material->blend_mode = mesh_assets.materials[i].blend_mode;
         material->alpha_cutoff = mesh_assets.materials[i].alpha_cutoff;
+        material->two_sided = mesh_assets.materials[i].twosided;
 
         material->transmission = mesh_assets.materials[i].transmission;
         material->attenuation_color = mesh_assets.materials[i].attenuation_color;
