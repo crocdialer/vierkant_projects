@@ -47,11 +47,11 @@ VkFormat vk_format(const crocore::ImagePtr &img, bool compress)
     return ret;
 }
 
-vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
-                             const vierkant::DevicePtr &device,
-                             VkQueue load_queue,
-                             VkBufferUsageFlags buffer_flags,
-                             const crocore::ThreadPool &background_pool)
+vierkant::MeshPtr load_mesh(const std::filesystem::path &model_path,
+                            const vierkant::DevicePtr &device,
+                            VkQueue load_queue,
+                            VkBufferUsageFlags buffer_flags,
+                            const crocore::ThreadPool &background_pool)
 {
 //    auto old_mesh_assets = vierkant::model::load_model(model_path, background_pool);
     auto mesh_assets = vierkant::model::gltf(model_path);
@@ -109,6 +109,11 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
 
     mesh->materials.resize(mesh_assets.materials.size());
 
+    // cache textures
+    std::unordered_map<crocore::ImagePtr, vierkant::ImagePtr> texture_cache;
+
+
+
     for(uint32_t i = 0; i < mesh->materials.size(); ++i)
     {
         auto &material = mesh->materials[i];
@@ -127,12 +132,13 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
         material->attenuation_color = mesh_assets.materials[i].attenuation_color;
         material->attenuation_distance = mesh_assets.materials[i].attenuation_distance;
         material->ior = mesh_assets.materials[i].ior;
-//        material
 
         auto color_img = mesh_assets.materials[i].img_diffuse;
         auto emmission_img = mesh_assets.materials[i].img_emission;
         auto normal_img = mesh_assets.materials[i].img_normals;
         auto ao_rough_metal_img = mesh_assets.materials[i].img_ao_roughness_metal;
+        auto thickness_img = mesh_assets.materials[i].img_thickness;
+        auto transmission_img = mesh_assets.materials[i].img_transmission;
 
         if(color_img){ material->textures[vierkant::Material::Color] = create_texture(color_img); }
         if(emmission_img){ material->textures[vierkant::Material::Emission] = create_texture(emmission_img); }
@@ -142,6 +148,8 @@ vierkant::MeshPtr load_mesh (const std::filesystem::path &model_path,
         {
             material->textures[vierkant::Material::Ao_rough_metal] = create_texture(ao_rough_metal_img);
         }
+        if(transmission_img){ material->textures[vierkant::Material::Transmission] = create_texture(transmission_img); }
+        if(normal_img){ material->textures[vierkant::Material::Thickness] = create_texture(thickness_img); }
     }
 
     // submit transfer and sync
