@@ -23,8 +23,6 @@ const char *g_font_path = "/usr/local/share/fonts/Courier New Bold.ttf";
 
 //const char *g_font_path = "https://github.com/google/fonts/raw/main/ufl/ubuntu/Ubuntu-Medium.ttf";
 
-VkFormat vk_format(const crocore::ImagePtr &img, bool compress = true);
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 class PBRViewer : public crocore::Application
