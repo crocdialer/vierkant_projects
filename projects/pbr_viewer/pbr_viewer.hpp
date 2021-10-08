@@ -108,6 +108,8 @@ private:
 
     vk::Arcball m_arcball;
 
+//    vk::FlyCamera m_arcball = {};
+
     std::set<vierkant::Object3DPtr> m_selected_objects;
 
     vk::PipelineCachePtr m_pipeline_cache;

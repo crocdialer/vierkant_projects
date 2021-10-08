@@ -92,6 +92,7 @@ void PBRViewer::create_context_and_window()
         create_graphics_pipeline();
         m_camera->set_aspect(m_window->aspect_ratio());
 
+//        m_arcball.screen_size = {w, h};
         m_arcball.screen_size = {w, h};
     };
     window_delegate.close_fn = [this](){ set_running(false); };
@@ -186,9 +187,11 @@ void PBRViewer::create_ui()
     // camera
     m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
 
-    // create arcball
-    m_arcball = vk::Arcball(m_window->size());
+    // init arcball
+    m_arcball.screen_size = m_window->size();
+    m_arcball.enabled = true;
 
+    // restore settings
     m_arcball.rotation = m_settings.view_rotation;
     m_arcball.look_at = m_settings.view_look_at;
     m_arcball.distance = m_settings.view_distance;
@@ -198,8 +201,17 @@ void PBRViewer::create_ui()
     arcball_delegeate.enabled = [this]()
     {
         return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
+//        return true;
     };
     m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
+
+    // attach arcball mouse delegate
+    auto arcball_key_delegeate = m_arcball.key_delegate();
+    arcball_key_delegeate.enabled = [this]()
+    {
+        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard);
+    };
+    m_window->key_delegates["arcball"] = std::move(arcball_key_delegeate);
 
     // update camera with arcball
     m_arcball.transform_cb = [this](const glm::mat4 &transform)
@@ -506,6 +518,8 @@ void PBRViewer::load_environment(const std::string &path)
 
 void PBRViewer::update(double time_delta)
 {
+    m_arcball.update(time_delta);
+
     // update animated objects in the scene
     m_scene->update(time_delta);
 
