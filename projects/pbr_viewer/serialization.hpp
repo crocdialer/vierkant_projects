@@ -13,7 +13,7 @@
 #include <vierkant/Window.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
-#include <vierkant/DepthOfField.h>
+#include <vierkant/DepthOfField.hpp>
 
 namespace vierkant
 {
