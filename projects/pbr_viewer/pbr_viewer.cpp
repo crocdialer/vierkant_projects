@@ -91,8 +91,6 @@ void PBRViewer::create_context_and_window()
     {
         create_graphics_pipeline();
         m_camera->set_aspect(m_window->aspect_ratio());
-
-//        m_arcball.screen_size = {w, h};
         m_arcball.screen_size = {w, h};
     };
     window_delegate.close_fn = [this](){ set_running(false); };
@@ -301,7 +299,6 @@ void PBRViewer::create_graphics_pipeline()
 
     vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
     path_tracer_info.num_frames_in_flight = framebuffers.size();
-    path_tracer_info.size = {1280, 720, 1};//fb_extent;
     path_tracer_info.pipeline_cache = m_pipeline_cache;
 
     path_tracer_info.settings = m_settings.path_tracer_settings;
@@ -355,62 +352,61 @@ void PBRViewer::load_model(const std::string &path)
     {
         m_settings.model_path = path;
 
-        background_queue().post([this, path, buffer_flags]()
-                                {
-                                    m_num_loading++;
-                                    auto start_time = std::chrono::steady_clock::now();
+        auto load_task = [this, path, buffer_flags]()
+        {
+            m_num_loading++;
+            auto start_time = std::chrono::steady_clock::now();
 
-                                    // tinygltf
-                                    auto mesh_assets = vierkant::model::gltf(path);
+            // tinygltf
+            auto mesh_assets = vierkant::model::gltf(path);
 
-                                    // assimp
-                                    //auto old_mesh_assets = vierkant::model::load_model(model_path, background_pool);
+            // assimp
+            //auto old_mesh_assets = vierkant::model::load_model(model_path, background_pool);
 
-                                    if(mesh_assets.entry_create_infos.empty())
-                                    {
-                                        LOG_WARNING << "could not load file: " << path;
-                                        return;
-                                    }
+            if(mesh_assets.entry_create_infos.empty())
+            {
+                LOG_WARNING << "could not load file: " << path;
+                return;
+            }
 
-                                    auto mesh = load_mesh(m_device, mesh_assets, m_queue_loading, buffer_flags);
+            auto mesh = load_mesh(m_device, mesh_assets, m_queue_loading, buffer_flags);
 
-                                    if(!mesh)
-                                    {
-                                        LOG_WARNING << crocore::format("loading '%s' failed ...", path.c_str());
-                                        m_num_loading--;
-                                        return;
-                                    }
-                                    main_queue().post([this, mesh, start_time, path]()
-                                                      {
-                                                          m_selected_objects.clear();
-                                                          m_scene->clear();
+            if(!mesh)
+            {
+                LOG_WARNING << crocore::format("loading '%s' failed ...", path.c_str());
+                m_num_loading--;
+                return;
+            }
 
-                                                          auto mesh_node = vierkant::MeshNode::create(mesh);
+            auto done_cb = [this, mesh, start_time, path]()
+            {
+                m_selected_objects.clear();
+                m_scene->clear();
 
-                                                          // scale
-                                                          float scale =
-                                                                  5.f / glm::length(mesh_node->aabb().half_extents());
-                                                          mesh_node->set_scale(scale);
+                auto mesh_node = vierkant::MeshNode::create(mesh);
 
-                                                          // center aabb
-                                                          auto aabb = mesh_node->aabb().transform(
-                                                                  mesh_node->transform());
-                                                          mesh_node->set_position(-aabb.center() +
-                                                                                  glm::vec3(0.f, aabb.height() / 2.f,
-                                                                                            0.f));
+                // scale
+                float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
+                mesh_node->set_scale(scale);
 
-                                                          m_scene->add_object(mesh_node);
+                // center aabb
+                auto aabb = mesh_node->aabb().transform(mesh_node->transform());
+                mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
 
-                                                          if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+                m_scene->add_object(mesh_node);
 
-                                                          auto dur = double_second(
-                                                                  std::chrono::steady_clock::now() - start_time);
-                                                          LOG_DEBUG
-                                                          << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(),
-                                                                             dur.count());
-                                                          m_num_loading--;
-                                                      });
-                                });
+                if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+
+                auto dur = double_second(
+                        std::chrono::steady_clock::now() - start_time);
+                LOG_DEBUG
+                << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(),
+                                   dur.count());
+                m_num_loading--;
+            };
+            main_queue().post(done_cb);
+        };
+        background_queue().post(load_task);
     }
     else
     {
