@@ -332,6 +332,13 @@ void PBRViewer::create_texture_image()
     fmt.use_mipmap = true;
     m_textures["test"] = vk::Image::create(m_device, img->data(), fmt);
 
+    fmt.format = VK_FORMAT_BC7_SRGB_BLOCK;
+    fmt.extent = {1024, 1024, 1};
+    auto compressed_img = vk::Image::create(m_device, fmt);
+//    compressed_img->generate_mipmaps();
+//    m_textures["test"]->copy_to(compressed_img);
+//    m_textures["test"] = compressed_img;
+
     if(m_font)
     {
         // draw_gui some text into a texture
