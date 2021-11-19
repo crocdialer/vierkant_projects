@@ -91,7 +91,7 @@ void PBRViewer::create_context_and_window()
     {
         create_graphics_pipeline();
         m_camera->set_aspect(m_window->aspect_ratio());
-        m_arcball.screen_size = {w, h};
+        m_camera_control.current->screen_size = {w, h};
     };
     window_delegate.close_fn = [this](){ set_running(false); };
     m_window->window_delegates[name()] = window_delegate;
@@ -121,6 +121,15 @@ void PBRViewer::create_ui()
                 case vk::Key::_ESCAPE:
                     set_running(false);
                     break;
+
+                case vk::Key::_C:
+                    if(m_camera_control.current == m_camera_control.arcball)
+                    {
+                        m_camera_control.current = m_camera_control.fly;
+                    }
+                    else{ m_camera_control.current = m_camera_control.arcball; }
+                    break;
+
                 case vk::Key::_G:
                     m_pbr_renderer->settings.draw_grid = !m_pbr_renderer->settings.draw_grid;
                     break;
@@ -185,39 +194,7 @@ void PBRViewer::create_ui()
     // camera
     m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
 
-    // init arcball
-    m_arcball.screen_size = m_window->size();
-    m_arcball.enabled = true;
-
-    // restore settings
-    m_arcball.rotation = m_settings.view_rotation;
-    m_arcball.look_at = m_settings.view_look_at;
-    m_arcball.distance = m_settings.view_distance;
-
-    // attach arcball mouse delegate
-    auto arcball_delegeate = m_arcball.mouse_delegate();
-    arcball_delegeate.enabled = [this]()
-    {
-        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
-//        return true;
-    };
-    m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
-
-    // attach arcball mouse delegate
-    auto arcball_key_delegeate = m_arcball.key_delegate();
-    arcball_key_delegeate.enabled = [this]()
-    {
-        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard);
-    };
-    m_window->key_delegates["arcball"] = std::move(arcball_key_delegeate);
-
-    // update camera with arcball
-    m_arcball.transform_cb = [this](const glm::mat4 &transform)
-    {
-        m_camera->set_global_transform(transform);
-        if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
-    };
-    m_camera->set_global_transform(m_arcball.transform());
+    create_camera_controls();
 
     vierkant::mouse_delegate_t simple_mouse = {};
     simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
@@ -521,7 +498,7 @@ void PBRViewer::load_environment(const std::string &path)
 
 void PBRViewer::update(double time_delta)
 {
-    m_arcball.update(time_delta);
+    m_camera_control.current->update(time_delta);
 
     // update animated objects in the scene
     m_scene->update(time_delta);
@@ -610,9 +587,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
 
     settings.log_severity = crocore::g_logger.severity();
     settings.window_info = window_info;
-    settings.view_rotation = m_arcball.rotation;
-    settings.view_look_at = m_arcball.look_at;
-    settings.view_distance = m_arcball.distance;
+    settings.view_rotation = m_camera_control.arcball->rotation;
+    settings.view_look_at = m_camera_control.arcball->look_at;
+    settings.view_distance = m_camera_control.arcball->distance;
     settings.pbr_settings = m_pbr_renderer->settings;
     settings.path_tracer_settings = m_path_tracer->settings;
     settings.path_tracing = m_scene_renderer == m_path_tracer;
@@ -654,4 +631,54 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
         LOG_DEBUG << "loading settings: " << path;
     }
     return settings;
+}
+
+void PBRViewer::create_camera_controls()
+{
+    // init arcball
+    m_camera_control.arcball->screen_size = m_window->size();
+    m_camera_control.arcball->enabled = true;
+
+    // restore settings
+    m_camera_control.arcball->rotation = m_settings.view_rotation;
+    m_camera_control.arcball->look_at = m_settings.view_look_at;
+    m_camera_control.arcball->distance = m_settings.view_distance;
+
+//    m_camera_control.fly->move_speed =
+//m_camera_control.fly->position =
+//m_camera_control.fly->rotation =
+
+    // attach arcball mouse delegate
+    auto arcball_delegeate = m_camera_control.arcball->mouse_delegate();
+    arcball_delegeate.enabled = [this]()
+    {
+        bool is_active = m_camera_control.current == m_camera_control.arcball;
+        return is_active && !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
+    };
+    m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
+
+    auto flycamera_delegeate = m_camera_control.fly->mouse_delegate();
+    flycamera_delegeate.enabled = [this]()
+    {
+        bool is_active = m_camera_control.current == m_camera_control.fly;
+        return is_active && !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
+    };
+    m_window->mouse_delegates["flycamera"] = std::move(flycamera_delegeate);
+
+    auto fly_key_delegeate = m_camera_control.fly->key_delegate();
+    fly_key_delegeate.enabled = [this]()
+    {
+        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard);
+    };
+    m_window->key_delegates["flycamera"] = std::move(fly_key_delegeate);
+
+    // update camera with arcball
+    auto transform_cb = [this](const glm::mat4 &transform)
+    {
+        m_camera->set_global_transform(transform);
+        if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+    };
+    m_camera_control.arcball->transform_cb = transform_cb;
+    m_camera_control.fly->transform_cb = transform_cb;
+    m_camera->set_global_transform(m_camera_control.arcball->transform());
 }

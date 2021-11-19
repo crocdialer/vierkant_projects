@@ -77,6 +77,8 @@ private:
 
     void create_ui();
 
+    void create_camera_controls();
+
     void create_texture_image();
 
     void load_model(const std::string &path = "");
@@ -106,9 +108,12 @@ private:
 
     vk::PerspectiveCameraPtr m_camera;
 
-    vk::Arcball m_arcball;
-
-//    vk::FlyCamera m_arcball = {};
+    struct camera_control_t
+    {
+        vierkant::ArcballPtr arcball = vierkant::Arcball::create();
+        vierkant::FlyCameraPtr fly = vierkant::FlyCamera::create();
+        vierkant::CameraControlPtr current = arcball;
+    } m_camera_control;
 
     std::set<vierkant::Object3DPtr> m_selected_objects;
 
