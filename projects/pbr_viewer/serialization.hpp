@@ -60,6 +60,7 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("bloom", render_settings.bloom),
             cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
+            cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
             cereal::make_nvp("aperture", render_settings.aperture),
             cereal::make_nvp("focal_distance", render_settings.focal_distance)
     );

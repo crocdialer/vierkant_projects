@@ -275,7 +275,7 @@ void PBRViewer::create_graphics_pipeline()
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 
     vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
-    path_tracer_info.num_frames_in_flight = framebuffers.size();
+    path_tracer_info.num_frames_in_flight = framebuffers.size() + 1;
     path_tracer_info.pipeline_cache = m_pipeline_cache;
 
     path_tracer_info.settings = m_path_tracer ? m_path_tracer->settings : m_settings.path_tracer_settings;
