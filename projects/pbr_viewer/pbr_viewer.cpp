@@ -523,9 +523,9 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         {
             for(auto &obj : m_selected_objects)
             {
-                m_draw_context.draw_boundingbox(m_renderer, obj->aabb(),
-                                                m_camera->view_matrix() * obj->transform(),
-                                                m_camera->projection_matrix());
+                auto modelview = m_camera->view_matrix() * obj->transform();
+
+                m_draw_context.draw_boundingbox(m_renderer, obj->aabb(), modelview, m_camera->projection_matrix());
 
                 auto mesh_node = std::dynamic_pointer_cast<vierkant::MeshNode>(obj);
 
@@ -534,8 +534,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                     for(const auto &entry : mesh_node->mesh->entries)
                     {
                         m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
-                                                        m_camera->view_matrix() * mesh_node->transform() *
-                                                        entry.transform,
+                                                        modelview * entry.transform,
                                                         m_camera->projection_matrix());
                     }
                 }
