@@ -26,39 +26,6 @@ const bool g_enable_validation_layers = true;
 
 using double_second = std::chrono::duration<double>;
 
-vierkant::ImagePtr create_texture(const vierkant::DevicePtr &device,
-                                  const vierkant::bc7::compression_result_t &compression_result)
-{
-    vierkant::Image::Format fmt = {};
-
-    fmt.format = VK_FORMAT_BC7_UNORM_BLOCK;
-    fmt.extent = {compression_result.base_width, compression_result.base_height, 1};
-    fmt.use_mipmap = compression_result.levels.size() > 1;
-    fmt.autogenerate_mipmaps = false;
-    auto compressed_img = vierkant::Image::create(device, compression_result.levels[0].data(), fmt);
-
-    // adhoc using global pool
-    auto command_buffer = vierkant::CommandBuffer(device, device->command_pool());
-    command_buffer.begin();
-
-    std::vector<vierkant::BufferPtr> level_buffers(compression_result.levels.size());
-
-    compressed_img->transition_layout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, command_buffer.handle());
-
-    for(uint32_t lvl = 1; lvl < compression_result.levels.size(); ++lvl)
-    {
-        level_buffers[lvl] = vierkant::Buffer::create(device, compression_result.levels[lvl],
-                                                      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                      VMA_MEMORY_USAGE_CPU_ONLY);
-        compressed_img->copy_from(level_buffers[lvl], command_buffer.handle(), {}, {}, 0, lvl);
-    }
-    compressed_img->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, command_buffer.handle());
-
-    // submit and sync
-    command_buffer.submit(device->queue(), true);
-    return compressed_img;
-}
-
 void PBRViewer::setup()
 {
     // try to read settings
@@ -348,14 +315,20 @@ void PBRViewer::create_texture_image()
 
     // overwrite with a compressed + mipmapped version
     auto start_time = std::chrono::steady_clock::now();
-    auto compressed_img = vierkant::bc7::compress(img, true);
+
+    vierkant::bc7::compress_info_t compression_info = {};
+    compression_info.image = img;
+    compression_info.generate_mipmaps = true;
+    compression_info.delegate_fn = [this](const auto &fn){ return background_queue().post(fn); };
+    auto compressed_img = vierkant::bc7::compress(compression_info);
+
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - start_time).count();
 
     LOG_DEBUG << crocore::format("BC7-compressed image (%dx%d, %d mips) in %d ms", img->width(), img->height(),
                                  compressed_img.levels.size(), duration);
 
-    m_textures["test"] = create_texture(m_device, compressed_img);
+    m_textures["test"] = vierkant::model::create_compressed_texture(m_device, compressed_img, m_device->queue());
 
     if(m_font)
     {
