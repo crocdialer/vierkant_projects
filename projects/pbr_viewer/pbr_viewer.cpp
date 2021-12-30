@@ -314,21 +314,16 @@ void PBRViewer::create_texture_image()
     m_textures["test"] = vk::Image::create(m_device, img->data(), fmt);
 
     // overwrite with a compressed + mipmapped version
-    auto start_time = std::chrono::steady_clock::now();
-
-    vierkant::bc7::compress_info_t compression_info = {};
-    compression_info.image = img;
-    compression_info.generate_mipmaps = true;
-    compression_info.delegate_fn = [this](const auto &fn){ return background_queue().post(fn); };
-    auto compressed_img = vierkant::bc7::compress(compression_info);
-
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - start_time).count();
+    vierkant::bc7::compress_info_t compress_info = {};
+    compress_info.image = img;
+    compress_info.generate_mipmaps = true;
+    compress_info.delegate_fn = [this](const auto &fn){ return background_queue().post(fn); };
+    auto compress_result = vierkant::bc7::compress(compress_info);
 
     LOG_DEBUG << crocore::format("BC7-compressed image (%dx%d, %d mips) in %d ms", img->width(), img->height(),
-                                 compressed_img.levels.size(), duration);
+                                 compress_result.levels.size(), compress_result.duration.count());
 
-    m_textures["test"] = vierkant::model::create_compressed_texture(m_device, compressed_img, m_device->queue());
+    m_textures["test"] = vierkant::model::create_compressed_texture(m_device, compress_result, m_device->queue());
 
     if(m_font)
     {
