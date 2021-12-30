@@ -12,6 +12,7 @@
 
 #include <vierkant/assimp.hpp>
 #include <vierkant/gltf.hpp>
+#include <vierkant/bc7.hpp>
 
 #include "pbr_viewer.hpp"
 
@@ -25,6 +26,38 @@ const bool g_enable_validation_layers = true;
 
 using double_second = std::chrono::duration<double>;
 
+vierkant::ImagePtr create_texture(const vierkant::DevicePtr &device,
+                                  const vierkant::bc7::compression_result_t &compression_result)
+{
+    vierkant::Image::Format fmt = {};
+
+    fmt.format = VK_FORMAT_BC7_UNORM_BLOCK;
+    fmt.extent = {compression_result.base_width, compression_result.base_height, 1};
+    fmt.use_mipmap = compression_result.levels.size() > 1;
+    fmt.autogenerate_mipmaps = false;
+    auto compressed_img = vierkant::Image::create(device, compression_result.levels[0].data(), fmt);
+
+    // adhoc using global pool
+    auto command_buffer = vierkant::CommandBuffer(device, device->command_pool());
+    command_buffer.begin();
+
+    std::vector<vierkant::BufferPtr> level_buffers(compression_result.levels.size());
+
+    compressed_img->transition_layout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, command_buffer.handle());
+
+    for(uint32_t lvl = 1; lvl < compression_result.levels.size(); ++lvl)
+    {
+        level_buffers[lvl] = vierkant::Buffer::create(device, compression_result.levels[lvl],
+                                                      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                      VMA_MEMORY_USAGE_CPU_ONLY);
+        compressed_img->copy_from(level_buffers[lvl], command_buffer.handle(), {}, {}, 0, lvl);
+    }
+    compressed_img->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, command_buffer.handle());
+
+    // submit and sync
+    command_buffer.submit(device->queue(), true);
+    return compressed_img;
+}
 
 void PBRViewer::setup()
 {
@@ -299,9 +332,13 @@ void PBRViewer::create_texture_image()
     if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 4); }
     else
     {
-        // create 2x2 black/white checkerboard image
-        uint32_t v[4] = {0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF};
-        img = crocore::Image_<uint8_t>::create(reinterpret_cast<uint8_t *>(v), 2, 2, 4);
+        // create 4x4 black/white checkerboard image
+        uint32_t v[] = {0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
+                        0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
+                        0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
+                        0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF};
+
+        img = crocore::Image_<uint8_t>::create(reinterpret_cast<uint8_t *>(v), 4, 4, 4);
         fmt.mag_filter = VK_FILTER_NEAREST;
         fmt.format = VK_FORMAT_R8G8B8A8_UNORM;
     }
@@ -309,12 +346,16 @@ void PBRViewer::create_texture_image()
     fmt.use_mipmap = true;
     m_textures["test"] = vk::Image::create(m_device, img->data(), fmt);
 
-    fmt.format = VK_FORMAT_BC7_SRGB_BLOCK;
-    fmt.extent = {1024, 1024, 1};
-    auto compressed_img = vk::Image::create(m_device, fmt);
-//    compressed_img->generate_mipmaps();
-//    m_textures["test"]->copy_to(compressed_img);
-//    m_textures["test"] = compressed_img;
+    // overwrite with a compressed + mipmapped version
+    auto start_time = std::chrono::steady_clock::now();
+    auto compressed_img = vierkant::bc7::compress(img, true);
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start_time).count();
+
+    LOG_DEBUG << crocore::format("BC7-compressed image (%dx%d, %d mips) in %d ms", img->width(), img->height(),
+                                 compressed_img.levels.size(), duration);
+
+    m_textures["test"] = create_texture(m_device, compressed_img);
 
     if(m_font)
     {
@@ -518,6 +559,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
+        m_num_drawcalls = render_result.num_objects;
 
         if(m_settings.draw_aabbs)
         {
@@ -547,9 +589,10 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     {
         m_gui_context.draw_gui(m_renderer_gui);
 
-        if(m_num_loading)
+//        if(m_num_loading)
         {
-            m_draw_context.draw_text(m_renderer_gui, "loading ...", m_font, {m_window->size().x - 375, 50.f});
+            m_draw_context.draw_text(m_renderer_gui, crocore::to_string(m_num_drawcalls), m_font,
+                                     {m_window->size().x - 375, 50.f});
         }
         return m_renderer_gui.render(framebuffer);
     };
@@ -667,7 +710,8 @@ void PBRViewer::create_camera_controls()
     auto fly_key_delegeate = m_camera_control.fly->key_delegate();
     fly_key_delegeate.enabled = [this]()
     {
-        return !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard);
+        bool is_active = m_camera_control.current == m_camera_control.fly;
+        return is_active && !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard);
     };
     m_window->key_delegates["flycamera"] = std::move(fly_key_delegeate);
 

@@ -91,6 +91,8 @@ private:
 
     std::atomic<uint32_t> m_num_loading = 0;
 
+    std::atomic<uint32_t> m_num_drawcalls = 0;
+
     settings_t m_settings;
 
     // bundles basic Vulkan assets
