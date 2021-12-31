@@ -296,7 +296,7 @@ void PBRViewer::create_texture_image()
     vk::Image::Format fmt;
 
     // create from downloaded data
-    if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 4); }
+    if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 3); }
     else
     {
         // create 4x4 black/white checkerboard image
@@ -323,7 +323,7 @@ void PBRViewer::create_texture_image()
     LOG_DEBUG << crocore::format("BC7-compressed image (%dx%d, %d mips) in %d ms", img->width(), img->height(),
                                  compress_result.levels.size(), compress_result.duration.count());
 
-    m_textures["test"] = vierkant::model::create_compressed_texture(m_device, compress_result, m_device->queue());
+    m_textures["test"] = vierkant::model::create_compressed_texture(m_device, compress_result, fmt, m_device->queue());
 
     if(m_font)
     {
