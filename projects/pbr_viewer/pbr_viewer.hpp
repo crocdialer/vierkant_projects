@@ -52,6 +52,8 @@ public:
 
         bool path_tracing = false;
 
+        bool texture_compression = false;
+
         glm::quat view_rotation = {1.0f, 0.0f, 0.0f, 0.0f};
         glm::vec3 view_look_at = {};
         float view_distance = 5.f;
@@ -158,6 +160,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
        cereal::make_nvp("path_tracing", settings.path_tracing),
+       cereal::make_nvp("texture_compression", settings.texture_compression),
        cereal::make_nvp("view_rotation", settings.view_rotation),
        cereal::make_nvp("view_look_at", settings.view_look_at),
        cereal::make_nvp("view_distance", settings.view_distance));

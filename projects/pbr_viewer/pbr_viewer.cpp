@@ -362,7 +362,7 @@ void PBRViewer::load_model(const std::string &path)
                 return;
             }
 
-            auto mesh = load_mesh(m_device, mesh_assets, m_queue_loading, buffer_flags);
+            auto mesh = load_mesh(m_device, mesh_assets, m_settings.texture_compression, m_queue_loading, buffer_flags);
 
             if(!mesh)
             {
