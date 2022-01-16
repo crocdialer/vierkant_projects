@@ -123,11 +123,11 @@ void PBRViewer::create_ui()
                     break;
 
                 case vk::Key::_C:
-                    if(m_camera_control.current == m_camera_control.arcball)
+                    if(m_camera_control.current == m_camera_control.orbit)
                     {
                         m_camera_control.current = m_camera_control.fly;
                     }
-                    else{ m_camera_control.current = m_camera_control.arcball; }
+                    else{ m_camera_control.current = m_camera_control.orbit; }
                     break;
 
                 case vk::Key::_G:
@@ -597,9 +597,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
 
     settings.log_severity = crocore::g_logger.severity();
     settings.window_info = window_info;
-    settings.view_rotation = m_camera_control.arcball->rotation;
-    settings.view_look_at = m_camera_control.arcball->look_at;
-    settings.view_distance = m_camera_control.arcball->distance;
+    settings.view_rotation = m_camera_control.orbit->rotation;
+    settings.view_look_at = m_camera_control.orbit->look_at;
+    settings.view_distance = m_camera_control.orbit->distance;
     settings.pbr_settings = m_pbr_renderer->settings;
     settings.path_tracer_settings = m_path_tracer->settings;
     settings.path_tracing = m_scene_renderer == m_path_tracer;
@@ -646,23 +646,23 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 void PBRViewer::create_camera_controls()
 {
     // init arcball
-    m_camera_control.arcball->screen_size = m_window->size();
-    m_camera_control.arcball->enabled = true;
+    m_camera_control.orbit->screen_size = m_window->size();
+    m_camera_control.orbit->enabled = true;
 
     // restore settings
-    m_camera_control.arcball->rotation = m_settings.view_rotation;
-    m_camera_control.arcball->look_at = m_settings.view_look_at;
-    m_camera_control.arcball->distance = m_settings.view_distance;
+    m_camera_control.orbit->rotation = m_settings.view_rotation;
+    m_camera_control.orbit->look_at = m_settings.view_look_at;
+    m_camera_control.orbit->distance = m_settings.view_distance;
 
 //    m_camera_control.fly->move_speed =
 //m_camera_control.fly->position =
 //m_camera_control.fly->rotation =
 
     // attach arcball mouse delegate
-    auto arcball_delegeate = m_camera_control.arcball->mouse_delegate();
+    auto arcball_delegeate = m_camera_control.orbit->mouse_delegate();
     arcball_delegeate.enabled = [this]()
     {
-        bool is_active = m_camera_control.current == m_camera_control.arcball;
+        bool is_active = m_camera_control.current == m_camera_control.orbit;
         return is_active && !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
     };
     m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
@@ -689,7 +689,7 @@ void PBRViewer::create_camera_controls()
         m_camera->set_global_transform(transform);
         if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
     };
-    m_camera_control.arcball->transform_cb = transform_cb;
+    m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
-    m_camera->set_global_transform(m_camera_control.arcball->transform());
+    m_camera->set_global_transform(m_camera_control.orbit->transform());
 }

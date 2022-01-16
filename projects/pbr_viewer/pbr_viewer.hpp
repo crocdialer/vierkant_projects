@@ -114,9 +114,9 @@ private:
 
     struct camera_control_t
     {
-        vierkant::ArcballPtr arcball = vierkant::Arcball::create();
+        vierkant::OrbitCameraPtr orbit = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly = vierkant::FlyCamera::create();
-        vierkant::CameraControlPtr current = arcball;
+        vierkant::CameraControlPtr current = orbit;
     } m_camera_control;
 
     std::set<vierkant::Object3DPtr> m_selected_objects;
