@@ -54,6 +54,8 @@ public:
 
         bool texture_compression = false;
 
+        bool fly_camera = false;
+
         glm::quat view_rotation = {1.0f, 0.0f, 0.0f, 0.0f};
         glm::vec3 view_look_at = {};
         float view_distance = 5.f;

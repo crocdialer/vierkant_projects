@@ -37,6 +37,7 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
     archive(cereal::make_nvp("disable_material", render_settings.disable_material),
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
             cereal::make_nvp("draw_grid", render_settings.draw_grid),
+            cereal::make_nvp("use_taa", render_settings.use_taa),
             cereal::make_nvp("use_fxaa", render_settings.use_fxaa),
             cereal::make_nvp("tonemap", render_settings.tonemap),
             cereal::make_nvp("bloom", render_settings.bloom),
