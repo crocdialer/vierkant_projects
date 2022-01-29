@@ -34,7 +34,8 @@ void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
 template<class Archive>
 void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_settings)
 {
-    archive(cereal::make_nvp("disable_material", render_settings.disable_material),
+    archive(cereal::make_nvp("resolution", render_settings.resolution),
+            cereal::make_nvp("disable_material", render_settings.disable_material),
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
             cereal::make_nvp("draw_grid", render_settings.draw_grid),
             cereal::make_nvp("use_taa", render_settings.use_taa),
