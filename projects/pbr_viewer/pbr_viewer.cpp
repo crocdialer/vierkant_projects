@@ -118,11 +118,11 @@ void PBRViewer::create_ui()
         {
             switch(e.code())
             {
-                case vk::Key::_ESCAPE:
+                case vierkant::Key::_ESCAPE:
                     set_running(false);
                     break;
 
-                case vk::Key::_C:
+                case vierkant::Key::_C:
                     if(m_camera_control.current == m_camera_control.orbit)
                     {
                         m_camera_control.current = m_camera_control.fly;
@@ -130,18 +130,23 @@ void PBRViewer::create_ui()
                     else{ m_camera_control.current = m_camera_control.orbit; }
                     break;
 
-                case vk::Key::_G:
+                case vierkant::Key::_G:
                     m_pbr_renderer->settings.draw_grid = !m_pbr_renderer->settings.draw_grid;
                     break;
 
-                case vk::Key::_P:
+                case vierkant::Key::_P:
                     if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer; }
                     else{ m_scene_renderer = m_pbr_renderer; }
                     break;
 
-                case vk::Key::_B:
+                case vierkant::Key::_B:
                     m_settings.draw_aabbs = !m_settings.draw_aabbs;
                     break;
+
+                case vk::Key::_N:
+                    m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
+                    break;
+
                 case vk::Key::_S:
                     save_settings(m_settings);
                     break;
@@ -258,6 +263,7 @@ void PBRViewer::create_graphics_pipeline()
     create_info.pipeline_cache = m_pipeline_cache;
 
     m_renderer = vk::Renderer(m_device, create_info);
+    m_renderer_overlay = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
@@ -528,29 +534,47 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
         m_num_drawcalls = render_result.num_objects;
+        return m_renderer.render(framebuffer);
+    };
 
-        if(m_settings.draw_aabbs)
+    auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer
+    {
+        for(auto &obj : m_selected_objects)
         {
-            for(auto &obj : m_selected_objects)
+            auto modelview = m_camera->view_matrix() * obj->transform();
+
+            auto mesh_node = std::dynamic_pointer_cast<vierkant::MeshNode>(obj);
+
+            if(m_settings.draw_aabbs)
             {
-                auto modelview = m_camera->view_matrix() * obj->transform();
-
-                m_draw_context.draw_boundingbox(m_renderer, obj->aabb(), modelview, m_camera->projection_matrix());
-
-                auto mesh_node = std::dynamic_pointer_cast<vierkant::MeshNode>(obj);
+                m_draw_context.draw_boundingbox(m_renderer_overlay, obj->aabb(), modelview,
+                                                m_camera->projection_matrix());
 
                 if(mesh_node)
                 {
                     for(const auto &entry : mesh_node->mesh->entries)
                     {
-                        m_draw_context.draw_boundingbox(m_renderer, entry.boundingbox,
+                        m_draw_context.draw_boundingbox(m_renderer_overlay, entry.boundingbox,
                                                         modelview * entry.transform,
                                                         m_camera->projection_matrix());
                     }
                 }
             }
+
+            if(m_settings.draw_node_hierarchy)
+            {
+                vierkant::nodes::node_animation_t animation = {};
+
+                if(mesh_node->mesh->animation_index < mesh_node->mesh->node_animations.size())
+                {
+                    animation = mesh_node->mesh->node_animations[mesh_node->mesh->animation_index];
+                }
+                auto node = mesh_node->mesh->root_bone ? mesh_node->mesh->root_bone : mesh_node->mesh->root_node;
+                m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation, modelview,
+                                                   m_camera->projection_matrix());
+            }
         }
-        return m_renderer.render(framebuffer);
+        return m_renderer_overlay.render(framebuffer);
     };
 
     auto render_gui = [this, &framebuffer]() -> VkCommandBuffer
@@ -570,13 +594,12 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     // submit and wait for all command-creation tasks to complete
     std::vector<std::future<VkCommandBuffer>> cmd_futures;
     cmd_futures.push_back(background_queue().post(render_scene));
+    cmd_futures.push_back(background_queue().post(render_scene_overlays));
     cmd_futures.push_back(background_queue().post(render_gui));
     crocore::wait_all(cmd_futures);
 
     // get values from completed futures
     for(auto &f : cmd_futures){ ret.command_buffers.push_back(f.get()); }
-
-//    ret.command_buffers = {render_scene(), render_gui()};
 
     // get semaphore infos
     ret.semaphore_infos = std::move(semaphore_infos);

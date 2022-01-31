@@ -50,6 +50,8 @@ public:
 
         bool draw_aabbs = true;
 
+        bool draw_node_hierarchy = true;
+
         bool path_tracing = false;
 
         bool texture_compression = false;
@@ -134,7 +136,7 @@ private:
 
     vierkant::SceneRendererPtr m_scene_renderer;
 
-    vk::Renderer m_renderer, m_renderer_gui;
+    vk::Renderer m_renderer, m_renderer_overlay, m_renderer_gui;
 
     vierkant::FontPtr m_font;
 
