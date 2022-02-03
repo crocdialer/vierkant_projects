@@ -99,8 +99,6 @@ void PBRViewer::create_context_and_window()
     // create a draw context
     m_draw_context = vierkant::DrawContext(m_device);
 
-    m_font = vk::Font::create(m_device, g_font_path, 64);
-
     m_pipeline_cache = vk::PipelineCache::create(m_device);
 
     // set some separate queues for background stuff
@@ -159,6 +157,8 @@ void PBRViewer::create_ui()
 
     // try to fetch a font from google-fonts
     auto http_response = crocore::net::http::get(g_font_url);
+
+    m_font = vk::Font::create(m_device, http_response.data, 64);
 
     // create a gui and add a draw-delegate
     vk::gui::Context::create_info_t gui_create_info = {};
