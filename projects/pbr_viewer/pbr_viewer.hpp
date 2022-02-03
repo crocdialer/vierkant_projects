@@ -18,10 +18,7 @@ bool DEMO_GUI = false;
 
 const char *g_texture_url = "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32b33240f_-_hasselhoff_kr_pr_nbc-lg.jpg";
 
-const char *g_font_path = "/usr/local/share/fonts/Courier New Bold.ttf";
-//const char *g_font_path = "/home/crocdialer/Desktop/Ubuntu-Medium.ttf";
-
-//const char *g_font_path = "https://github.com/google/fonts/raw/main/ufl/ubuntu/Ubuntu-Medium.ttf";
+const char *g_font_url = "https://fonts.gstatic.com/s/courierprime/v5/u-4k0q2lgwslOqpF_6gQ8kELY7pMf-c.ttf";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -163,6 +160,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
+       cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
        cereal::make_nvp("view_rotation", settings.view_rotation),

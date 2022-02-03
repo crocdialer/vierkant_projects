@@ -157,10 +157,13 @@ void PBRViewer::create_ui()
     };
     m_window->key_delegates[name()] = key_delegate;
 
+    // try to fetch a font from google-fonts
+    auto http_response = crocore::net::http::get(g_font_url);
+
     // create a gui and add a draw-delegate
     vk::gui::Context::create_info_t gui_create_info = {};
     gui_create_info.ui_scale = 2.f;
-    gui_create_info.font_path = g_font_path;
+    gui_create_info.font_data = http_response.data;
     gui_create_info.font_size = 23.f;
     m_gui_context = vk::gui::Context(m_device, gui_create_info);
 
@@ -249,7 +252,7 @@ void PBRViewer::create_graphics_pipeline()
 {
     m_pipeline_cache->clear();
 
-    bool use_raytracer = m_scene_renderer == m_path_tracer;
+    bool use_raytracer = m_scene_renderer ? m_scene_renderer == m_path_tracer : m_settings.path_tracing;
 
     const auto &framebuffers = m_window->swapchain().framebuffers();
     auto fb_extent = framebuffers.front().extent();
