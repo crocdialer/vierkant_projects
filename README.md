@@ -3,7 +3,7 @@ Project repository for applications built with the vierkant rendering framework
 
 https://github.com/crocdialer/vierkant
 
-- pbr_viewer
+- pbr_viewer ![example workflow](https://github.com/crocdialer/vierkant_projects/actions/workflows/cmake_build.yml/badge.svg)
   - small 3d-viewer with a raster- and raytracing backend
 
 dependencies:
