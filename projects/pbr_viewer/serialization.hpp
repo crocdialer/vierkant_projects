@@ -92,6 +92,7 @@ template<class Archive>
 void serialize(Archive &archive, vierkant::CameraControl &camera_control)
 {
     archive(cereal::make_nvp("enabled", camera_control.enabled));
+    archive(cereal::make_nvp("mouse_sensitivity", camera_control.mouse_sensitivity));
 }
 
 template<class Archive>
@@ -108,9 +109,8 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 {
     archive(
             cereal::base_class<vierkant::CameraControl>(&orbit_camera),
-            cereal::make_nvp("rotation", orbit_camera.rotation),
-            cereal::make_nvp("look_at", orbit_camera.look_at),
-            cereal::make_nvp("distance", orbit_camera.distance));
+            cereal::make_nvp("spherical_coords", orbit_camera.spherical_coords),
+            cereal::make_nvp("look_at", orbit_camera.look_at));
 }
 
 }// namespace vierkant
