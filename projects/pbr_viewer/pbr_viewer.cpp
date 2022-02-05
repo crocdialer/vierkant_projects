@@ -3,14 +3,12 @@
 #include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
-#include <crocore/json.hpp>
 
 #include <vierkant/imgui/imgui_util.h>
-#include <vierkant/Visitor.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
+#include <vierkant/MeshNode.hpp>
 
-#include <vierkant/assimp.hpp>
 #include <vierkant/gltf.hpp>
 #include <vierkant/bc7.hpp>
 
@@ -612,20 +610,25 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
 void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path) const
 {
+    // window settings
     vierkant::Window::create_info_t window_info = {};
     window_info.size = m_window->size();
     window_info.position = m_window->position();
     window_info.fullscreen = m_window->fullscreen();
     window_info.sample_count = m_window->swapchain().sample_count();
     window_info.title = m_window->title();
-
     window_info.vsync = m_window->swapchain().v_sync();
-
-    settings.log_severity = crocore::g_logger.severity();
     settings.window_info = window_info;
-    settings.view_rotation = m_camera_control.orbit->rotation;
-    settings.view_look_at = m_camera_control.orbit->look_at;
-    settings.view_distance = m_camera_control.orbit->distance;
+
+    // logger settings
+    settings.log_severity = crocore::g_logger.severity();
+
+    // camera-control settings
+    settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
+    settings.orbit_camera = m_camera_control.orbit;
+    settings.fly_camera = m_camera_control.fly;
+
+    // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
     settings.path_tracer_settings = m_path_tracer->settings;
     settings.path_tracing = m_scene_renderer == m_path_tracer;
@@ -671,18 +674,15 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
 void PBRViewer::create_camera_controls()
 {
-    // init arcball
+    // restore settings
+    m_camera_control.orbit = m_settings.orbit_camera;
     m_camera_control.orbit->screen_size = m_window->size();
     m_camera_control.orbit->enabled = true;
 
-    // restore settings
-    m_camera_control.orbit->rotation = m_settings.view_rotation;
-    m_camera_control.orbit->look_at = m_settings.view_look_at;
-    m_camera_control.orbit->distance = m_settings.view_distance;
+    m_camera_control.fly = m_settings.fly_camera;
 
-//    m_camera_control.fly->move_speed =
-//m_camera_control.fly->position =
-//m_camera_control.fly->rotation =
+    if(m_settings.use_fly_camera){ m_camera_control.current = m_camera_control.fly; }
+    else{ m_camera_control.current = m_camera_control.orbit; }
 
     // attach arcball mouse delegate
     auto arcball_delegeate = m_camera_control.orbit->mouse_delegate();

@@ -53,11 +53,9 @@ public:
 
         bool texture_compression = false;
 
-        bool fly_camera = false;
-
-        glm::quat view_rotation = {1.0f, 0.0f, 0.0f, 0.0f};
-        glm::vec3 view_look_at = {};
-        float view_distance = 5.f;
+        vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
+        vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
+        bool use_fly_camera = false;
     };
 
     explicit PBRViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
@@ -163,9 +161,9 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
-       cereal::make_nvp("view_rotation", settings.view_rotation),
-       cereal::make_nvp("view_look_at", settings.view_look_at),
-       cereal::make_nvp("view_distance", settings.view_distance));
+       cereal::make_nvp("orbit_camera", settings.orbit_camera),
+       cereal::make_nvp("fly_camera", settings.fly_camera),
+       cereal::make_nvp("use_fly_camera", settings.use_fly_camera));
 }
 
 //

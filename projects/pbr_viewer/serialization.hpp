@@ -5,15 +5,18 @@
 #pragma once
 
 #include <cereal/cereal.hpp>
-#include <cereal/archives/json.hpp>
+#include <cereal/types/memory.hpp>
+
 #include <cereal/archives/binary.hpp>
+#include <cereal/archives/json.hpp>
 
+#include "glm_cereal.hpp"
 
-#include <vierkant/math.hpp>
 #include <vierkant/Window.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/DepthOfField.hpp>
+#include <vierkant/CameraControl.hpp>
 
 namespace vierkant
 {
@@ -68,10 +71,8 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
     );
 }
 
-namespace postfx
-{
 template<class Archive>
-void serialize(Archive &archive, vierkant::postfx::dof_settings_t &dof_settings)
+void serialize(Archive &archive, vierkant::dof_settings_t &dof_settings)
 {
     archive(cereal::make_nvp("enabled", dof_settings.enabled),
             cereal::make_nvp("focal_depth", dof_settings.focal_depth),
@@ -86,136 +87,32 @@ void serialize(Archive &archive, vierkant::postfx::dof_settings_t &dof_settings)
 
     );
 }
-}// namespace postfx
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::CameraControl &camera_control)
+{
+    archive(cereal::make_nvp("enabled", camera_control.enabled));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::FlyCamera &fly_camera)
+{
+    archive(cereal::base_class<vierkant::CameraControl>(&fly_camera),
+            cereal::make_nvp("position", fly_camera.position),
+            cereal::make_nvp("rotation", fly_camera.rotation),
+            cereal::make_nvp("move_speed", fly_camera.move_speed));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
+{
+    archive(
+            cereal::base_class<vierkant::CameraControl>(&orbit_camera),
+            cereal::make_nvp("rotation", orbit_camera.rotation),
+            cereal::make_nvp("look_at", orbit_camera.look_at),
+            cereal::make_nvp("distance", orbit_camera.distance));
+}
 
 }// namespace vierkant
 
-namespace glm
-{
 
-template<class Archive>
-void serialize(Archive &archive, glm::vec2 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::vec3 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::vec4 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z),
-            cereal::make_nvp("w", v.w));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::ivec2 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::ivec3 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::ivec4 &v){ archive(v.x, v.y, v.z, v.w); }
-
-template<class Archive>
-void serialize(Archive &archive, glm::uvec2 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::uvec3 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::uvec4 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z),
-            cereal::make_nvp("w", v.w));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::dvec2 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::dvec3 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::dvec4 &v)
-{
-    archive(cereal::make_nvp("x", v.x),
-            cereal::make_nvp("y", v.y),
-            cereal::make_nvp("z", v.z),
-            cereal::make_nvp("w", v.w));
-}
-
-// glm matrices serialization
-template<class Archive>
-void serialize(Archive &archive, glm::mat2 &m){ archive(m[0], m[1]); }
-
-template<class Archive>
-void serialize(Archive &archive, glm::dmat2 &m){ archive(m[0], m[1]); }
-
-template<class Archive>
-void serialize(Archive &archive, glm::mat3 &m){ archive(m[0], m[1], m[2]); }
-
-template<class Archive>
-void serialize(Archive &archive, glm::mat4 &m){ archive(m[0], m[1], m[2], m[3]); }
-
-template<class Archive>
-void serialize(Archive &archive, glm::dmat4 &m){ archive(m[0], m[1], m[2], m[3]); }
-
-template<class Archive>
-void serialize(Archive &archive, glm::quat &q)
-{
-    archive(cereal::make_nvp("x", q.x),
-            cereal::make_nvp("y", q.y),
-            cereal::make_nvp("z", q.z),
-            cereal::make_nvp("w", q.w));
-}
-
-template<class Archive>
-void serialize(Archive &archive, glm::dquat &q)
-{
-    archive(cereal::make_nvp("x", q.x),
-            cereal::make_nvp("y", q.y),
-            cereal::make_nvp("z", q.z),
-            cereal::make_nvp("w", q.w));
-}
-
-
-}// namespace glm
