@@ -165,6 +165,3 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera));
 }
-
-//
-//} // namespace boost::serialization
