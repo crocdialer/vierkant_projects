@@ -583,10 +583,10 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         m_gui_context.draw_gui(m_renderer_gui);
 
 //        if(m_num_loading)
-        {
-            m_draw_context.draw_text(m_renderer_gui, crocore::to_string(m_num_drawcalls), m_font,
-                                     {m_window->size().x - 375, 50.f});
-        }
+//        {
+//            m_draw_context.draw_text(m_renderer_gui, crocore::to_string(m_num_drawcalls), m_font,
+//                                     {m_window->size().x - 375, 50.f});
+//        }
         return m_renderer_gui.render(framebuffer);
     };
 
