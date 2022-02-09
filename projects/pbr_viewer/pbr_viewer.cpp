@@ -54,7 +54,7 @@ void PBRViewer::teardown()
 
 void PBRViewer::poll_events()
 {
-    glfwPollEvents();
+    if(m_window){ m_window->poll_events(); }
 }
 
 void PBRViewer::create_context_and_window()
