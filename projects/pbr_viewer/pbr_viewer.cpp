@@ -719,5 +719,7 @@ void PBRViewer::create_camera_controls()
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
-    m_camera->set_global_transform(m_camera_control.orbit->transform());
+
+    // update camera from current
+    m_camera->set_global_transform(m_camera_control.current->transform());
 }
