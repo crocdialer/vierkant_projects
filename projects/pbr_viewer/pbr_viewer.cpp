@@ -691,7 +691,8 @@ void PBRViewer::create_camera_controls()
         bool is_active = m_camera_control.current == m_camera_control.orbit;
         return is_active && !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse);
     };
-    m_window->mouse_delegates["arcball"] = std::move(arcball_delegeate);
+    m_window->mouse_delegates["orbit"] = std::move(arcball_delegeate);
+    m_window->joystick_delegates["orbit"] = m_camera_control.orbit->joystick_delegate();
 
     auto flycamera_delegeate = m_camera_control.fly->mouse_delegate();
     flycamera_delegeate.enabled = [this]()
@@ -708,6 +709,7 @@ void PBRViewer::create_camera_controls()
         return is_active && !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard);
     };
     m_window->key_delegates["flycamera"] = std::move(fly_key_delegeate);
+    m_window->joystick_delegates["flycamera"] = m_camera_control.fly->joystick_delegate();
 
     // update camera with arcball
     auto transform_cb = [this](const glm::mat4 &transform)
