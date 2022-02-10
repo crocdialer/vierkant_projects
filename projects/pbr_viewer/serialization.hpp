@@ -100,8 +100,7 @@ void serialize(Archive &archive, vierkant::FlyCamera &fly_camera)
 {
     archive(cereal::base_class<vierkant::CameraControl>(&fly_camera),
             cereal::make_nvp("position", fly_camera.position),
-            cereal::make_nvp("rotation", fly_camera.rotation),
-            cereal::make_nvp("pitch", fly_camera.pitch),
+            cereal::make_nvp("spherical_coords", fly_camera.spherical_coords),
             cereal::make_nvp("move_speed", fly_camera.move_speed));
 }
 
@@ -111,6 +110,7 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
     archive(
             cereal::base_class<vierkant::CameraControl>(&orbit_camera),
             cereal::make_nvp("spherical_coords", orbit_camera.spherical_coords),
+            cereal::make_nvp("distance", orbit_camera.distance),
             cereal::make_nvp("look_at", orbit_camera.look_at));
 }
 

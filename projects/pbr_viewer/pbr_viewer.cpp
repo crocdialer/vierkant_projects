@@ -124,6 +124,7 @@ void PBRViewer::create_ui()
                         m_camera_control.current = m_camera_control.fly;
                     }
                     else{ m_camera_control.current = m_camera_control.orbit; }
+                    m_camera->set_transform(m_camera_control.current->transform());
                     break;
 
                 case vierkant::Key::_G:
