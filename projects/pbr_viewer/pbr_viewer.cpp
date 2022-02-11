@@ -11,6 +11,8 @@
 #include <vierkant/gltf.hpp>
 #include <vierkant/Visitor.hpp>
 
+#include "spdlog/sinks/base_sink.h"
+
 #include "pbr_viewer.hpp"
 
 ////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
@@ -23,6 +25,33 @@ const bool g_enable_validation_layers = true;
 
 using double_second = std::chrono::duration<double>;
 
+using log_delegate_fn_t = std::function<void(const std::string &msg, spdlog::level::level_enum log_level)>;
+
+class delegate_sink_t : public spdlog::sinks::base_sink<std::mutex>
+{
+public:
+    std::unordered_map<std::string, log_delegate_fn_t> log_delegates;
+
+protected:
+    void sink_it_(const spdlog::details::log_msg &msg) override
+    {
+        // log_msg is a struct containing the log entry info like level, timestamp, thread id etc.
+        // msg.raw contains pre formatted log
+
+        // If needed (very likely but not mandatory), the sink formats the message before sending it to its final destination:
+        spdlog::memory_buf_t formatted;
+        spdlog::sinks::base_sink<std::mutex>::formatter_->format(msg, formatted);
+
+        // bounce out via delegates
+        for(const auto&[name, delegate] : log_delegates)
+        {
+            if(delegate){ delegate(fmt::to_string(formatted), msg.level); };
+        }
+    }
+
+    void flush_() override{}
+};
+
 int main(int argc, char *argv[])
 {
     auto app = std::make_shared<PBRViewer>(argc, argv);
@@ -31,6 +60,15 @@ int main(int argc, char *argv[])
 
 void PBRViewer::setup()
 {
+    auto scroll_log_sink = std::make_shared<delegate_sink_t>();
+    spdlog::default_logger()->sinks().push_back(scroll_log_sink);
+
+    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level)
+    {
+        m_log_queue.emplace_back(msg, log_level);
+        while(m_log_queue.size() > m_max_log_queue_size){ m_log_queue.pop_front(); }
+    };
+
     // try to read settings
     m_settings = load_settings();
 

@@ -29,6 +29,7 @@ public:
         spdlog::level::level_enum log_level = spdlog::level::info;
         std::string model_path;
         std::string environment_path;
+        std::deque<std::string> recent_files;
 
         vierkant::Window::create_info_t window_info =
                 {
@@ -139,16 +140,16 @@ private:
     vierkant::DrawContext m_draw_context;
 
     size_t m_max_log_queue_size = 100;
-    std::deque<std::string> m_log_queue;
+    std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
 };
 
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
 {
-
     ar(cereal::make_nvp("log_level", settings.log_level),
        cereal::make_nvp("model_path", settings.model_path),
        cereal::make_nvp("environment_path", settings.environment_path),
+       cereal::make_nvp("recent_files", settings.recent_files),
        cereal::make_nvp("window", settings.window_info),
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),

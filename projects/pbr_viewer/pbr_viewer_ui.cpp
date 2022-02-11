@@ -6,52 +6,12 @@
 #include <crocore/filesystem.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
-#include "spdlog/sinks/base_sink.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
-
 #include "pbr_viewer.hpp"
 
-bool DEMO_GUI = false;
-
-using log_delegate_fn_t = std::function<void(const std::string &msg)>;
-
-class delegate_sink_t : public spdlog::sinks::base_sink<std::mutex>
-{
-public:
-    std::unordered_map<std::string, log_delegate_fn_t> log_delegates;
-
-protected:
-    void sink_it_(const spdlog::details::log_msg &msg) override
-    {
-        // log_msg is a struct containing the log entry info like level, timestamp, thread id etc.
-        // msg.raw contains pre formatted log
-
-        // If needed (very likely but not mandatory), the sink formats the message before sending it to its final destination:
-        spdlog::memory_buf_t formatted;
-        spdlog::sinks::base_sink<std::mutex>::formatter_->format(msg, formatted);
-
-        // bounce out via delegates
-        for(const auto&[name, delegate] : log_delegates)
-        {
-            if(delegate){ delegate(fmt::to_string(formatted)); };
-        }
-    }
-
-    void flush_() override{}
-};
+bool DEMO_GUI = true;
 
 void PBRViewer::create_ui()
 {
-    auto imgui_sink = std::make_shared<delegate_sink_t>();
-    spdlog::default_logger()->sinks().push_back(imgui_sink);
-
-    log_delegate_fn_t imgui_log = [this](const std::string &msg)
-    {
-        m_log_queue.push_back(msg);
-        while(m_log_queue.size() > m_max_log_queue_size){ m_log_queue.pop_front(); }
-    };
-    imgui_sink->log_delegates["imgui"] = imgui_log;
-
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
     key_delegate.key_press = [this](const vierkant::KeyEvent &e)
@@ -229,13 +189,21 @@ void PBRViewer::create_ui()
     {
         auto &f = files.back();
 
+        auto add_to_recent_files = [this](const std::string &f)
+        {
+            m_settings.recent_files.push_back(f);
+            while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
+        };
+
         switch(crocore::filesystem::get_file_type(f))
         {
             case crocore::filesystem::FileType::IMAGE:
+                add_to_recent_files(f);
                 load_environment(f);
                 break;
 
             case crocore::filesystem::FileType::MODEL:
+                add_to_recent_files(f);
                 load_model(f);
                 break;
 

@@ -6,6 +6,7 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
+#include <cereal/types/deque.hpp>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
