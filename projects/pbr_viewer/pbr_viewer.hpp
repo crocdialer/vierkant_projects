@@ -26,7 +26,7 @@ public:
 
     struct settings_t
     {
-        crocore::Severity log_severity = crocore::Severity::DEBUG;
+        spdlog::level::level_enum log_level = spdlog::level::info;
         std::string model_path;
         std::string environment_path;
 
@@ -146,7 +146,7 @@ template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
 {
 
-    ar(cereal::make_nvp("log_severity", settings.log_severity),
+    ar(cereal::make_nvp("log_level", settings.log_level),
        cereal::make_nvp("model_path", settings.model_path),
        cereal::make_nvp("environment_path", settings.environment_path),
        cereal::make_nvp("window", settings.window_info),

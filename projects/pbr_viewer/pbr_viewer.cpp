@@ -34,7 +34,7 @@ void PBRViewer::setup()
     // try to read settings
     m_settings = load_settings();
 
-    crocore::g_logger.set_severity(m_settings.log_severity);
+    spdlog::set_level(m_settings.log_level);
 
     create_context_and_window();
 
@@ -51,8 +51,7 @@ void PBRViewer::setup()
 
 void PBRViewer::teardown()
 {
-    LOG_INFO << "ciao " << name();
-
+    spdlog::info("ciao {}", name());
     background_queue().join_all();
     vkDeviceWaitIdle(m_device->handle());
 }
@@ -454,7 +453,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.window_info = window_info;
 
     // logger settings
-    settings.log_severity = crocore::g_logger.severity();
+    settings.log_level = spdlog::get_level();
 
     // camera-control settings
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
