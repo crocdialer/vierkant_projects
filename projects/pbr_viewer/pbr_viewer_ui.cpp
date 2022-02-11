@@ -205,11 +205,13 @@ void PBRViewer::create_ui()
         ImGui::Begin("logger", &show_logger, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
                                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                              ImGuiWindowFlags_NoNav);
-        for(const auto &msg : m_log_queue)
+
+        ImGuiListClipper clipper(static_cast<int>(m_log_queue.size()));
+        while(clipper.Step())
         {
-            ImGui::BulletText(msg.c_str());
-            if(ImGui::GetScrollY() >= ImGui::GetScrollMaxY()){ ImGui::SetScrollHereY(1.0f); }
+            for(int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++){ ImGui::Text(m_log_queue[i].c_str()); }
         }
+        if(ImGui::GetScrollY() >= ImGui::GetScrollMaxY()){ ImGui::SetScrollHereY(); }
 
         ImGui::End();
     };
@@ -225,7 +227,7 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .1f, 100.f);
+    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .01f, 100.f);
 
     create_camera_controls();
 
