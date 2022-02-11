@@ -138,6 +138,7 @@ private:
 
     vierkant::DrawContext m_draw_context;
 
+    size_t m_max_log_queue_size = 50;
     std::deque<std::string> m_log_queue;
 };
 

@@ -67,7 +67,7 @@ void PBRViewer::create_context_and_window()
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::required_extensions());
 
     // attach logger for debug-output
-    m_instance.set_debug_fn([](const char *msg){ LOG_WARNING << msg; });
+    m_instance.set_debug_fn([](const char *msg){ spdlog::warn(msg); });
 
     m_settings.window_info.title = name();
     m_settings.window_info.instance = m_instance.handle();
@@ -129,6 +129,7 @@ void PBRViewer::create_graphics_pipeline()
     m_renderer = vk::Renderer(m_device, create_info);
     m_renderer_overlay = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
+    m_renderer_gui.indirect_draw = false;
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.num_frames_in_flight = framebuffers.size();
@@ -166,7 +167,7 @@ void PBRViewer::create_texture_image()
     vk::Image::Format fmt;
 
     // create from downloaded data
-    if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 3); }
+    if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 4); }
     else
     {
         // create 4x4 black/white checkerboard image
@@ -210,7 +211,7 @@ void PBRViewer::load_model(const std::string &path)
 
             if(mesh_assets.entry_create_infos.empty())
             {
-                LOG_WARNING << "could not load file: " << path;
+                spdlog::warn("could not load file: {}", path);
                 return;
             }
 
@@ -218,7 +219,7 @@ void PBRViewer::load_model(const std::string &path)
 
             if(!mesh)
             {
-                LOG_WARNING << crocore::format("loading '%s' failed ...", path.c_str());
+                spdlog::warn("loading '{}' failed ...", path.c_str());
                 m_num_loading--;
                 return;
             }
@@ -227,7 +228,6 @@ void PBRViewer::load_model(const std::string &path)
             {
                 m_selected_objects.clear();
                 m_scene->clear();
-
                 auto mesh_node = vierkant::MeshNode::create(mesh);
 
                 // scale
@@ -239,14 +239,10 @@ void PBRViewer::load_model(const std::string &path)
                 mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
 
                 m_scene->add_object(mesh_node);
-
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
 
-                auto dur = double_second(
-                        std::chrono::steady_clock::now() - start_time);
-                LOG_DEBUG
-                << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(),
-                                   dur.count());
+                auto dur = double_second(std::chrono::steady_clock::now() - start_time);
+                spdlog::debug("loaded '{}' -- ({:03.2f})", path.c_str(), dur.count());
                 m_num_loading--;
             };
             main_queue().post(done_cb);
@@ -350,7 +346,7 @@ void PBRViewer::load_environment(const std::string &path)
                               m_settings.environment_path = path;
 
                               auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-                              LOG_DEBUG << crocore::format("loaded '%s' -- (%.2fs)", path.c_str(), dur.count());
+                              spdlog::debug("loaded '{}' -- ({:03.2f})", path.c_str(), dur.count());
                               m_num_loading--;
                           });
     };
@@ -481,9 +477,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
         // write class instance to archive
         archive(settings);
 
-    } catch(std::exception &e){ LOG_ERROR << e.what(); }
+    } catch(std::exception &e){ spdlog::error(e.what()); }
 
-    LOG_DEBUG << "save settings: " << path;
+    spdlog::debug("save settings: {}", path.string());
 }
 
 PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path)
@@ -502,9 +498,9 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
             // read class instance from archive
             archive(settings);
-        } catch(std::exception &e){ LOG_ERROR << e.what(); }
+        } catch(std::exception &e){ spdlog::error(e.what()); }
 
-        LOG_DEBUG << "loading settings: " << path;
+        spdlog::debug("loading settings: {}", path.string());
     }
     return settings;
 }
