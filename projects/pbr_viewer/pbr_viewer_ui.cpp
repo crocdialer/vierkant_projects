@@ -3,12 +3,11 @@
 //
 
 #include <crocore/http.hpp>
-#include <crocore/filesystem.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
 #include "pbr_viewer.hpp"
 
-bool DEMO_GUI = true;
+bool DEMO_GUI = false;
 
 void PBRViewer::create_ui()
 {
@@ -16,7 +15,7 @@ void PBRViewer::create_ui()
     vierkant::key_delegate_t key_delegate = {};
     key_delegate.key_press = [this](const vierkant::KeyEvent &e)
     {
-        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard))
+        if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard))
         {
             switch(e.code())
             {
@@ -124,7 +123,54 @@ void PBRViewer::create_ui()
 
     m_gui_context.delegates["application"] = [this]
     {
+        int corner = 0;
+        bool is_open = true;
+
+        float bg_alpha = .35f;
+        const float DISTANCE = 10.0f;
+        ImGuiIO &io = ImGui::GetIO();
+
+        ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
+                                   (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
+        ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        ImGui::SetNextWindowBgAlpha(bg_alpha);
+
+        ImGui::Begin("about: blank", &is_open,
+                     (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoTitleBar |
+                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+        if(ImGui::BeginMenu(name().c_str()))
+        {
+            if(ImGui::MenuItem("save"))
+            {
+                spdlog::debug("menu: save");
+                save_settings(m_settings);
+            }
+            if(ImGui::MenuItem("reload"))
+            {
+                spdlog::warn("menu: reload");
+                m_settings = load_settings();
+            }
+            if(ImGui::BeginMenu("recent files"))
+            {
+                for(const auto &f : m_settings.recent_files)
+                {
+                    if(ImGui::MenuItem(f.c_str()))
+                    {
+                        spdlog::debug("menu: open recent file -> {}", f);
+                        load_file(f);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+        }
+
         vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
+
+        ImGui::End();
     };
 
     // renderer window
@@ -145,7 +191,11 @@ void PBRViewer::create_ui()
     };
 
     // log window
-    m_gui_context.delegates["logger"] = [&log_queue = m_log_queue]{ vierkant::gui::draw_logger_ui(log_queue); };
+    m_gui_context.delegates["logger"] = [&log_queue = m_log_queue, &mutex = m_log_queue_mutex]
+    {
+        std::shared_lock lock(mutex);
+        vierkant::gui::draw_logger_ui(log_queue);
+    };
 
     // scenegraph window
     m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
@@ -188,28 +238,7 @@ void PBRViewer::create_ui()
     file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
     {
         auto &f = files.back();
-
-        auto add_to_recent_files = [this](const std::string &f)
-        {
-            m_settings.recent_files.push_back(f);
-            while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
-        };
-
-        switch(crocore::filesystem::get_file_type(f))
-        {
-            case crocore::filesystem::FileType::IMAGE:
-                add_to_recent_files(f);
-                load_environment(f);
-                break;
-
-            case crocore::filesystem::FileType::MODEL:
-                add_to_recent_files(f);
-                load_model(f);
-                break;
-
-            default:
-                break;
-        }
+        load_file(f);
     };
     m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 }

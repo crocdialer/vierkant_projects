@@ -1,5 +1,6 @@
 #include <fstream>
 
+#include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
 
@@ -45,7 +46,7 @@ protected:
         // bounce out via delegates
         for(const auto&[name, delegate] : log_delegates)
         {
-            if(delegate){ delegate(fmt::to_string(formatted), msg.level); };
+            if(delegate){ delegate(fmt::to_string(formatted), msg.level); }
         }
     }
 
@@ -65,6 +66,7 @@ void PBRViewer::setup()
 
     scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level)
     {
+        std::unique_lock lock(m_log_queue_mutex);
         m_log_queue.emplace_back(msg, log_level);
         while(m_log_queue.size() > m_max_log_queue_size){ m_log_queue.pop_front(); }
     };
@@ -540,6 +542,31 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
         spdlog::debug("loading settings: {}", path.string());
     }
     return settings;
+}
+
+void PBRViewer::load_file(const std::string &path)
+{
+    auto add_to_recent_files = [this](const std::string &f)
+    {
+        m_settings.recent_files.push_back(f);
+        while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
+    };
+
+    switch(crocore::filesystem::get_file_type(path))
+    {
+        case crocore::filesystem::FileType::IMAGE:
+            add_to_recent_files(path);
+            load_environment(path);
+            break;
+
+        case crocore::filesystem::FileType::MODEL:
+            add_to_recent_files(path);
+            load_model(path);
+            break;
+
+        default:
+            break;
+    }
 }
 
 

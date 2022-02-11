@@ -60,6 +60,8 @@ public:
 
     explicit PBRViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
 
+    void load_file(const std::string &path);
+
 private:
 
     void setup() override;
@@ -141,6 +143,7 @@ private:
 
     size_t m_max_log_queue_size = 100;
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
+    std::shared_mutex m_log_queue_mutex;
 };
 
 template<class Archive>
