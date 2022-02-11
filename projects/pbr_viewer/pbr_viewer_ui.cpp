@@ -72,7 +72,7 @@ void PBRViewer::create_ui()
             auto &js = joysticks.front();
             for(auto &[input, event] : js.input_events())
             {
-                LOG_DEBUG << js.name() << " -- " << vierkant::to_string(input) << " "
+                LOG_TRACE << js.name() << " -- " << vierkant::to_string(input) << " "
                           << (event == vierkant::Joystick::Event::BUTTON_PRESS ? " pressed" : " released");
 
                 if(event == vierkant::Joystick::Event::BUTTON_PRESS)
