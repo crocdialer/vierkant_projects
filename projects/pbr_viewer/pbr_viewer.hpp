@@ -6,6 +6,7 @@
 
 #include <filesystem>
 
+#include "spdlog/spdlog.h"
 #include <crocore/Application.hpp>
 #include <vierkant/vierkant.hpp>
 #include <vierkant/PBRPathTracer.hpp>
@@ -137,6 +138,7 @@ private:
 
     vierkant::DrawContext m_draw_context;
 
+    std::deque<std::string> m_log_queue;
 };
 
 template<class Archive>

@@ -9,7 +9,6 @@
 #include <vierkant/MeshNode.hpp>
 
 #include <vierkant/gltf.hpp>
-#include <vierkant/bc7.hpp>
 #include <vierkant/Visitor.hpp>
 
 #include "pbr_viewer.hpp"

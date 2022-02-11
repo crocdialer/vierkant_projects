@@ -1,6 +1,11 @@
-[submodule "vierkant"]
-	path = vierkant
+[submodule "submodules/vierkant"]
+	path = submodules/vierkant
 	url = git@github.com:crocdialer/vierkant.git
-[submodule "cereal"]
-	path = cereal
+[submodule "submodules/cereal"]
+	path = submodules/cereal
 	url = git@github.com:USCiLab/cereal.git
+  shallow = true
+[submodule "submodules/spdlog"]
+	path = submodules/spdlog
+	url = https://github.com/gabime/spdlog
+  shallow = true

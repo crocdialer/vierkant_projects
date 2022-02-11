@@ -6,12 +6,65 @@
 #include <crocore/filesystem.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
+#include "spdlog/sinks/base_sink.h"
+
 #include "pbr_viewer.hpp"
 
-bool DEMO_GUI = false;
+bool DEMO_GUI = true;
+
+using log_delegate_fn_t = std::function<void(const std::string &msg)>;
+
+class delegate_sink_t : public spdlog::sinks::base_sink<std::mutex>
+{
+public:
+    std::unordered_map<std::string, log_delegate_fn_t> log_delegates;
+
+protected:
+    void sink_it_(const spdlog::details::log_msg &msg) override
+    {
+        // log_msg is a struct containing the log entry info like level, timestamp, thread id etc.
+        // msg.raw contains pre formatted log
+
+        // If needed (very likely but not mandatory), the sink formats the message before sending it to its final destination:
+        spdlog::memory_buf_t formatted;
+        spdlog::sinks::base_sink<std::mutex>::formatter_->format(msg, formatted);
+
+        // bounce out via delegates
+        for(const auto&[name, delegate] : log_delegates)
+        {
+            if(delegate){ delegate(fmt::to_string(formatted)); };
+        }
+    }
+
+    void flush_() override{}
+};
 
 void PBRViewer::create_ui()
 {
+    auto imgui_sink = std::make_shared<delegate_sink_t>();
+    spdlog::default_logger()->sinks().push_back(imgui_sink);
+
+    log_delegate_fn_t imgui_log = [this](const std::string &msg)
+    {
+        m_log_queue.push_back(msg);
+        while(m_log_queue.size() > 20){ m_log_queue.pop_front(); }
+    };
+    imgui_sink->log_delegates["imgui"] = imgui_log;
+
+    spdlog::info("Welcome to spdlog!");
+    spdlog::error("Some error message with arg: {}", 1);
+
+    spdlog::warn("Easy padding in numbers like {:08d}", 12);
+    spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);
+    spdlog::info("Support for floats {:03.2f}", 1.23456);
+    spdlog::info("Positional args are {1} {0}..", "too", "supported");
+    spdlog::info("{:<30}", "left aligned");
+
+    spdlog::set_level(spdlog::level::debug); // Set global log level to debug
+    spdlog::debug("This message should be displayed..");
+
+//    spdlog::get
+
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
     key_delegate.key_press = [this](const vierkant::KeyEvent &e)
@@ -141,6 +194,34 @@ void PBRViewer::create_ui()
 
         vk::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera);
 
+        ImGui::End();
+    };
+
+    // log window
+    m_gui_context.delegates["logger"] = [this]
+    {
+        int corner = 2;
+        float bg_alpha = .35f;
+        const float DISTANCE = 10.0f;
+        ImGuiIO &io = ImGui::GetIO();
+        ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
+                                   (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
+        ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        ImGui::SetNextWindowBgAlpha(bg_alpha);
+
+        bool show_logger = true;
+
+        ImGui::Begin("logger", &show_logger, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
+                                             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+                                             ImGuiWindowFlags_AlwaysAutoResize |
+                                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                             ImGuiWindowFlags_NoNav);
+        for(const auto &msg : m_log_queue)
+        {
+//ImGui::Text
+            ImGui::BulletText(msg.c_str());
+        }
         ImGui::End();
     };
 
