@@ -11,14 +11,10 @@
 #include <vierkant/PBRPathTracer.hpp>
 #include "serialization.hpp"
 
-const int WIDTH = 1920;
-const int HEIGHT = 1080;
-const bool V_SYNC = true;
-bool DEMO_GUI = false;
 
-const char *g_texture_url = "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32b33240f_-_hasselhoff_kr_pr_nbc-lg.jpg";
+constexpr char g_texture_url[] = "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32b33240f_-_hasselhoff_kr_pr_nbc-lg.jpg";
 
-const char *g_font_url = "https://fonts.gstatic.com/s/courierprime/v5/u-4k0q2lgwslOqpF_6gQ8kELY7pMf-c.ttf";
+constexpr char g_font_url[] = "https://fonts.gstatic.com/s/courierprime/v5/u-4k0q2lgwslOqpF_6gQ8kELY7pMf-c.ttf";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -44,6 +40,8 @@ public:
 
         vierkant::PBRDeferred::settings_t pbr_settings = {};
         vierkant::PBRPathTracer::settings_t path_tracer_settings = {};
+
+        bool draw_ui = true;
 
         bool draw_aabbs = true;
 
@@ -141,12 +139,6 @@ private:
 
 };
 
-int main(int argc, char *argv[])
-{
-    auto app = std::make_shared<PBRViewer>(argc, argv);
-    return app->run();
-}
-
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
 {
@@ -157,6 +149,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("window", settings.window_info),
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
+       cereal::make_nvp("draw_ui", settings.draw_ui),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
