@@ -154,6 +154,48 @@ void PBRViewer::create_ui()
     };
     m_window->key_delegates[name()] = key_delegate;
 
+    vierkant::joystick_delegate_t joystick_delegate = {};
+    joystick_delegate.joystick_cb = [&](const auto &joysticks)
+    {
+        if(!joysticks.empty())
+        {
+            auto &js = joysticks.front();
+            for(auto &[input, event] : js.input_events())
+            {
+                LOG_DEBUG << js.name() << " -- " << vierkant::to_string(input) << " "
+                          << (event == vierkant::Joystick::Event::BUTTON_PRESS ? " pressed" : " released");
+
+                if(event == vierkant::Joystick::Event::BUTTON_PRESS)
+                {
+                    switch(input)
+                    {
+                        case vierkant::Joystick::Input::BUTTON_Y:
+                            if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer; }
+                            else{ m_scene_renderer = m_pbr_renderer; }
+                            break;
+
+                        case vierkant::Joystick::Input::BUTTON_B:
+                            m_settings.draw_aabbs = !m_settings.draw_aabbs;
+                            break;
+
+                        case vierkant::Joystick::Input::BUTTON_BACK:
+                            if(m_camera_control.current == m_camera_control.orbit)
+                            {
+                                m_camera_control.current = m_camera_control.fly;
+                            }
+                            else{ m_camera_control.current = m_camera_control.orbit; }
+                            m_camera->set_transform(m_camera_control.current->transform());
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+    };
+    m_window->joystick_delegates[name()] = joystick_delegate;
+
     // try to fetch a font from google-fonts
     auto http_response = crocore::net::http::get(g_font_url);
 
