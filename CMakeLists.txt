@@ -22,9 +22,6 @@ else ()
     remove_definitions(-DNDEBUG)
 endif ()
 
-add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
-set(LIBS ${LIBS} spdlog)
-
 # vierkant
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 option(BUILD_TESTS "Build Tests" OFF)

@@ -5,7 +5,3 @@
 	path = submodules/cereal
 	url = git@github.com:USCiLab/cereal.git
   shallow = true
-[submodule "submodules/spdlog"]
-	path = submodules/spdlog
-	url = https://github.com/gabime/spdlog
-  shallow = true
