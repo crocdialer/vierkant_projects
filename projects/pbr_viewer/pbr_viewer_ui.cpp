@@ -143,16 +143,6 @@ void PBRViewer::create_ui()
 
         if(ImGui::BeginMenu(name().c_str()))
         {
-            if(ImGui::MenuItem("save"))
-            {
-                spdlog::debug("menu: save");
-                save_settings(m_settings);
-            }
-            if(ImGui::MenuItem("reload"))
-            {
-                spdlog::warn("menu: reload");
-                m_settings = load_settings();
-            }
             if(ImGui::BeginMenu("recent files"))
             {
                 for(const auto &f : m_settings.recent_files)
@@ -165,7 +155,22 @@ void PBRViewer::create_ui()
                 }
                 ImGui::EndMenu();
             }
+            ImGui::Separator();
+
+            if(ImGui::MenuItem("save"))
+            {
+                spdlog::debug("menu: save");
+                save_settings(m_settings);
+            }
+            if(ImGui::MenuItem("reload"))
+            {
+                spdlog::warn("menu: reload");
+                m_settings = load_settings();
+            }
+            ImGui::Separator();
+            ImGui::Checkbox("draw grid", &m_pbr_renderer->settings.draw_grid);
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
+            ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
             ImGui::EndMenu();
         }

@@ -105,9 +105,6 @@ void PBRViewer::create_context_and_window()
 {
     m_instance = vk::Instance(g_enable_validation_layers, vk::Window::required_extensions());
 
-    // attach logger for debug-output
-    m_instance.set_debug_fn([](const char *msg){ spdlog::warn(msg); });
-
     m_settings.window_info.title = name();
     m_settings.window_info.instance = m_instance.handle();
     m_window = vk::Window::create(m_settings.window_info);
@@ -258,7 +255,7 @@ void PBRViewer::load_model(const std::string &path)
 
             if(!mesh)
             {
-                spdlog::warn("loading '{}' failed ...", path.c_str());
+                spdlog::warn("loading '{}' failed ...", path);
                 m_num_loading--;
                 return;
             }
@@ -281,7 +278,7 @@ void PBRViewer::load_model(const std::string &path)
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
 
                 auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-                spdlog::debug("loaded '{}' -- ({:03.2f})", path.c_str(), dur.count());
+                spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
                 m_num_loading--;
             };
             main_queue().post(done_cb);
@@ -385,7 +382,7 @@ void PBRViewer::load_environment(const std::string &path)
                               m_settings.environment_path = path;
 
                               auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-                              spdlog::debug("loaded '{}' -- ({:03.2f})", path.c_str(), dur.count());
+                              spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
                               m_num_loading--;
                           });
     };
