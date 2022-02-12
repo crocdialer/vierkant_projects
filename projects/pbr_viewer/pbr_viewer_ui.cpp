@@ -172,6 +172,20 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
+
+            bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
+            if(ImGui::RadioButton("orbit", orbit_cam))
+            {
+                m_camera_control.current = m_camera_control.orbit;
+                refresh = true;
+            }
+            ImGui::SameLine();
+            if(ImGui::RadioButton("fly", !orbit_cam))
+            {
+                m_camera_control.current = m_camera_control.fly;
+                refresh = true;
+            }
+            if(refresh){ m_camera->set_transform(m_camera_control.current->transform()); }
             ImGui::EndMenu();
         }
 
@@ -305,5 +319,5 @@ void PBRViewer::create_camera_controls()
     m_camera_control.fly->transform_cb = transform_cb;
 
     // update camera from current
-    m_camera->set_global_transform(m_camera_control.current->transform());
+    m_camera->set_transform(m_camera_control.current->transform());
 }
