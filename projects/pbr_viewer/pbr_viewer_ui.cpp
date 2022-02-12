@@ -37,7 +37,7 @@ void PBRViewer::create_ui()
                     break;
 
                 case vierkant::Key::_G:
-                    m_pbr_renderer->settings.draw_grid = !m_pbr_renderer->settings.draw_grid;
+                    m_settings.draw_grid = !m_settings.draw_grid;
                     break;
 
                 case vierkant::Key::_P:
@@ -168,7 +168,7 @@ void PBRViewer::create_ui()
                 m_settings = load_settings();
             }
             ImGui::Separator();
-            ImGui::Checkbox("draw grid", &m_pbr_renderer->settings.draw_grid);
+            ImGui::Checkbox("draw grid", &m_settings.draw_grid);
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);

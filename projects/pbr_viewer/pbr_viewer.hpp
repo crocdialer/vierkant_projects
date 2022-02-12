@@ -45,9 +45,11 @@ public:
 
         bool draw_ui = true;
 
-        bool draw_aabbs = true;
+        bool draw_grid = true;
 
-        bool draw_node_hierarchy = true;
+        bool draw_aabbs = false;
+
+        bool draw_node_hierarchy = false;
 
         bool path_tracing = false;
 
@@ -157,6 +159,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_ui", settings.draw_ui),
+       cereal::make_nvp("draw_grid", settings.draw_grid),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),

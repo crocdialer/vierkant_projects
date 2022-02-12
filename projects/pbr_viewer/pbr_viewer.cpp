@@ -450,6 +450,13 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                                                    m_camera->projection_matrix());
             }
         }
+
+        if(m_settings.draw_grid)
+        {
+            m_draw_context.draw_grid(m_renderer_overlay, 10.f, 100, m_camera->view_matrix(),
+                                     m_camera->projection_matrix());
+        }
+
         return m_renderer_overlay.render(framebuffer);
     };
 
