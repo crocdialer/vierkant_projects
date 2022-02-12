@@ -82,6 +82,10 @@ void PBRViewer::create_ui()
                             m_settings.draw_ui = !m_settings.draw_ui;
                             break;
 
+                        case vierkant::Joystick::Input::BUTTON_X:
+                            m_settings.draw_grid = !m_settings.draw_grid;
+                            break;
+
                         case vierkant::Joystick::Input::BUTTON_Y:
                             if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer; }
                             else{ m_scene_renderer = m_pbr_renderer; }
