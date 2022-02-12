@@ -155,6 +155,7 @@ void PBRViewer::create_ui()
                     {
                         spdlog::debug("menu: open recent file -> {}", f);
                         load_file(f);
+                        break;
                     }
                 }
                 ImGui::EndMenu();

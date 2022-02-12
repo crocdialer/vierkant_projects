@@ -552,8 +552,11 @@ void PBRViewer::load_file(const std::string &path)
 {
     auto add_to_recent_files = [this](const std::string &f)
     {
-        m_settings.recent_files.push_back(f);
-        while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
+        main_queue().post([this, f]
+        {
+            m_settings.recent_files.put(f);
+            while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
+        });
     };
 
     switch(crocore::filesystem::get_file_type(path))

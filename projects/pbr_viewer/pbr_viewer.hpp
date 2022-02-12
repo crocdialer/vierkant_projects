@@ -8,6 +8,7 @@
 
 #include "spdlog/spdlog.h"
 #include <crocore/Application.hpp>
+#include <crocore/SetLRU.h>
 #include <vierkant/vierkant.hpp>
 #include <vierkant/PBRPathTracer.hpp>
 #include "serialization.hpp"
@@ -29,7 +30,7 @@ public:
         spdlog::level::level_enum log_level = spdlog::level::info;
         std::string model_path;
         std::string environment_path;
-        std::deque<std::string> recent_files;
+        crocore::SetLRU<std::string> recent_files;
 
         vierkant::Window::create_info_t window_info =
                 {
@@ -151,10 +152,12 @@ private:
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
 {
+    std::vector<std::string> recent_files(settings.recent_files.begin(), settings.recent_files.end());
+
     ar(cereal::make_nvp("log_level", settings.log_level),
        cereal::make_nvp("model_path", settings.model_path),
        cereal::make_nvp("environment_path", settings.environment_path),
-       cereal::make_nvp("recent_files", settings.recent_files),
+       cereal::make_nvp("recent_files", recent_files),
        cereal::make_nvp("window", settings.window_info),
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
@@ -167,4 +170,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("orbit_camera", settings.orbit_camera),
        cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera));
+
+    settings.recent_files.clear();
+    for(const auto &f : recent_files){ settings.recent_files.put(f); }
 }

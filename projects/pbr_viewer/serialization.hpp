@@ -6,12 +6,14 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
-#include <cereal/types/deque.hpp>
+#include <cereal/types/vector.hpp>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 
 #include "glm_cereal.hpp"
+
+#include <crocore/SetLRU.h>
 
 #include <vierkant/Window.hpp>
 #include <vierkant/PBRDeferred.hpp>
@@ -87,6 +89,15 @@ void serialize(Archive &archive, vierkant::dof_settings_t &dof_settings)
 
     );
 }
+
+//template<class Archive>
+//void serialize(Archive &archive, crocore::SetLRU<std::string> &set_lru)
+//{
+//    std::vector<std::string> array(set_lru.begin(), set_lru.end());
+//    archive(array);
+//    set_lru.clear();
+//    for(const auto &f : array){ set_lru.put(f); }
+//}
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::CameraControl &camera_control)
