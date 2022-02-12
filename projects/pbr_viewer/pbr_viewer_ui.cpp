@@ -165,6 +165,8 @@ void PBRViewer::create_ui()
                 }
                 ImGui::EndMenu();
             }
+            ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
+            ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
             ImGui::EndMenu();
         }
 
