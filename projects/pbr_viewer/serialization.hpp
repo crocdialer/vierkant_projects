@@ -90,15 +90,6 @@ void serialize(Archive &archive, vierkant::dof_settings_t &dof_settings)
     );
 }
 
-//template<class Archive>
-//void serialize(Archive &archive, crocore::SetLRU<std::string> &set_lru)
-//{
-//    std::vector<std::string> array(set_lru.begin(), set_lru.end());
-//    archive(array);
-//    set_lru.clear();
-//    for(const auto &f : array){ set_lru.put(f); }
-//}
-
 template<class Archive>
 void serialize(Archive &archive, vierkant::CameraControl &camera_control)
 {
@@ -126,5 +117,16 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 }
 
 }// namespace vierkant
+
+namespace cereal
+{
+template<class Archive, class T>
+void serialize(Archive &archive, crocore::SetLRU<T> &set_lru)
+{
+    std::vector<T> array(set_lru.begin(), set_lru.end());
+    archive(array);
+    set_lru = {array.begin(), array.end()};
+}
+}
 
 

@@ -178,6 +178,10 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
 
+            ImGui::Separator();
+            auto perspective_cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera);
+
+            // camera control select
             bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
             if(ImGui::RadioButton("orbit", orbit_cam))
             {
@@ -191,10 +195,25 @@ void PBRViewer::create_ui()
                 refresh = true;
             }
             if(refresh){ m_camera->set_transform(m_camera_control.current->transform()); }
+
+            if(perspective_cam)
+            {
+                // fov
+                float fov = perspective_cam->fov();
+                if(ImGui::SliderFloat("fov", &fov, 0.f, 180.f)){ perspective_cam->set_fov(fov); }
+            }
+            // clipping planes
+            float clipping[2] = {perspective_cam->near(), perspective_cam->far()};
+
+            if(ImGui::InputFloat2("clipping near/far", clipping))
+            {
+                perspective_cam->set_clipping(clipping[0], clipping[1]);
+            }
+
             ImGui::EndMenu();
         }
 
-        vk::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
+        vierkant::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
 
         ImGui::End();
     };

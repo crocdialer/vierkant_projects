@@ -554,7 +554,7 @@ void PBRViewer::load_file(const std::string &path)
     {
         main_queue().post([this, f]
         {
-            m_settings.recent_files.put(f);
+            m_settings.recent_files.push_back(f);
             while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
         });
     };
