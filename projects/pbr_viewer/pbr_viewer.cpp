@@ -503,6 +503,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
+    settings.fov = m_camera->fov();
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;

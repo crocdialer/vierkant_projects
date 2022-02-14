@@ -171,6 +171,9 @@ void PBRViewer::create_ui()
             {
                 spdlog::warn("menu: reload");
                 m_settings = load_settings();
+                create_camera_controls();
+                if(m_settings.path_tracing){ m_scene_renderer = m_path_tracer; }
+                else{ m_scene_renderer = m_pbr_renderer; }
             }
             ImGui::Separator();
             ImGui::Checkbox("draw grid", &m_settings.draw_grid);
@@ -344,4 +347,6 @@ void PBRViewer::create_camera_controls()
 
     // update camera from current
     m_camera->set_transform(m_camera_control.current->transform());
+
+    m_camera->set_fov(m_settings.fov);
 }
