@@ -125,12 +125,17 @@ void PBRViewer::create_ui()
     gui_create_info.font_size = 23.f;
     m_gui_context = vk::gui::Context(m_device, gui_create_info);
 
+    float bg_alpha = .3f, bg_alpha_active = .9f;
+    ImVec4* colors = ImGui::GetStyle().Colors;
+    colors[ImGuiCol_WindowBg] = ImVec4(0, 0, 0, bg_alpha);
+    colors[ImGuiCol_TitleBg] = ImVec4(0, 0, 0, bg_alpha);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0, 0, 0, bg_alpha_active);
+
     m_gui_context.delegates["application"] = [this]
     {
         int corner = 0;
         bool is_open = true;
 
-        float bg_alpha = .35f;
         const float DISTANCE = 10.0f;
         ImGuiIO &io = ImGui::GetIO();
 
@@ -138,7 +143,6 @@ void PBRViewer::create_ui()
                                    (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
         ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-        ImGui::SetNextWindowBgAlpha(bg_alpha);
 
         ImGui::Begin("about: blank", &is_open,
                      (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoTitleBar |
