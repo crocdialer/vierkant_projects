@@ -126,7 +126,7 @@ void PBRViewer::create_ui()
     m_gui_context = vk::gui::Context(m_device, gui_create_info);
 
     float bg_alpha = .3f, bg_alpha_active = .9f;
-    ImVec4* colors = ImGui::GetStyle().Colors;
+    ImVec4 *colors = ImGui::GetStyle().Colors;
     colors[ImGuiCol_WindowBg] = ImVec4(0, 0, 0, bg_alpha);
     colors[ImGuiCol_TitleBg] = ImVec4(0, 0, 0, bg_alpha);
     colors[ImGuiCol_TitleBgActive] = ImVec4(0, 0, 0, bg_alpha_active);
@@ -134,7 +134,6 @@ void PBRViewer::create_ui()
     m_gui_context.delegates["application"] = [this]
     {
         int corner = 0;
-        bool is_open = true;
 
         const float DISTANCE = 10.0f;
         ImGuiIO &io = ImGui::GetIO();
@@ -144,7 +143,7 @@ void PBRViewer::create_ui()
         ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 
-        ImGui::Begin("about: blank", &is_open,
+        ImGui::Begin("about: blank", nullptr,
                      (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoTitleBar |
                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
@@ -253,7 +252,11 @@ void PBRViewer::create_ui()
     m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
 
     // imgui demo window
-    m_gui_context.delegates["demo"] = []{ if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }};
+    m_gui_context.delegates["demo"] = []
+    {
+        if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }
+        if(DEMO_GUI){ ImPlot::ShowDemoWindow(&DEMO_GUI); }
+    };
 
     // attach gui input-delegates to window
     m_window->key_delegates["gui"] = m_gui_context.key_delegate();
