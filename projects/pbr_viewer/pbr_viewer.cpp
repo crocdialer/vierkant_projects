@@ -114,10 +114,14 @@ void PBRViewer::create_context_and_window()
     device_info.instance = m_instance.handle();
     device_info.physical_device = m_instance.physical_devices().front();
     device_info.use_validation = m_instance.use_validation_layers();
+    device_info.use_raytracing = m_settings.enable_raytracing_device_features;
     device_info.surface = m_window->surface();
 
     // add the raytracing-extensions
-    device_info.extensions = vierkant::RayTracer::required_extensions();
+    if(m_settings.enable_raytracing_device_features)
+    {
+        device_info.extensions = vierkant::RayTracer::required_extensions();
+    }
 
     m_device = vk::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
@@ -181,14 +185,17 @@ void PBRViewer::create_graphics_pipeline()
     }
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 
-    vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
-    path_tracer_info.num_frames_in_flight = framebuffers.size() + 1;
-    path_tracer_info.pipeline_cache = m_pipeline_cache;
+    if(m_settings.enable_raytracing_device_features)
+    {
+        vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
+        path_tracer_info.num_frames_in_flight = framebuffers.size() + 1;
+        path_tracer_info.pipeline_cache = m_pipeline_cache;
 
-    path_tracer_info.settings = m_path_tracer ? m_path_tracer->settings : m_settings.path_tracer_settings;
-    path_tracer_info.queue = m_queue_path_tracer;
+        path_tracer_info.settings = m_path_tracer ? m_path_tracer->settings : m_settings.path_tracer_settings;
+        path_tracer_info.queue = m_queue_path_tracer;
 
-    m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
+        m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
+    }
 
     if(use_raytracer){ m_scene_renderer = m_path_tracer; }
     else{ m_scene_renderer = m_pbr_renderer; }
@@ -226,9 +233,14 @@ void PBRViewer::load_model(const std::string &path)
     vierkant::MeshPtr mesh;
 
     // additionally required buffer-flags for raytracing
-    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    VkBufferUsageFlags buffer_flags = 0;
+
+    if(m_settings.enable_raytracing_device_features)
+    {
+        buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    }
 
     if(!path.empty())
     {
@@ -377,7 +389,7 @@ void PBRViewer::load_environment(const std::string &path)
 
                               m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
 
-                              m_path_tracer->reset_accumulator();
+                              if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
 
                               m_settings.environment_path = path;
 
@@ -507,7 +519,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
-    settings.path_tracer_settings = m_path_tracer->settings;
+    if(m_path_tracer){ settings.path_tracer_settings = m_path_tracer->settings; }
     settings.path_tracing = m_scene_renderer == m_path_tracer;
 
     // create and open a character archive for output
@@ -554,10 +566,10 @@ void PBRViewer::load_file(const std::string &path)
     auto add_to_recent_files = [this](const std::string &f)
     {
         main_queue().post([this, f]
-        {
-            m_settings.recent_files.push_back(f);
-            while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
-        });
+                          {
+                              m_settings.recent_files.push_back(f);
+                              while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
+                          });
     };
 
     switch(crocore::filesystem::get_file_type(path))

@@ -41,7 +41,7 @@ void PBRViewer::create_ui()
                     break;
 
                 case vierkant::Key::_P:
-                    if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer; }
+                    if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer; }
                     else{ m_scene_renderer = m_pbr_renderer; }
                     break;
 
@@ -87,7 +87,7 @@ void PBRViewer::create_ui()
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_Y:
-                            if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer; }
+                            if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer; }
                             else{ m_scene_renderer = m_pbr_renderer; }
                             break;
 
@@ -233,7 +233,10 @@ void PBRViewer::create_ui()
 
         if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)){ m_scene_renderer = m_pbr_renderer; }
         ImGui::SameLine();
-        if(ImGui::RadioButton("pathtracer", is_path_tracer)){ m_scene_renderer = m_path_tracer; }
+        if(ImGui::RadioButton("pathtracer", is_path_tracer))
+        {
+            m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
+        }
         ImGui::Separator();
 
         vk::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera);
