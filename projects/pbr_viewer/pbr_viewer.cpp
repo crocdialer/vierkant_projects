@@ -233,13 +233,12 @@ void PBRViewer::load_model(const std::string &path)
     vierkant::MeshPtr mesh;
 
     // additionally required buffer-flags for raytracing
-    VkBufferUsageFlags buffer_flags = 0;
+    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
     if(m_settings.enable_raytracing_device_features)
     {
-        buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
 
     if(!path.empty())
