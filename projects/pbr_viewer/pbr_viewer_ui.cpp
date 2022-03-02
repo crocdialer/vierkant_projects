@@ -266,7 +266,7 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .01f, 100.f);
+    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .01f);
 
     create_camera_controls();
 
