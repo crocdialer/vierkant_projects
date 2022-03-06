@@ -42,6 +42,9 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
 {
     archive(cereal::make_nvp("resolution", render_settings.resolution),
             cereal::make_nvp("disable_material", render_settings.disable_material),
+            cereal::make_nvp("frustum_culling", render_settings.frustum_culling),
+            cereal::make_nvp("occlusion_culling", render_settings.occlusion_culling),
+            cereal::make_nvp("gpu_culling", render_settings.gpu_culling),
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
             cereal::make_nvp("use_taa", render_settings.use_taa),
             cereal::make_nvp("use_fxaa", render_settings.use_fxaa),
