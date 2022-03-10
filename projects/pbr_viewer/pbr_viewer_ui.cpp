@@ -41,7 +41,10 @@ void PBRViewer::create_ui()
                     break;
 
                 case vierkant::Key::_P:
-                    if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer; }
+                    if(m_scene_renderer == m_pbr_renderer)
+                    {
+                        m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
+                    }
                     else{ m_scene_renderer = m_pbr_renderer; }
                     break;
 
@@ -87,7 +90,10 @@ void PBRViewer::create_ui()
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_Y:
-                            if(m_scene_renderer == m_pbr_renderer){ m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer; }
+                            if(m_scene_renderer == m_pbr_renderer)
+                            {
+                                m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
+                            }
                             else{ m_scene_renderer = m_pbr_renderer; }
                             break;
 
@@ -221,6 +227,38 @@ void PBRViewer::create_ui()
 
         vierkant::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
 
+        // drawcall/culling plots
+        if(ImGui::TreeNode("drawcalls") && ImPlot::BeginPlot("##drawcalls"))
+        {
+            float bg_alpha = .0f;
+            ImVec4 *implot_colors = ImPlot::GetStyle().Colors;
+            implot_colors[ImPlotCol_FrameBg] = ImVec4(0, 0, 0, bg_alpha);
+
+            std::vector<draw_call_status_t> values(m_draw_call_status_queue.begin(), m_draw_call_status_queue.end());
+            uint32_t max_draws = (std::max_element(values.begin(), values.end(),
+                                                   [](const auto &lhs, const auto &rhs)
+                                                   {
+                                                       return lhs.draw_count < rhs.draw_count;
+                                                   }))->draw_count;
+
+            ImPlot::SetupAxes("frames", "count", ImPlotAxisFlags_None, ImPlotAxisFlags_NoLabel);
+            ImPlot::SetupAxesLimits(0, static_cast<double>(m_max_draw_call_status_queue_size), 0, max_draws, ImPlotCond_Always);
+
+            ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
+            ImPlot::PlotShaded("num draws", reinterpret_cast<const uint32_t *>(values.data()) + 0,
+                               static_cast<int>(values.size()), 0, 1, 0,
+                               0, sizeof(draw_call_status_t));
+            ImPlot::PlotShaded("frustum culled", reinterpret_cast<const uint32_t *>(values.data()) + 1,
+                               static_cast<int>(values.size()), 0, 1, 0,
+                               0, sizeof(draw_call_status_t));
+            ImPlot::PlotShaded("occluded", reinterpret_cast<const uint32_t *>(values.data()) + 2,
+                               static_cast<int>(values.size()), 0, 1, 0,
+                               0, sizeof(draw_call_status_t));
+            ImPlot::PopStyleVar();
+
+            ImPlot::EndPlot();
+            ImGui::TreePop();
+        }
         ImGui::End();
     };
 

@@ -100,8 +100,6 @@ private:
 
     std::atomic<uint32_t> m_num_loading = 0;
 
-    std::atomic<uint32_t> m_num_drawcalls = 0;
-
     settings_t m_settings;
 
     // bundles basic Vulkan assets
@@ -150,6 +148,15 @@ private:
     size_t m_max_log_queue_size = 100;
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
     std::shared_mutex m_log_queue_mutex;
+
+    struct draw_call_status_t
+    {
+        uint32_t draw_count = 0;
+        uint32_t num_frustum_culled = 0;
+        uint32_t num_occlusion_culled = 0;
+    };
+    size_t m_max_draw_call_status_queue_size = 1000;
+    std::deque<draw_call_status_t> m_draw_call_status_queue;
 };
 
 template<class Archive>
