@@ -109,10 +109,24 @@ void PBRViewer::create_context_and_window()
     m_settings.window_info.instance = m_instance.handle();
     m_window = vk::Window::create(m_settings.window_info);
 
+    VkPhysicalDevice physical_device = m_instance.physical_devices().front();
+
+    for(const auto &pd : m_instance.physical_devices())
+    {
+        VkPhysicalDeviceProperties device_props = {};
+        vkGetPhysicalDeviceProperties(pd, &device_props);
+
+        if(device_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            physical_device = pd;
+            break;
+        }
+    }
+
     // create device
     vk::Device::create_info_t device_info = {};
     device_info.instance = m_instance.handle();
-    device_info.physical_device = m_instance.physical_devices().front();
+    device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.use_raytracing = m_settings.enable_raytracing_device_features;
     device_info.surface = m_window->surface();

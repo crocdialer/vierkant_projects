@@ -244,10 +244,7 @@ void PBRViewer::create_ui()
             ImPlot::SetupAxes("frames", "count", ImPlotAxisFlags_None, ImPlotAxisFlags_NoLabel);
             ImPlot::SetupAxesLimits(0, static_cast<double>(m_max_draw_call_status_queue_size), 0, max_draws, ImPlotCond_Always);
 
-            ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
-            ImPlot::PlotShaded("num draws", reinterpret_cast<const uint32_t *>(values.data()) + 0,
-                               static_cast<int>(values.size()), 0, 1, 0,
-                               0, sizeof(draw_call_status_t));
+            ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.5f);
             ImPlot::PlotShaded("frustum culled", reinterpret_cast<const uint32_t *>(values.data()) + 1,
                                static_cast<int>(values.size()), 0, 1, 0,
                                0, sizeof(draw_call_status_t));
