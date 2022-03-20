@@ -146,7 +146,8 @@ void PBRViewer::create_context_and_window()
     window_delegate.draw_fn = [this](const vierkant::WindowPtr &w){ return draw(w); };
     window_delegate.resize_fn = [this](uint32_t w, uint32_t h)
     {
-        create_graphics_pipeline();
+        VkViewport viewport = {0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f};
+        m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
         m_camera->set_aspect(m_window->aspect_ratio());
         m_camera_control.current->screen_size = {w, h};
     };
