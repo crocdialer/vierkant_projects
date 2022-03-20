@@ -182,13 +182,14 @@ void PBRViewer::create_graphics_pipeline()
     create_info.pipeline_cache = m_pipeline_cache;
 
     m_renderer = vk::Renderer(m_device, create_info);
+    m_renderer.indirect_draw = false;
     m_renderer_overlay = vk::Renderer(m_device, create_info);
     m_renderer_gui = vk::Renderer(m_device, create_info);
     m_renderer_gui.indirect_draw = false;
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.num_frames_in_flight = framebuffers.size();
-    pbr_render_info.size = fb_extent;
+//    pbr_render_info.size = fb_extent;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
     pbr_render_info.settings = m_settings.pbr_settings;
 
@@ -196,6 +197,7 @@ void PBRViewer::create_graphics_pipeline()
     {
         pbr_render_info.conv_lambert = m_pbr_renderer->environment_lambert();
         pbr_render_info.conv_ggx = m_pbr_renderer->environment_ggx();
+        pbr_render_info.brdf_lut = m_pbr_renderer->bsdf_lut();
         pbr_render_info.settings = m_pbr_renderer->settings;
     }
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
@@ -435,8 +437,10 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     draw_call_status_t draw_call_status = {};
 
-    auto render_scene = [this, &framebuffer, &semaphore_infos, &draw_call_status]() -> VkCommandBuffer
+    auto render_scene = [this, &framebuffer, &semaphore_infos, &draw_call_status, &w]() -> VkCommandBuffer
     {
+        spdlog::trace("window: {}x{} -- renderer: {}x{} -- scissor: {}x{}", w->size().x, w->size().y, m_renderer.viewport.width,
+                      m_renderer.viewport.height, m_renderer.scissor.extent.width, m_renderer.scissor.extent.height);
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
         draw_call_status.draw_count = render_result.draw_count;
