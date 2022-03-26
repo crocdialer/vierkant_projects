@@ -103,11 +103,11 @@ void PBRViewer::poll_events()
 
 void PBRViewer::create_context_and_window()
 {
-    m_instance = vk::Instance(g_enable_validation_layers, vk::Window::required_extensions());
+    m_instance = vierkant::Instance(g_enable_validation_layers, vierkant::Window::required_extensions());
 
     m_settings.window_info.title = name();
     m_settings.window_info.instance = m_instance.handle();
-    m_window = vk::Window::create(m_settings.window_info);
+    m_window = vierkant::Window::create(m_settings.window_info);
 
     VkPhysicalDevice physical_device = m_instance.physical_devices().front();
 
@@ -124,7 +124,7 @@ void PBRViewer::create_context_and_window()
     }
 
     // create device
-    vk::Device::create_info_t device_info = {};
+    vierkant::Device::create_info_t device_info = {};
     device_info.instance = m_instance.handle();
     device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
@@ -137,7 +137,7 @@ void PBRViewer::create_context_and_window()
         device_info.extensions = vierkant::RayTracer::required_extensions();
     }
 
-    m_device = vk::Device::create(device_info);
+    m_device = vierkant::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
                                m_settings.window_info.vsync);
 
@@ -157,7 +157,7 @@ void PBRViewer::create_context_and_window()
     // create a draw context
     m_draw_context = vierkant::DrawContext(m_device);
 
-    m_pipeline_cache = vk::PipelineCache::create(m_device);
+    m_pipeline_cache = vierkant::PipelineCache::create(m_device);
 
     // set some separate queues for background stuff
     m_queue_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
@@ -181,10 +181,10 @@ void PBRViewer::create_graphics_pipeline()
     create_info.viewport.maxDepth = fb_extent.depth;
     create_info.pipeline_cache = m_pipeline_cache;
 
-    m_renderer = vk::Renderer(m_device, create_info);
+    m_renderer = vierkant::Renderer(m_device, create_info);
     m_renderer.indirect_draw = false;
-    m_renderer_overlay = vk::Renderer(m_device, create_info);
-    m_renderer_gui = vk::Renderer(m_device, create_info);
+    m_renderer_overlay = vierkant::Renderer(m_device, create_info);
+    m_renderer_gui = vierkant::Renderer(m_device, create_info);
     m_renderer_gui.indirect_draw = false;
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
@@ -224,7 +224,7 @@ void PBRViewer::create_texture_image()
     auto http_response = crocore::net::http::get(g_texture_url);
 
     crocore::ImagePtr img;
-    vk::Image::Format fmt;
+    vierkant::Image::Format fmt;
 
     // create from downloaded data
     if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 4); }
@@ -242,7 +242,7 @@ void PBRViewer::create_texture_image()
     }
     fmt.extent = {img->width(), img->height(), 1};
     fmt.use_mipmap = true;
-    m_textures["test"] = vk::Image::create(m_device, img->data(), fmt);
+    m_textures["test"] = vierkant::Image::create(m_device, img->data(), fmt);
 }
 
 void PBRViewer::load_model(const std::string &path)
@@ -317,8 +317,9 @@ void PBRViewer::load_model(const std::string &path)
     {
         vierkant::Mesh::create_info_t mesh_create_info = {};
         mesh_create_info.buffer_usage_flags = buffer_flags;
-        mesh = vk::Mesh::create_from_geometry(m_device, vk::Geometry::Box(glm::vec3(.5f)), mesh_create_info);
-        auto mat = vk::Material::create();
+        mesh = vierkant::Mesh::create_from_geometry(m_device, vierkant::Geometry::Box(glm::vec3(.5f)),
+                                                    mesh_create_info);
+        auto mat = vierkant::Material::create();
 
         auto it = m_textures.find("test");
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
@@ -357,13 +358,13 @@ void PBRViewer::load_environment(const std::string &path)
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
 
-                vk::Image::Format fmt = {};
+                vierkant::Image::Format fmt = {};
                 fmt.extent = {img->width(), img->height(), 1};
                 fmt.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
                 fmt.format = use_float ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
                 fmt.initial_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
                 fmt.initial_cmd_buffer = cmd_buf.handle();
-                panorama = vk::Image::create(m_device, nullptr, fmt);
+                panorama = vierkant::Image::create(m_device, nullptr, fmt);
 
                 auto buf = vierkant::Buffer::create(m_device, img->data(), img->num_bytes(),
                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -439,11 +440,12 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene = [this, &framebuffer, &semaphore_infos, &draw_call_status, &w]() -> VkCommandBuffer
     {
-        spdlog::trace("window: {}x{} -- renderer: {}x{} -- scissor: {}x{}", w->size().x, w->size().y, m_renderer.viewport.width,
+        spdlog::trace("window: {}x{} -- renderer: {}x{} -- scissor: {}x{}", w->size().x, w->size().y,
+                      m_renderer.viewport.width,
                       m_renderer.viewport.height, m_renderer.scissor.extent.width, m_renderer.scissor.extent.height);
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
-        draw_call_status.draw_count = render_result.draw_count;
+        draw_call_status.num_draws = render_result.num_draws;
         draw_call_status.num_frustum_culled = render_result.num_frustum_culled;
         draw_call_status.num_occlusion_culled = render_result.num_occlusion_culled;
         return m_renderer.render(framebuffer);

@@ -115,7 +115,7 @@ private:
 
     std::map<std::string, vierkant::ImagePtr> m_textures;
 
-    vk::PerspectiveCameraPtr m_camera;
+    vierkant::PerspectiveCameraPtr m_camera;
 
     struct camera_control_t
     {
@@ -126,7 +126,7 @@ private:
 
     std::set<vierkant::Object3DPtr> m_selected_objects;
 
-    vk::PipelineCachePtr m_pipeline_cache;
+    vierkant::PipelineCachePtr m_pipeline_cache;
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
 
@@ -137,7 +137,7 @@ private:
 
     vierkant::SceneRendererPtr m_scene_renderer;
 
-    vk::Renderer m_renderer, m_renderer_overlay, m_renderer_gui;
+    vierkant::Renderer m_renderer, m_renderer_overlay, m_renderer_gui;
 
     vierkant::FontPtr m_font;
 
@@ -151,7 +151,7 @@ private:
 
     struct draw_call_status_t
     {
-        uint32_t draw_count = 0;
+        uint32_t num_draws = 0;
         uint32_t num_frustum_culled = 0;
         uint32_t num_occlusion_culled = 0;
     };

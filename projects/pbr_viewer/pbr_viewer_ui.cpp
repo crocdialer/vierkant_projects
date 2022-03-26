@@ -15,7 +15,7 @@ void PBRViewer::create_ui()
     vierkant::key_delegate_t key_delegate = {};
     key_delegate.key_press = [this](const vierkant::KeyEvent &e)
     {
-        if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureKeyboard))
+        if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureKeyboard))
         {
             switch(e.code())
             {
@@ -52,11 +52,11 @@ void PBRViewer::create_ui()
                     m_settings.draw_aabbs = !m_settings.draw_aabbs;
                     break;
 
-                case vk::Key::_N:
+                case vierkant::Key::_N:
                     m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
                     break;
 
-                case vk::Key::_S:
+                case vierkant::Key::_S:
                     save_settings(m_settings);
                     break;
                 default:
@@ -122,14 +122,14 @@ void PBRViewer::create_ui()
     // try to fetch a font from google-fonts
     auto http_response = crocore::net::http::get(g_font_url);
 
-    m_font = vk::Font::create(m_device, http_response.data, 64);
+    m_font = vierkant::Font::create(m_device, http_response.data, 64);
 
     // create a gui and add a draw-delegate
-    vk::gui::Context::create_info_t gui_create_info = {};
+    vierkant::gui::Context::create_info_t gui_create_info = {};
     gui_create_info.ui_scale = 2.f;
     gui_create_info.font_data = http_response.data;
     gui_create_info.font_size = 23.f;
-    m_gui_context = vk::gui::Context(m_device, gui_create_info);
+    m_gui_context = vierkant::gui::Context(m_device, gui_create_info);
 
     float bg_alpha = .3f, bg_alpha_active = .9f;
     ImVec4 *colors = ImGui::GetStyle().Colors;
@@ -238,11 +238,12 @@ void PBRViewer::create_ui()
             uint32_t max_draws = (std::max_element(values.begin(), values.end(),
                                                    [](const auto &lhs, const auto &rhs)
                                                    {
-                                                       return lhs.draw_count < rhs.draw_count;
-                                                   }))->draw_count;
+                                                       return lhs.num_draws < rhs.num_draws;
+                                                   }))->num_draws;
 
             ImPlot::SetupAxes("frames", "count", ImPlotAxisFlags_None, ImPlotAxisFlags_NoLabel);
-            ImPlot::SetupAxesLimits(0, static_cast<double>(m_max_draw_call_status_queue_size), 0, max_draws, ImPlotCond_Always);
+            ImPlot::SetupAxesLimits(0, static_cast<double>(m_max_draw_call_status_queue_size), 0, max_draws,
+                                    ImPlotCond_Always);
 
             ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.5f);
             ImPlot::PlotShaded("frustum culled", reinterpret_cast<const uint32_t *>(values.data()) + 1,
@@ -274,7 +275,7 @@ void PBRViewer::create_ui()
         }
         ImGui::Separator();
 
-        vk::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera);
+        vierkant::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera);
 
         ImGui::End();
     };
@@ -287,7 +288,10 @@ void PBRViewer::create_ui()
     };
 
     // scenegraph window
-    m_gui_context.delegates["scenegraph"] = [this]{ vk::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects); };
+    m_gui_context.delegates["scenegraph"] = [this]
+    {
+        vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
+    };
 
     // imgui demo window
     m_gui_context.delegates["demo"] = []
@@ -301,14 +305,14 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    m_camera = vk::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .01f);
+    m_camera = vierkant::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .01f);
 
     create_camera_controls();
 
     vierkant::mouse_delegate_t simple_mouse = {};
     simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
     {
-        if(!(m_gui_context.capture_flags() & vk::gui::Context::WantCaptureMouse))
+        if(!(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
         {
             if(e.is_right()){ m_selected_objects.clear(); }
             else if(e.is_left())
