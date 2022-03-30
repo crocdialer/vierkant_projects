@@ -56,7 +56,7 @@ public:
 
         bool texture_compression = false;
 
-        bool enable_raytracing_device_features = true;
+        bool enable_raytracing_device_features = false;
 
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
@@ -108,7 +108,7 @@ private:
     // device
     vierkant::DevicePtr m_device;
 
-    VkQueue m_queue_loading = VK_NULL_HANDLE, m_queue_path_tracer = VK_NULL_HANDLE;
+    VkQueue m_queue_loading = VK_NULL_HANDLE, m_queue_pbr_render = VK_NULL_HANDLE, m_queue_path_tracer = VK_NULL_HANDLE;
 
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
@@ -148,6 +148,7 @@ private:
     size_t m_max_log_queue_size = 100;
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
     std::shared_mutex m_log_queue_mutex;
+    std::map<std::string, std::shared_ptr<spdlog::logger>> _loggers;
 
     struct draw_call_status_t
     {

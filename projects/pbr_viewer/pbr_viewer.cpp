@@ -13,6 +13,7 @@
 #include <vierkant/Visitor.hpp>
 
 #include "spdlog/sinks/base_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 #include "pbr_viewer.hpp"
 
@@ -26,7 +27,9 @@ const bool g_enable_validation_layers = true;
 
 using double_second = std::chrono::duration<double>;
 
-using log_delegate_fn_t = std::function<void(const std::string &msg, spdlog::level::level_enum log_level)>;
+using log_delegate_fn_t = std::function<void(const std::string &msg,
+                                             spdlog::level::level_enum log_level,
+                                             const std::string &logger_name)>;
 
 class delegate_sink_t : public spdlog::sinks::base_sink<std::mutex>
 {
@@ -46,7 +49,11 @@ protected:
         // bounce out via delegates
         for(const auto&[name, delegate] : log_delegates)
         {
-            if(delegate){ delegate(fmt::to_string(formatted), msg.level); }
+            if(delegate)
+            {
+                delegate(fmt::to_string(formatted), msg.level, std::string(msg.logger_name.begin(),
+                                                                           msg.logger_name.end()));
+            }
         }
     }
 
@@ -61,15 +68,21 @@ int main(int argc, char *argv[])
 
 void PBRViewer::setup()
 {
-    auto scroll_log_sink = std::make_shared<delegate_sink_t>();
-    spdlog::default_logger()->sinks().push_back(scroll_log_sink);
+    // create logger for renderers
+    constexpr char pbr_logger_name[] = "pbr_deferred";
+    _loggers[pbr_logger_name] = spdlog::stdout_color_mt(pbr_logger_name);
+    _loggers[spdlog::default_logger()->name()] = spdlog::default_logger();
 
-    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level)
+    auto scroll_log_sink = std::make_shared<delegate_sink_t>();
+    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg,
+                                                    spdlog::level::level_enum log_level,
+                                                    const std::string &logger_name)
     {
         std::unique_lock lock(m_log_queue_mutex);
         m_log_queue.emplace_back(msg, log_level);
         while(m_log_queue.size() > m_max_log_queue_size){ m_log_queue.pop_front(); }
     };
+    for(auto &[name, logger] : _loggers){ logger->sinks().push_back(scroll_log_sink); }
 
     // try to read settings
     m_settings = load_settings();
@@ -161,7 +174,8 @@ void PBRViewer::create_context_and_window()
 
     // set some separate queues for background stuff
     m_queue_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
-    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
+    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
+    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[3];
 }
 
 void PBRViewer::create_graphics_pipeline()
@@ -189,9 +203,14 @@ void PBRViewer::create_graphics_pipeline()
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.num_frames_in_flight = framebuffers.size();
+
+    // TODO: figure out what validation has to complain here
+//    pbr_render_info.queue = m_queue_pbr_render;
+
 //    pbr_render_info.size = fb_extent;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
     pbr_render_info.settings = m_settings.pbr_settings;
+    pbr_render_info.logger_name = "pbr_deferred";
 
     if(m_pbr_renderer)
     {
@@ -440,9 +459,6 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene = [this, &framebuffer, &semaphore_infos, &draw_call_status, &w]() -> VkCommandBuffer
     {
-        spdlog::trace("window: {}x{} -- renderer: {}x{} -- scissor: {}x{}", w->size().x, w->size().y,
-                      m_renderer.viewport.width,
-                      m_renderer.viewport.height, m_renderer.scissor.extent.width, m_renderer.scissor.extent.height);
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
         draw_call_status.num_draws = render_result.num_draws;
