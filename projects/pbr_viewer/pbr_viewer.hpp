@@ -62,6 +62,9 @@ public:
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
         bool use_fly_camera = false;
         float fov = 45.f;
+
+        //! desired fps, default: 0.f (disable throttling)
+        float target_fps = 0.f;
     };
 
     explicit PBRViewer(int argc = 0, char *argv[] = nullptr) : crocore::Application(argc, argv){};
@@ -180,5 +183,6 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("orbit_camera", settings.orbit_camera),
        cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
-       cereal::make_nvp("fov", settings.fov));
+       cereal::make_nvp("fov", settings.fov),
+       cereal::make_nvp("target_fps", settings.target_fps));
 }

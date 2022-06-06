@@ -88,6 +88,7 @@ void PBRViewer::setup()
     m_settings = load_settings();
 
     spdlog::set_level(m_settings.log_level);
+    this->target_fps = m_settings.target_fps;
 
     create_context_and_window();
 
@@ -552,6 +553,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
 
     // logger settings
     settings.log_level = spdlog::get_level();
+
+    // target-fps
+    settings.target_fps = static_cast<float>(target_fps);
 
     // camera-control settings
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
