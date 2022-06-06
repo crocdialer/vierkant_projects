@@ -20,7 +20,7 @@ void PBRViewer::create_ui()
             switch(e.code())
             {
                 case vierkant::Key::_ESCAPE:
-                    set_running(false);
+                    running = false;
                     break;
 
                 case vierkant::Key::_SPACE:

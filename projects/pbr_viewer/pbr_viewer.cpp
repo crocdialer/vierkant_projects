@@ -164,7 +164,7 @@ void PBRViewer::create_context_and_window()
         m_camera->set_aspect(m_window->aspect_ratio());
         m_camera_control.current->screen_size = {w, h};
     };
-    window_delegate.close_fn = [this](){ set_running(false); };
+    window_delegate.close_fn = [this](){ running = false; };
     m_window->window_delegates[name()] = window_delegate;
 
     // create a draw context
