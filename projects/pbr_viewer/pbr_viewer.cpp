@@ -199,6 +199,8 @@ void PBRViewer::create_graphics_pipeline()
     m_renderer = vierkant::Renderer(m_device, create_info);
     m_renderer.indirect_draw = false;
     m_renderer_overlay = vierkant::Renderer(m_device, create_info);
+    m_renderer_overlay.indirect_draw = true;
+
     m_renderer_gui = vierkant::Renderer(m_device, create_info);
     m_renderer_gui.indirect_draw = false;
 
@@ -324,6 +326,9 @@ void PBRViewer::load_model(const std::string &path)
 
                 m_scene->add_object(mesh_node);
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+
+//                // TODO: get this a bit more fine-grained
+//                vkDeviceWaitIdle(m_device->handle());
 
                 auto dur = double_second(std::chrono::steady_clock::now() - start_time);
                 spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
@@ -529,7 +534,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     crocore::wait_all(cmd_futures);
 
     // get values from completed futures
-    for(auto &f : cmd_futures){ ret.command_buffers.push_back(f.get()); }
+    for(auto &f : cmd_futures)
+    {
+        VkCommandBuffer commandbuffer = f.get();
+        if(commandbuffer){ ret.command_buffers.push_back(commandbuffer); }
+    }
 
     m_draw_call_status_queue.push_back(draw_call_status);
     while(m_draw_call_status_queue.size() > m_max_draw_call_status_queue_size){ m_draw_call_status_queue.pop_front(); }
