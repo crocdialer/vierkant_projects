@@ -18,32 +18,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
 
-      - name: install dependencies
-          run: |
-            wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
-            sudo apt-get update
+    - name: install dependencies
+      run: |
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+        sudo apt-get update
 
-            sudo apt-get install libboost-all-dev libcurl4-openssl-dev xorg-dev vulkan-sdk
+        sudo apt-get install libboost-all-dev libcurl4-openssl-dev xorg-dev vulkan-sdk
 
-      - name: Configure CMake
-        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
-      - name: Build
-        # Build your program with the given configuration
-        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-        #     find/configure an external runner with nvidia/gpu support
-        #
-        #    - name: Test
-        #      working-directory: ${{github.workspace}}/build
-        #      # Execute tests defined by the CMake configuration.
-        #      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-        #      run: ctest -C ${{env.BUILD_TYPE}}
+#     find/configure an external runner with nvidia/gpu support
+#
+#    - name: Test
+#      working-directory: ${{github.workspace}}/build
+#      # Execute tests defined by the CMake configuration.
+#      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+#      run: ctest -C ${{env.BUILD_TYPE}}
       
