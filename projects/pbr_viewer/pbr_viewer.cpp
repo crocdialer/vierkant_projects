@@ -62,7 +62,11 @@ protected:
 
 int main(int argc, char *argv[])
 {
-    auto app = std::make_shared<PBRViewer>(argc, argv);
+    crocore::Application::create_info_t create_info = {};
+    create_info.arguments = {argv, argv + argc};
+    create_info.num_background_threads = 4;
+
+    auto app = std::make_shared<PBRViewer>(create_info);
     return app->run();
 }
 
@@ -197,20 +201,14 @@ void PBRViewer::create_graphics_pipeline()
     create_info.pipeline_cache = m_pipeline_cache;
 
     m_renderer = vierkant::Renderer(m_device, create_info);
-    m_renderer.indirect_draw = false;
     m_renderer_overlay = vierkant::Renderer(m_device, create_info);
     m_renderer_overlay.indirect_draw = true;
 
     m_renderer_gui = vierkant::Renderer(m_device, create_info);
-    m_renderer_gui.indirect_draw = false;
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
+    pbr_render_info.queue = m_queue_pbr_render;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
-
-    // TODO: figure out what validation has to complain here
-//    pbr_render_info.queue = m_queue_pbr_render;
-
-//    pbr_render_info.size = fb_extent;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
     pbr_render_info.settings = m_settings.pbr_settings;
     pbr_render_info.logger_name = "pbr_deferred";
@@ -292,9 +290,6 @@ void PBRViewer::load_model(const std::string &path)
             // tinygltf
             auto mesh_assets = vierkant::model::gltf(path);
 
-            // assimp
-            //auto old_mesh_assets = vierkant::model::load_model(model_path, background_pool);
-
             if(mesh_assets.entry_create_infos.empty())
             {
                 spdlog::warn("could not load file: {}", path);
@@ -326,9 +321,6 @@ void PBRViewer::load_model(const std::string &path)
 
                 m_scene->add_object(mesh_node);
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
-
-//                // TODO: get this a bit more fine-grained
-//                vkDeviceWaitIdle(m_device->handle());
 
                 auto dur = double_second(std::chrono::steady_clock::now() - start_time);
                 spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
@@ -416,7 +408,6 @@ void PBRViewer::load_environment(const std::string &path)
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
 
-//                skybox->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
                 conv_lambert->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
                 conv_ggx->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
