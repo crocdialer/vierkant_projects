@@ -60,16 +60,6 @@ protected:
     void flush_() override{}
 };
 
-int main(int argc, char *argv[])
-{
-    crocore::Application::create_info_t create_info = {};
-    create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = 4;
-
-    auto app = std::make_shared<PBRViewer>(create_info);
-    return app->run();
-}
-
 void PBRViewer::setup()
 {
     // create logger for renderers
@@ -296,7 +286,9 @@ void PBRViewer::load_model(const std::string &path)
                 return;
             }
 
-            auto mesh = load_mesh(m_device, mesh_assets, m_settings.texture_compression, m_queue_loading, buffer_flags);
+            auto mesh = load_mesh(m_device, mesh_assets, m_settings.texture_compression,
+                                  m_settings.optimize_vertex_fetch,
+                                  m_queue_loading, buffer_flags);
 
             if(!mesh)
             {
@@ -388,7 +380,7 @@ void PBRViewer::load_environment(const std::string &path)
 
                 // copy and layout transition
                 panorama->copy_from(buf, cmd_buf.handle());
-                panorama->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
+                panorama->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
                 cmd_buf.submit(m_queue_loading, true);
@@ -408,8 +400,8 @@ void PBRViewer::load_environment(const std::string &path)
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
 
-                conv_lambert->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
-                conv_ggx->transition_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd_buf.handle());
+                conv_lambert->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
+                conv_ggx->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
                 cmd_buf.submit(m_queue_loading, true);
@@ -635,4 +627,12 @@ void PBRViewer::load_file(const std::string &path)
     }
 }
 
+int main(int argc, char *argv[])
+{
+    crocore::Application::create_info_t create_info = {};
+    create_info.arguments = {argv, argv + argc};
+    create_info.num_background_threads = 4;
 
+    auto app = std::make_shared<PBRViewer>(create_info);
+    return app->run();
+}
