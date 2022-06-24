@@ -56,7 +56,7 @@ public:
 
         bool texture_compression = false;
 
-        bool optimize_vertex_fetch = true;
+        bool optimize_vertex_cache = true;
 
         bool enable_raytracing_device_features = true;
 
@@ -181,7 +181,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
-       cereal::make_nvp("optimize_vertex_fetch", settings.optimize_vertex_fetch),
+       cereal::make_nvp("optimize_vertex_cache", settings.optimize_vertex_cache),
        cereal::make_nvp("enable_raytracing_device_features", settings.enable_raytracing_device_features),
        cereal::make_nvp("orbit_camera", settings.orbit_camera),
        cereal::make_nvp("fly_camera", settings.fly_camera),
