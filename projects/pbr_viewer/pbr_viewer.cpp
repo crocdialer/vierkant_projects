@@ -288,6 +288,7 @@ void PBRViewer::load_model(const std::string &path)
 
             auto mesh = load_mesh(m_device, mesh_assets, m_settings.texture_compression,
                                   m_settings.optimize_vertex_cache,
+                                  m_settings.generate_meshlets,
                                   m_queue_loading, buffer_flags);
 
             if(!mesh)
@@ -324,10 +325,12 @@ void PBRViewer::load_model(const std::string &path)
     }
     else
     {
+        auto box = vierkant::Geometry::Box(glm::vec3(.5f));
+        box->colors.clear();
+
         vierkant::Mesh::create_info_t mesh_create_info = {};
         mesh_create_info.buffer_usage_flags = buffer_flags;
-        mesh = vierkant::Mesh::create_from_geometry(m_device, vierkant::Geometry::Box(glm::vec3(.5f)),
-                                                    mesh_create_info);
+        mesh = vierkant::Mesh::create_from_geometry(m_device, box, mesh_create_info);
         auto mat = vierkant::Material::create();
 
         auto it = m_textures.find("test");
@@ -472,7 +475,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
                 for(const auto &entry : mesh_node->mesh->entries)
                 {
-                    m_draw_context.draw_boundingbox(m_renderer_overlay, entry.boundingbox,
+                    m_draw_context.draw_boundingbox(m_renderer_overlay, entry.bounding_box,
                                                     modelview * entry.transform,
                                                     m_camera->projection_matrix());
                 }

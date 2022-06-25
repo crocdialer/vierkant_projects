@@ -190,6 +190,7 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
             ImGui::Checkbox("optimize vertex cache", &m_settings.optimize_vertex_cache);
+            ImGui::Checkbox("generate meshlets", &m_settings.generate_meshlets);
 
             ImGui::Separator();
             auto perspective_cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera);
