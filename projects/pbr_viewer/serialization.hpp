@@ -13,7 +13,8 @@
 
 #include "glm_cereal.hpp"
 
-#include <crocore/SetLRU.h>
+#include <crocore/SetLRU.hpp>
+#include <crocore/NamedId.hpp>
 
 #include <vierkant/Window.hpp>
 #include <vierkant/PBRDeferred.hpp>
@@ -127,6 +128,7 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 
 namespace cereal
 {
+
 template<class Archive, class T>
 void serialize(Archive &archive, crocore::SetLRU<T> &set_lru)
 {
@@ -134,6 +136,21 @@ void serialize(Archive &archive, crocore::SetLRU<T> &set_lru)
     archive(array);
     set_lru = {array.begin(), array.end()};
 }
+
+template<class Archive, class T>
+std::string save_minimal(Archive const &, const crocore::NamedId<T> &named_id)
+{
+    return named_id.str();
 }
+
+template<class Archive, class T>
+void load_minimal(Archive const &,
+                  crocore::NamedId<T> &named_id,
+                  const std::string &uuid_str)
+{
+    named_id = crocore::NamedId<T>(uuid_str);
+}
+
+}// namespace cereal
 
 

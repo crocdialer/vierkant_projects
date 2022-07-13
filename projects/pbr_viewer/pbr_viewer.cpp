@@ -3,6 +3,7 @@
 #include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
+#include <crocore/NamedId.hpp>
 
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/PBRDeferred.hpp>
@@ -47,7 +48,7 @@ protected:
         spdlog::sinks::base_sink<std::mutex>::formatter_->format(msg, formatted);
 
         // bounce out via delegates
-        for(const auto&[name, delegate] : log_delegates)
+        for(const auto&[name, delegate]: log_delegates)
         {
             if(delegate)
             {
@@ -76,7 +77,7 @@ void PBRViewer::setup()
         m_log_queue.emplace_back(msg, log_level);
         while(m_log_queue.size() > m_max_log_queue_size){ m_log_queue.pop_front(); }
     };
-    for(auto &[name, logger] : _loggers){ logger->sinks().push_back(scroll_log_sink); }
+    for(auto &[name, logger]: _loggers){ logger->sinks().push_back(scroll_log_sink); }
 
     // try to read settings
     m_settings = load_settings();
@@ -119,7 +120,7 @@ void PBRViewer::create_context_and_window()
 
     VkPhysicalDevice physical_device = m_instance.physical_devices().front();
 
-    for(const auto &pd : m_instance.physical_devices())
+    for(const auto &pd: m_instance.physical_devices())
     {
         VkPhysicalDeviceProperties device_props = {};
         vkGetPhysicalDeviceProperties(pd, &device_props);
@@ -136,13 +137,20 @@ void PBRViewer::create_context_and_window()
     device_info.instance = m_instance.handle();
     device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
-    device_info.use_raytracing = m_settings.enable_raytracing_device_features;
     device_info.surface = m_window->surface();
 
     // add the raytracing-extensions
-    if(m_settings.enable_raytracing_device_features)
+    if(m_settings.enable_raytracing_device_features &&
+       vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions()))
     {
+        device_info.use_raytracing = true;
         device_info.extensions = vierkant::RayTracer::required_extensions();
+    }
+
+    if(m_settings.enable_mesh_shader_device_features &&
+       vierkant::check_device_extension_support(physical_device, {VK_NV_MESH_SHADER_EXTENSION_NAME}))
+    {
+        device_info.extensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
     }
 
     m_device = vierkant::Device::create(device_info);
@@ -464,7 +472,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         vierkant::SelectVisitor<vierkant::MeshNode> sv;
         m_scene->root()->accept(sv);
 
-        for(auto mesh_node : sv.objects)
+        for(auto mesh_node: sv.objects)
         {
             auto modelview = m_camera->view_matrix() * mesh_node->transform();
 
@@ -473,7 +481,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                 m_draw_context.draw_boundingbox(m_renderer_overlay, mesh_node->aabb(), modelview,
                                                 m_camera->projection_matrix());
 
-                for(const auto &entry : mesh_node->mesh->entries)
+                for(const auto &entry: mesh_node->mesh->entries)
                 {
                     m_draw_context.draw_boundingbox(m_renderer_overlay, entry.bounding_box,
                                                     modelview * entry.transform,
@@ -520,7 +528,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     crocore::wait_all(cmd_futures);
 
     // get values from completed futures
-    for(auto &f : cmd_futures)
+    for(auto &f: cmd_futures)
     {
         VkCommandBuffer commandbuffer = f.get();
         if(commandbuffer){ ret.command_buffers.push_back(commandbuffer); }
@@ -634,7 +642,7 @@ int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = 4;
+    create_info.num_background_threads = std::thread::hardware_concurrency();
 
     auto app = std::make_shared<PBRViewer>(create_info);
     return app->run();

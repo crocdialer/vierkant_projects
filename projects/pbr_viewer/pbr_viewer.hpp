@@ -8,7 +8,7 @@
 
 #include "spdlog/spdlog.h"
 #include <crocore/Application.hpp>
-#include <crocore/SetLRU.h>
+#include <crocore/SetLRU.hpp>
 #include <vierkant/vierkant.hpp>
 #include <vierkant/PBRPathTracer.hpp>
 #include "serialization.hpp"
@@ -61,6 +61,8 @@ public:
         bool generate_meshlets = false;
 
         bool enable_raytracing_device_features = false;
+
+        bool enable_mesh_shader_device_features = false;
 
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
@@ -186,6 +188,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("optimize_vertex_cache", settings.optimize_vertex_cache),
        cereal::make_nvp("generate_meshlets", settings.generate_meshlets),
        cereal::make_nvp("enable_raytracing_device_features", settings.enable_raytracing_device_features),
+       cereal::make_nvp("enable_mesh_shader_device_features", settings.enable_mesh_shader_device_features),
        cereal::make_nvp("orbit_camera", settings.orbit_camera),
        cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
