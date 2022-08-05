@@ -60,9 +60,9 @@ public:
 
         bool generate_meshlets = false;
 
-        bool enable_raytracing_device_features = false;
+        bool enable_raytracing_device_features = true;
 
-        bool enable_mesh_shader_device_features = false;
+        bool enable_mesh_shader_device_features = true;
 
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
