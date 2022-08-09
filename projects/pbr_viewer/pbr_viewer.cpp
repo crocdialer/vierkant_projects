@@ -83,7 +83,7 @@ void PBRViewer::setup()
     m_settings = load_settings();
 
     spdlog::set_level(m_settings.log_level);
-    this->target_fps = m_settings.target_fps;
+    this->target_loop_frequency = m_settings.target_fps;
 
     create_context_and_window();
 
@@ -267,7 +267,7 @@ void PBRViewer::load_model(const std::string &path)
 {
     vierkant::MeshPtr mesh;
 
-    // additionally required buffer-flags for raytracing
+    // additionally required buffer-flags for raytracinggl_WorkGroupID
     VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
@@ -558,7 +558,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.log_level = spdlog::get_level();
 
     // target-fps
-    settings.target_fps = static_cast<float>(target_fps);
+    settings.target_fps = static_cast<float>(target_loop_frequency);
 
     // camera-control settings
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
