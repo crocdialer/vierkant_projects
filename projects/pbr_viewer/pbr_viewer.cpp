@@ -83,6 +83,7 @@ void PBRViewer::setup()
     m_settings = load_settings();
 
     spdlog::set_level(m_settings.log_level);
+    this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
     create_context_and_window();
