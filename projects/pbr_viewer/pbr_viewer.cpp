@@ -295,8 +295,10 @@ void PBRViewer::load_model(const std::string &path)
                 return;
             }
 
-            auto mesh = load_mesh(m_device, mesh_assets, m_settings.texture_compression,
+            auto mesh = load_mesh(m_device, mesh_assets,
+                                  m_settings.texture_compression,
                                   m_settings.optimize_vertex_cache,
+                                  m_settings.generate_lods,
                                   m_settings.generate_meshlets,
                                   m_queue_loading, buffer_flags);
 
@@ -643,7 +645,7 @@ int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = std::thread::hardware_concurrency();
+    create_info.num_background_threads = 4;//std::thread::hardware_concurrency();
 
     auto app = std::make_shared<PBRViewer>(create_info);
     return app->run();

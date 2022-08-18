@@ -56,6 +56,10 @@ void PBRViewer::create_ui()
                     m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
                     break;
 
+                case vierkant::Key::_W:
+                  m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
+                  break;
+
                 case vierkant::Key::_S:
                     save_settings(m_settings);
                     break;
@@ -190,6 +194,7 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
             ImGui::Checkbox("optimize vertex cache", &m_settings.optimize_vertex_cache);
+            ImGui::Checkbox("generate mesh-LODs", &m_settings.generate_lods);
             ImGui::Checkbox("generate meshlets", &m_settings.generate_meshlets);
 
             ImGui::Separator();

@@ -45,6 +45,7 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
             cereal::make_nvp("disable_material", render_settings.disable_material),
             cereal::make_nvp("frustum_culling", render_settings.frustum_culling),
             cereal::make_nvp("occlusion_culling", render_settings.occlusion_culling),
+            cereal::make_nvp("enable_lod", render_settings.enable_lod),
             cereal::make_nvp("indirect_draw", render_settings.indirect_draw),
             cereal::make_nvp("use_meshlet_pipeline", render_settings.use_meshlet_pipeline),
             cereal::make_nvp("tesselation", render_settings.tesselation),
