@@ -458,15 +458,10 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
 
-    draw_call_status_t draw_call_status = {};
-
-    auto render_scene = [this, &framebuffer, &semaphore_infos, &draw_call_status, &w]() -> VkCommandBuffer
+    auto render_scene = [this, &framebuffer, &semaphore_infos, &w]() -> VkCommandBuffer
     {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
-        draw_call_status.num_draws = render_result.num_draws;
-        draw_call_status.num_frustum_culled = render_result.num_frustum_culled;
-        draw_call_status.num_occlusion_culled = render_result.num_occlusion_culled;
         return m_renderer.render(framebuffer);
     };
 
@@ -536,9 +531,6 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         VkCommandBuffer commandbuffer = f.get();
         if(commandbuffer){ ret.command_buffers.push_back(commandbuffer); }
     }
-
-    m_draw_call_status_queue.push_back(draw_call_status);
-    while(m_draw_call_status_queue.size() > m_max_draw_call_status_queue_size){ m_draw_call_status_queue.pop_front(); }
 
     // get semaphore infos
     ret.semaphore_infos = std::move(semaphore_infos);

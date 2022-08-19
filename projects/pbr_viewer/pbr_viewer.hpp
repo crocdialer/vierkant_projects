@@ -160,15 +160,6 @@ private:
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
     std::shared_mutex m_log_queue_mutex;
     std::map<std::string, std::shared_ptr<spdlog::logger>> _loggers;
-
-    struct draw_call_status_t
-    {
-        uint32_t num_draws = 0;
-        uint32_t num_frustum_culled = 0;
-        uint32_t num_occlusion_culled = 0;
-    };
-    size_t m_max_draw_call_status_queue_size = 1000;
-    std::deque<draw_call_status_t> m_draw_call_status_queue;
 };
 
 template<class Archive>
