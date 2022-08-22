@@ -101,8 +101,12 @@ void PBRViewer::create_ui()
                             else{ m_scene_renderer = m_pbr_renderer; }
                             break;
 
+                        case vierkant::Joystick::Input::BUTTON_A:
+                          m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
+                          break;
+
                         case vierkant::Joystick::Input::BUTTON_B:
-                            m_settings.draw_aabbs = !m_settings.draw_aabbs;
+                            m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_BACK:
