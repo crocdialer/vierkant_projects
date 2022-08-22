@@ -43,6 +43,7 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
 {
     archive(cereal::make_nvp("resolution", render_settings.resolution),
             cereal::make_nvp("disable_material", render_settings.disable_material),
+            cereal::make_nvp("debug_draw_ids", render_settings.debug_draw_ids),
             cereal::make_nvp("frustum_culling", render_settings.frustum_culling),
             cereal::make_nvp("occlusion_culling", render_settings.occlusion_culling),
             cereal::make_nvp("enable_lod", render_settings.enable_lod),
