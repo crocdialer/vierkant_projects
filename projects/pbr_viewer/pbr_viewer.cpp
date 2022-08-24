@@ -1,9 +1,12 @@
 #include <fstream>
 
+//#include <boost/iostreams/filtering_streambuf.hpp>
+//#include <boost/iostreams/copy.hpp>
+//#include <boost/iostreams/filter/zlib.hpp>
+
 #include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
 #include <crocore/Image.hpp>
-#include <crocore/NamedId.hpp>
 
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/PBRDeferred.hpp>
@@ -268,7 +271,7 @@ void PBRViewer::load_model(const std::string &path)
 {
     vierkant::MeshPtr mesh;
 
-    // additionally required buffer-flags for raytracinggl_WorkGroupID
+    // additionally required buffer-flags for raytracing/compute/mesh-shading
     VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
@@ -294,6 +297,14 @@ void PBRViewer::load_model(const std::string &path)
                 spdlog::warn("could not load file: {}", path);
                 return;
             }
+
+//            auto bundle = vierkant::create_combined_buffers(mesh_assets.entry_create_infos,
+//                                                            m_settings.optimize_vertex_cache,
+//                                                            m_settings.generate_lods,
+//                                                            m_settings.generate_meshlets,
+//                                                            false);
+//            save_mesh_bundle(bundle, "poop.bin");
+//            auto restored_bundle = load_mesh_bundle("poop.bin");
 
             auto mesh = load_mesh(m_device, mesh_assets,
                                   m_settings.texture_compression,
@@ -631,6 +642,57 @@ void PBRViewer::load_file(const std::string &path)
         default:
             break;
     }
+}
+
+void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
+                      const std::filesystem::path &path)
+{
+    // create and open a character archive for output
+    std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
+
+//    std::fstream compressed_stream;
+
+    // save data to archive
+    try
+    {
+        spdlog::debug("writing compressed mesh_buffer_bundle: {}", path.string());
+        cereal::BinaryOutputArchive archive(ofs);
+        archive(mesh_buffer_bundle);
+
+//        // compress and write to file
+//        boost::iostreams::filtering_ostreambuf out;
+//        out.push(boost::iostreams::zlib_compressor());
+//        out.push(ofs);
+//        boost::iostreams::copy(compressed_stream, out);
+    }
+    catch(std::exception &e){ spdlog::error(e.what()); }
+}
+
+vierkant::mesh_buffer_bundle_t load_mesh_bundle(const std::filesystem::path &path)
+{
+    // create and open a character archive for input
+    std::ifstream file_stream(path.string(), std::ios_base::in | std::ios_base::binary);
+    vierkant::mesh_buffer_bundle_t ret;
+
+//    boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
+//    in.push(boost::iostreams::zlib_decompressor());
+//    in.push(file_stream);
+//
+//    std::fstream uncompressed_stream;
+//    boost::iostreams::copy(in, uncompressed_stream);
+
+    // load data from archive
+    if(file_stream.is_open())
+    {
+      try
+      {
+          cereal::BinaryInputArchive archive(file_stream);
+          archive(ret);
+      }
+      catch (std::exception &e){ spdlog::error(e.what()); }
+      spdlog::debug("loading mesh_buffer_bundle: {}", path.string());
+    }
+    return ret;
 }
 
 int main(int argc, char *argv[])

@@ -189,3 +189,8 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("fov", settings.fov),
        cereal::make_nvp("target_fps", settings.target_fps));
 }
+
+void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
+                      const std::filesystem::path &path);
+
+vierkant::mesh_buffer_bundle_t load_mesh_bundle(const std::filesystem::path &path);
