@@ -62,6 +62,8 @@ public:
 
         bool generate_meshlets = false;
 
+        bool cache_mesh_bundles = false;
+
         bool enable_raytracing_device_features = true;
 
         bool enable_mesh_shader_device_features = true;
@@ -181,6 +183,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("optimize_vertex_cache", settings.optimize_vertex_cache),
        cereal::make_nvp("generate_lods", settings.generate_lods),
        cereal::make_nvp("generate_meshlets", settings.generate_meshlets),
+       cereal::make_nvp("cache_mesh_bundles", settings.cache_mesh_bundles),
        cereal::make_nvp("enable_raytracing_device_features", settings.enable_raytracing_device_features),
        cereal::make_nvp("enable_mesh_shader_device_features", settings.enable_mesh_shader_device_features),
        cereal::make_nvp("orbit_camera", settings.orbit_camera),

@@ -200,6 +200,7 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("optimize vertex cache", &m_settings.optimize_vertex_cache);
             ImGui::Checkbox("generate mesh-LODs", &m_settings.generate_lods);
             ImGui::Checkbox("generate meshlets", &m_settings.generate_meshlets);
+            ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
 
             ImGui::Separator();
             auto perspective_cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera);

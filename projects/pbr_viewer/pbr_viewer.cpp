@@ -316,7 +316,10 @@ void PBRViewer::load_model(const std::string &path)
                                                          m_settings.generate_lods,
                                                          m_settings.generate_meshlets,
                                                          false);
-              save_mesh_bundle(*bundle, bundle_path);
+              if(m_settings.cache_mesh_bundles)
+              {
+                  save_mesh_bundle(*bundle, bundle_path);
+              }
             }
 
             vierkant::model::load_mesh_params_t load_params = {};
