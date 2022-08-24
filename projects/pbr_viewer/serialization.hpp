@@ -7,6 +7,7 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
+#include <cereal/types/unordered_map.hpp>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
@@ -21,9 +22,112 @@
 #include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/DepthOfField.hpp>
 #include <vierkant/CameraControl.hpp>
+#include <vierkant/Mesh.hpp>
+#include <vierkant/bc7.hpp>
 
 namespace vierkant
 {
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::AABB &aabb)
+{
+  archive(cereal::make_nvp("min", aabb.min),
+          cereal::make_nvp("max", aabb.max));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::Sphere &sphere)
+{
+  archive(cereal::make_nvp("center", sphere.center),
+          cereal::make_nvp("radius", sphere.radius));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::Cone &cone)
+{
+  archive(cereal::make_nvp("axis", cone.axis),
+          cereal::make_nvp("cutoff", cone.cutoff));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::vertex_attrib_t &vertex_attrib)
+{
+  archive(cereal::make_nvp("buffer_offset", vertex_attrib.buffer_offset),
+//          cereal::make_nvp("buffer", vertex_attrib.buffer),
+          cereal::make_nvp("offset", vertex_attrib.offset),
+          cereal::make_nvp("stride", vertex_attrib.stride),
+          cereal::make_nvp("format", vertex_attrib.format),
+          cereal::make_nvp("input_rate", vertex_attrib.input_rate));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::Mesh::lod_t &lod)
+{
+  archive(cereal::make_nvp("base_index", lod.base_index),
+          cereal::make_nvp("num_indices", lod.num_indices),
+          cereal::make_nvp("base_meshlet", lod.base_meshlet),
+          cereal::make_nvp("num_meshlets", lod.num_meshlets));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::Mesh::entry_t &entry)
+{
+  archive(cereal::make_nvp("name", entry.name),
+          cereal::make_nvp("transform", entry.transform),
+          cereal::make_nvp("bounding_box", entry.bounding_box),
+          cereal::make_nvp("bounding_sphere", entry.bounding_sphere),
+          cereal::make_nvp("node_index", entry.node_index),
+          cereal::make_nvp("vertex_offset", entry.vertex_offset),
+          cereal::make_nvp("num_vertices", entry.num_vertices),
+          cereal::make_nvp("lods", entry.lods),
+          cereal::make_nvp("material_index", entry.material_index),
+          cereal::make_nvp("primitive_type", entry.primitive_type),
+          cereal::make_nvp("morph_vertex_offset", entry.morph_vertex_offset),
+          cereal::make_nvp("morph_weights", entry.morph_weights),
+          cereal::make_nvp("enabled", entry.enabled));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::Mesh::meshlet_t &meshlet)
+{
+  archive(cereal::make_nvp("vertex_offset", meshlet.vertex_offset),
+          cereal::make_nvp("triangle_offset", meshlet.triangle_offset),
+          cereal::make_nvp("vertex_count", meshlet.vertex_count),
+          cereal::make_nvp("triangle_count", meshlet.triangle_count),
+          cereal::make_nvp("bounding_sphere", meshlet.bounding_sphere),
+          cereal::make_nvp("normal_cone", meshlet.normal_cone));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle)
+{
+  archive(cereal::make_nvp("vertex_stride", mesh_buffer_bundle.vertex_stride),
+          cereal::make_nvp("vertex_attribs", mesh_buffer_bundle.vertex_attribs),
+          cereal::make_nvp("entries", mesh_buffer_bundle.entries),
+          cereal::make_nvp("num_materials", mesh_buffer_bundle.num_materials),
+          cereal::make_nvp("vertex_buffer", mesh_buffer_bundle.vertex_buffer),
+          cereal::make_nvp("index_buffer", mesh_buffer_bundle.index_buffer),
+          cereal::make_nvp("morph_buffer", mesh_buffer_bundle.morph_buffer),
+          cereal::make_nvp("num_morph_targets", mesh_buffer_bundle.num_morph_targets),
+          cereal::make_nvp("meshlets", mesh_buffer_bundle.meshlets),
+          cereal::make_nvp("meshlet_vertices", mesh_buffer_bundle.meshlet_vertices),
+          cereal::make_nvp("meshlet_triangles", mesh_buffer_bundle.meshlet_triangles));
+}
+
+template <class Archive>
+void serialize(Archive &archive, vierkant::bc7::block_t &block)
+{
+  archive(cereal::make_nvp("value", block.value));
+}
+
+template <class Archive>
+void serialize(Archive &archive,
+               vierkant::bc7::compress_result_t &compress_result)
+{
+  archive(cereal::make_nvp("base_width", compress_result.base_width),
+          cereal::make_nvp("base_height", compress_result.base_height),
+          cereal::make_nvp("levels", compress_result.levels));
+}
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
