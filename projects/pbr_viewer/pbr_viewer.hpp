@@ -193,4 +193,4 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
                       const std::filesystem::path &path);
 
-vierkant::mesh_buffer_bundle_t load_mesh_bundle(const std::filesystem::path &path);
+std::optional<vierkant::mesh_buffer_bundle_t> load_mesh_bundle(const std::filesystem::path &path);

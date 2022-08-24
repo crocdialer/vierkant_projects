@@ -298,20 +298,36 @@ void PBRViewer::load_model(const std::string &path)
                 return;
             }
 
-//            auto bundle = vierkant::create_combined_buffers(mesh_assets.entry_create_infos,
-//                                                            m_settings.optimize_vertex_cache,
-//                                                            m_settings.generate_lods,
-//                                                            m_settings.generate_meshlets,
-//                                                            false);
-//            save_mesh_bundle(bundle, "poop.bin");
-//            auto restored_bundle = load_mesh_bundle("poop.bin");
+            // lookup
+            std::optional<vierkant::mesh_buffer_bundle_t> bundle;
+            std::hash<std::string> path_hash;
+            size_t hash_val = path_hash(path);
+            crocore::hash_combine(hash_val, m_settings.optimize_vertex_cache);
+            crocore::hash_combine(hash_val, m_settings.generate_lods);
+            crocore::hash_combine(hash_val, m_settings.generate_meshlets);
+            std::filesystem::path bundle_path = std::to_string(hash_val) + ".bin";
 
-            auto mesh = load_mesh(m_device, mesh_assets,
-                                  m_settings.texture_compression,
-                                  m_settings.optimize_vertex_cache,
-                                  m_settings.generate_lods,
-                                  m_settings.generate_meshlets,
-                                  m_queue_loading, buffer_flags);
+            bundle = load_mesh_bundle(bundle_path);
+
+            if(!bundle)
+            {
+              bundle = vierkant::create_combined_buffers(mesh_assets.entry_create_infos,
+                                                         m_settings.optimize_vertex_cache,
+                                                         m_settings.generate_lods,
+                                                         m_settings.generate_meshlets,
+                                                         false);
+              save_mesh_bundle(*bundle, bundle_path);
+            }
+
+            vierkant::model::load_mesh_params_t load_params = {};
+            load_params.device = m_device;
+            load_params.load_queue = m_queue_loading;
+            load_params.compress_textures = m_settings.texture_compression;
+            load_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
+            load_params.generate_lods = m_settings.generate_lods;
+            load_params.generate_meshlets = m_settings.generate_meshlets;
+            load_params.buffer_flags = buffer_flags;
+            auto mesh = load_mesh(load_params, mesh_assets, bundle);
 
             if(!mesh)
             {
@@ -668,7 +684,8 @@ void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
     catch(std::exception &e){ spdlog::error(e.what()); }
 }
 
-vierkant::mesh_buffer_bundle_t load_mesh_bundle(const std::filesystem::path &path)
+std::optional<vierkant::mesh_buffer_bundle_t>
+load_mesh_bundle(const std::filesystem::path &path)
 {
     // create and open a character archive for input
     std::ifstream file_stream(path.string(), std::ios_base::in | std::ios_base::binary);
@@ -686,13 +703,14 @@ vierkant::mesh_buffer_bundle_t load_mesh_bundle(const std::filesystem::path &pat
     {
       try
       {
+          spdlog::debug("loading mesh_buffer_bundle: {}", path.string());
           cereal::BinaryInputArchive archive(file_stream);
           archive(ret);
+          return ret;
       }
       catch (std::exception &e){ spdlog::error(e.what()); }
-      spdlog::debug("loading mesh_buffer_bundle: {}", path.string());
     }
-    return ret;
+    return {};
 }
 
 int main(int argc, char *argv[])
