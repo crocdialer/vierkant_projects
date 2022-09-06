@@ -31,5 +31,10 @@ set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 # cereal
 include_directories("submodules/cereal/include")
 
+# libzip
+cmake_policy(SET CMP0063 NEW)
+add_subdirectory(submodules/libzip EXCLUDE_FROM_ALL)
+set(LIBS ${LIBS} zip)
+
 # projects
 add_subdirectory("projects")
