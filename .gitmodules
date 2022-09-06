@@ -5,3 +5,7 @@
 	path = submodules/cereal
 	url = git@github.com:USCiLab/cereal.git
   shallow = true
+[submodule "submodules/libzip"]
+	path = submodules/libzip
+	url = git@github.com:nih-at/libzip.git
+  shallow = true
