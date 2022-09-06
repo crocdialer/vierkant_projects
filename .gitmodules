@@ -1,11 +1,13 @@
 [submodule "submodules/vierkant"]
 	path = submodules/vierkant
 	url = git@github.com:crocdialer/vierkant.git
+
 [submodule "submodules/cereal"]
 	path = submodules/cereal
 	url = git@github.com:USCiLab/cereal.git
-  shallow = true
+    shallow = true
+
 [submodule "submodules/libzip"]
 	path = submodules/libzip
 	url = git@github.com:nih-at/libzip.git
-  shallow = true
+    shallow = true
