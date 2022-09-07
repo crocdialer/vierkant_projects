@@ -8,7 +8,7 @@
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
 #include <vierkant/MeshNode.hpp>
-#include "zipstream.h"
+#include "ziparchive.h"
 
 #include <vierkant/gltf.hpp>
 #include <vierkant/Visitor.hpp>
@@ -288,8 +288,11 @@ void PBRViewer::load_model(const std::string &path)
             m_num_loading++;
             auto start_time = std::chrono::steady_clock::now();
 
+            spdlog::debug("loading model '{}'", path);
+
             // tinygltf
             auto mesh_assets = vierkant::model::gltf(path);
+            spdlog::debug("loaded model '{}' ({})", path, double_second(std::chrono::steady_clock::now() - start_time));
 
             if(mesh_assets.entry_create_infos.empty())
             {
@@ -299,8 +302,7 @@ void PBRViewer::load_model(const std::string &path)
 
             // lookup
             std::optional<vierkant::mesh_buffer_bundle_t> bundle;
-            std::hash<std::string> path_hash;
-            size_t hash_val = path_hash(path);
+            size_t hash_val = std::hash<std::string>()(path);
             crocore::hash_combine(hash_val, m_settings.optimize_vertex_cache);
             crocore::hash_combine(hash_val, m_settings.generate_lods);
             crocore::hash_combine(hash_val, m_settings.generate_meshlets);
@@ -310,11 +312,16 @@ void PBRViewer::load_model(const std::string &path)
 
             if(!bundle)
             {
+                spdlog::stopwatch sw;
+                spdlog::debug("creating mesh-bundle ...");
+
                 bundle = vierkant::create_combined_buffers(mesh_assets.entry_create_infos,
                                                            m_settings.optimize_vertex_cache,
                                                            m_settings.generate_lods,
                                                            m_settings.generate_meshlets,
                                                            false);
+                spdlog::debug("mesh-bundle done ({})", sw.elapsed());
+
                 if(m_settings.cache_mesh_bundles)
                 {
                     save_mesh_bundle(*bundle, bundle_path);
@@ -675,7 +682,7 @@ void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
 
         {
             spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
-            vierkant::zipstream zipstream(g_zip_path, path);
+            vierkant::ziparchive zipstream(g_zip_path);
             zipstream.add_file(path);
         }
         std::filesystem::remove(path);
@@ -686,17 +693,18 @@ void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
 std::optional<vierkant::mesh_buffer_bundle_t>
 load_mesh_bundle(const std::filesystem::path &path)
 {
-    vierkant::zipstream zipstream(g_zip_path, path);
+    vierkant::ziparchive zip(g_zip_path);
 
-    if(zipstream.has_file(path))
+    if(zip.has_file(path))
     {
         try
         {
             spdlog::debug("found bundle '{}' in archive '{}'", path.string(), g_zip_path);
             vierkant::mesh_buffer_bundle_t ret;
 
-            cereal::BinaryInputArchive zip_archive(zipstream);
-            zip_archive(ret);
+            auto zipstream = zip.open_file(path);
+            cereal::BinaryInputArchive archive(zipstream);
+            archive(ret);
             return ret;
 
         }
