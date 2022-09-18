@@ -19,12 +19,17 @@ void PBRViewer::create_ui()
         {
             switch(e.code())
             {
-                case vierkant::Key::_ESCAPE:
-                    running = false;
+                case vierkant::Key::_ESCAPE:running = false;
                     break;
 
-                case vierkant::Key::_SPACE:
-                    m_settings.draw_ui = !m_settings.draw_ui;
+                case vierkant::Key::_SPACE:m_settings.draw_ui = !m_settings.draw_ui;
+                    break;
+
+                case vierkant::Key::_F:
+                {
+                    size_t monitor_index = m_window->monitor_index();
+                    m_window->set_fullscreen(!m_window->fullscreen(), monitor_index);
+                }
                     break;
 
                 case vierkant::Key::_C:
@@ -36,8 +41,7 @@ void PBRViewer::create_ui()
                     m_camera->set_transform(m_camera_control.current->transform());
                     break;
 
-                case vierkant::Key::_G:
-                    m_settings.draw_grid = !m_settings.draw_grid;
+                case vierkant::Key::_G:m_settings.draw_grid = !m_settings.draw_grid;
                     break;
 
                 case vierkant::Key::_P:
@@ -48,23 +52,18 @@ void PBRViewer::create_ui()
                     else{ m_scene_renderer = m_pbr_renderer; }
                     break;
 
-                case vierkant::Key::_B:
-                    m_settings.draw_aabbs = !m_settings.draw_aabbs;
+                case vierkant::Key::_B:m_settings.draw_aabbs = !m_settings.draw_aabbs;
                     break;
 
-                case vierkant::Key::_N:
-                    m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
+                case vierkant::Key::_N:m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
                     break;
 
-                case vierkant::Key::_W:
-                  m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
-                  break;
+                case vierkant::Key::_W:m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
+                    break;
 
-                case vierkant::Key::_S:
-                    save_settings(m_settings);
+                case vierkant::Key::_S:save_settings(m_settings);
                     break;
-                default:
-                    break;
+                default:break;
             }
         }
     };
@@ -76,7 +75,7 @@ void PBRViewer::create_ui()
         if(!joysticks.empty())
         {
             auto &js = joysticks.front();
-            for(auto &[input, event] : js.input_events())
+            for(auto &[input, event]: js.input_events())
             {
                 spdlog::trace("{}: {} {}", js.name(), vierkant::to_string(input),
                               (event == vierkant::Joystick::Event::BUTTON_PRESS ? " pressed" : " released"));
@@ -85,12 +84,10 @@ void PBRViewer::create_ui()
                 {
                     switch(input)
                     {
-                        case vierkant::Joystick::Input::BUTTON_MENU:
-                            m_settings.draw_ui = !m_settings.draw_ui;
+                        case vierkant::Joystick::Input::BUTTON_MENU:m_settings.draw_ui = !m_settings.draw_ui;
                             break;
 
-                        case vierkant::Joystick::Input::BUTTON_X:
-                            m_settings.draw_grid = !m_settings.draw_grid;
+                        case vierkant::Joystick::Input::BUTTON_X:m_settings.draw_grid = !m_settings.draw_grid;
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_Y:
@@ -101,12 +98,10 @@ void PBRViewer::create_ui()
                             else{ m_scene_renderer = m_pbr_renderer; }
                             break;
 
-                        case vierkant::Joystick::Input::BUTTON_A:
-                          m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
-                          break;
+                        case vierkant::Joystick::Input::BUTTON_A:m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
+                            break;
 
-                        case vierkant::Joystick::Input::BUTTON_B:
-                            m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
+                        case vierkant::Joystick::Input::BUTTON_B:m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_BACK:
@@ -118,8 +113,7 @@ void PBRViewer::create_ui()
                             m_camera->set_transform(m_camera_control.current->transform());
                             break;
 
-                        default:
-                            break;
+                        default:break;
                     }
                 }
             }
@@ -166,7 +160,7 @@ void PBRViewer::create_ui()
         {
             if(ImGui::BeginMenu("recent files"))
             {
-                for(const auto &f : m_settings.recent_files)
+                for(const auto &f: m_settings.recent_files)
                 {
                     if(ImGui::MenuItem(f.c_str()))
                     {

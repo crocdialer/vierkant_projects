@@ -111,6 +111,11 @@ private:
 
     static settings_t load_settings(const std::filesystem::path &path = "settings.json");
 
+    void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
+                          const std::filesystem::path &path);
+
+    std::optional<vierkant::mesh_buffer_bundle_t> load_mesh_bundle(const std::filesystem::path &path);
+
     std::atomic<uint32_t> m_num_loading = 0;
 
     settings_t m_settings;
@@ -160,7 +165,7 @@ private:
 
     size_t m_max_log_queue_size = 100;
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
-    std::shared_mutex m_log_queue_mutex;
+    std::shared_mutex m_log_queue_mutex, m_bundle_rw_mutex;
     std::map<std::string, std::shared_ptr<spdlog::logger>> _loggers;
 };
 
@@ -192,8 +197,3 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("fov", settings.fov),
        cereal::make_nvp("target_fps", settings.target_fps));
 }
-
-void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
-                      const std::filesystem::path &path);
-
-std::optional<vierkant::mesh_buffer_bundle_t> load_mesh_bundle(const std::filesystem::path &path);
