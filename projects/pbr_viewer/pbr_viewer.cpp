@@ -320,7 +320,8 @@ void PBRViewer::load_model(const std::string &path)
                                                            m_settings.optimize_vertex_cache,
                                                            m_settings.generate_lods,
                                                            m_settings.generate_meshlets,
-                                                           false);
+                                                           false,
+                                                           true);
                 spdlog::debug("mesh-bundle done ({})", sw.elapsed());
                 bundle_created = true;
             }
@@ -678,20 +679,23 @@ void PBRViewer::save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buff
     try
     {
         {
+            spdlog::stopwatch sw;
             // create and open a character archive for output
             std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
-            spdlog::debug("writing mesh_buffer_bundle: {}", path.string());
+            spdlog::debug("serializing/writing mesh_buffer_bundle: {}", path.string());
             cereal::BinaryOutputArchive archive(ofs);
             archive(mesh_buffer_bundle);
+            spdlog::debug("done serializing/writing mesh_buffer_bundle: {} ({})", path.string(), sw.elapsed());
         }
 
+        spdlog::stopwatch sw;
         {
             std::unique_lock lock(m_bundle_rw_mutex);
             spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
             vierkant::ziparchive zipstream(g_zip_path);
             zipstream.add_file(path);
         }
-        spdlog::debug("done compressing bundle: {} -> {}", path.string(), g_zip_path);
+        spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
         std::filesystem::remove(path);
     }
     catch(std::exception &e){ spdlog::error(e.what()); }
@@ -706,7 +710,7 @@ PBRViewer::load_mesh_bundle(const std::filesystem::path &path)
     {
         try
         {
-            spdlog::debug("found bundle '{}' in archive '{}'", path.string(), g_zip_path);
+            spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
             vierkant::mesh_buffer_bundle_t ret;
 
             std::shared_lock lock(m_bundle_rw_mutex);
