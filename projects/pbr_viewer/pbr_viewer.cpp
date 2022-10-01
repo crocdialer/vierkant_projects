@@ -316,12 +316,14 @@ void PBRViewer::load_model(const std::string &path)
                 spdlog::stopwatch sw;
                 spdlog::debug("creating mesh-bundle ...");
 
-                bundle = vierkant::create_combined_buffers(mesh_assets.entry_create_infos,
-                                                           m_settings.optimize_vertex_cache,
-                                                           m_settings.generate_lods,
-                                                           m_settings.generate_meshlets,
-                                                           false,
-                                                           true);
+                vierkant::create_mesh_buffers_params_t params = {};
+                params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
+                params.generate_lods = m_settings.generate_lods;
+                params.generate_meshlets = m_settings.generate_meshlets;
+                params.use_vertex_colors = false;
+                params.pack_vertices = true;
+
+                bundle = vierkant::create_mesh_buffers(mesh_assets.entry_create_infos, params);
                 spdlog::debug("mesh-bundle done ({})", sw.elapsed());
                 bundle_created = true;
             }
