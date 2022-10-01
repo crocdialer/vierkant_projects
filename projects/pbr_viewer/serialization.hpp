@@ -107,6 +107,7 @@ void serialize(Archive &archive, vierkant::mesh_buffer_bundle_t &mesh_buffer_bun
           cereal::make_nvp("num_materials", mesh_buffer_bundle.num_materials),
           cereal::make_nvp("vertex_buffer", mesh_buffer_bundle.vertex_buffer),
           cereal::make_nvp("index_buffer", mesh_buffer_bundle.index_buffer),
+          cereal::make_nvp("bone_vertex_buffer", mesh_buffer_bundle.bone_vertex_buffer),
           cereal::make_nvp("morph_buffer", mesh_buffer_bundle.morph_buffer),
           cereal::make_nvp("num_morph_targets", mesh_buffer_bundle.num_morph_targets),
           cereal::make_nvp("meshlets", mesh_buffer_bundle.meshlets),
