@@ -103,9 +103,11 @@ void PBRViewer::setup()
 
 void PBRViewer::teardown()
 {
-    spdlog::info("ciao {}", name());
+    spdlog::debug("joining background tasks ...");
     background_queue().join_all();
+    while(main_queue().poll()){}
     vkDeviceWaitIdle(m_device->handle());
+    spdlog::info("ciao {}", name());
 }
 
 void PBRViewer::poll_events()
@@ -357,17 +359,22 @@ void PBRViewer::load_model(const std::string &path)
             {
                 m_selected_objects.clear();
                 m_scene->clear();
-                auto mesh_node = vierkant::MeshNode::create(mesh);
 
-                // scale
-                float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
-                mesh_node->set_scale(scale);
+                for(uint32_t i = 0; i < 10; ++i)
+                {
+                    auto mesh_node = vierkant::MeshNode::create(mesh);
 
-                // center aabb
-                auto aabb = mesh_node->aabb().transform(mesh_node->transform());
-                mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
+                    // scale
+                    float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
+                    mesh_node->set_scale(scale);
 
-                m_scene->add_object(mesh_node);
+                    // center aabb
+                    auto aabb = mesh_node->aabb().transform(mesh_node->transform());
+                    mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, -5.f + 3 * i));
+
+                    m_scene->add_object(mesh_node);
+                }
+
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
 
                 auto dur = double_second(std::chrono::steady_clock::now() - start_time);
