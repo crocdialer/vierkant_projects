@@ -296,7 +296,14 @@ void PBRViewer::create_ui()
 
                 if(picked_object)
                 {
-                    if(e.is_control_down()){ m_selected_objects.insert(picked_object); }
+                    if(e.is_control_down())
+                    {
+                        if(m_selected_objects.contains(picked_object))
+                        {
+                            m_selected_objects.erase(picked_object);
+                        }
+                        else{ m_selected_objects.insert(picked_object); }
+                    }
                     else{ m_selected_objects = {picked_object}; }
                 }
             }
