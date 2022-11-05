@@ -360,6 +360,7 @@ void PBRViewer::load_model(const std::string &path)
                 m_selected_objects.clear();
                 m_scene->clear();
 
+                // tmp test-loop
                 for(uint32_t i = 0; i < 1; ++i)
                 {
                     auto mesh_node = vierkant::MeshNode::create(mesh);
@@ -546,11 +547,12 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             {
                 vierkant::nodes::node_animation_t animation = {};
 
-                if(mesh_node && mesh_node->animation_index < mesh_node->mesh->node_animations.size())
+                if(mesh_node && mesh_node->animation_state.index < mesh_node->mesh->node_animations.size())
                 {
-                    animation = mesh_node->mesh->node_animations[mesh_node->animation_index];
+                    animation = mesh_node->mesh->node_animations[mesh_node->animation_state.index];
                     auto node = mesh_node->mesh->root_bone ? mesh_node->mesh->root_bone : mesh_node->mesh->root_node;
-                    m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation, mesh_node->animation_time,
+                    m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,
+                                                       mesh_node->animation_state.current_time,
                                                        modelview, m_camera->projection_matrix());
                 }
             }
