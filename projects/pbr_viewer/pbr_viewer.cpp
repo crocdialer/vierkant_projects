@@ -363,7 +363,7 @@ void PBRViewer::load_model(const std::string &path)
                 // tmp test-loop
                 for(uint32_t i = 0; i < 1; ++i)
                 {
-                    auto mesh_node = vierkant::MeshNode::create(mesh);
+                    auto mesh_node = vierkant::MeshNode::create(mesh, m_scene->registry());
 
                     // scale
                     float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
@@ -400,7 +400,7 @@ void PBRViewer::load_model(const std::string &path)
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
 
-        auto mesh_node = vierkant::MeshNode::create(mesh);
+        auto mesh_node = vierkant::MeshNode::create(mesh, m_scene->registry());
 
         m_selected_objects.clear();
         m_scene->clear();
@@ -519,9 +519,6 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer
     {
-//        vierkant::SelectVisitor<vierkant::MeshNode> sv;
-//        m_scene->root()->accept(sv);
-
         for(const auto &obj: m_selected_objects)
         {
             auto modelview = m_camera->view_matrix() * obj->transform();
@@ -532,9 +529,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                 m_draw_context.draw_boundingbox(m_renderer_overlay, obj->aabb(), modelview,
                                                 m_camera->projection_matrix());
 
-                if(mesh_node && mesh_node->mesh)
+                if(mesh_node)
                 {
-                    for(const auto &entry: mesh_node->mesh->entries)
+                    const auto &mesh = mesh_node->get_component<vierkant::MeshPtr>();
+
+                    for(const auto &entry: mesh->entries)
                     {
                         m_draw_context.draw_boundingbox(m_renderer_overlay, entry.bounding_box,
                                                         modelview * entry.transform,
@@ -547,12 +546,15 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             {
                 vierkant::nodes::node_animation_t animation = {};
 
-                if(mesh_node && mesh_node->animation_state.index < mesh_node->mesh->node_animations.size())
+                if(mesh_node && mesh_node->has_component<vierkant::animation_state_t>())
                 {
-                    animation = mesh_node->mesh->node_animations[mesh_node->animation_state.index];
-                    auto node = mesh_node->mesh->root_bone ? mesh_node->mesh->root_bone : mesh_node->mesh->root_node;
+                    const auto &mesh = mesh_node->get_component<vierkant::MeshPtr>();
+
+                    auto &animation_state = mesh_node->get_component<vierkant::animation_state_t>();
+                    animation = mesh->node_animations[animation_state.index];
+                    auto node = mesh->root_bone ? mesh->root_bone : mesh->root_node;
                     m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,
-                                                       mesh_node->animation_state.current_time,
+                                                       animation_state.current_time,
                                                        modelview, m_camera->projection_matrix());
                 }
             }
