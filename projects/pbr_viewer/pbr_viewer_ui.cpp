@@ -38,7 +38,7 @@ void PBRViewer::create_ui()
                         m_camera_control.current = m_camera_control.fly;
                     }
                     else{ m_camera_control.current = m_camera_control.orbit; }
-                    m_camera->set_transform(m_camera_control.current->transform());
+                    m_camera->transform = m_camera_control.current->transform();
                     break;
 
                 case vierkant::Key::_G:m_settings.draw_grid = !m_settings.draw_grid;
@@ -110,7 +110,7 @@ void PBRViewer::create_ui()
                                 m_camera_control.current = m_camera_control.fly;
                             }
                             else{ m_camera_control.current = m_camera_control.orbit; }
-                            m_camera->set_transform(m_camera_control.current->transform());
+                            m_camera->transform = m_camera_control.current->transform();
                             break;
 
                         default:break;
@@ -212,7 +212,7 @@ void PBRViewer::create_ui()
                 m_camera_control.current = m_camera_control.fly;
                 refresh = true;
             }
-            if(refresh){ m_camera->set_transform(m_camera_control.current->transform()); }
+            if(refresh){ m_camera->transform = m_camera_control.current->transform(); }
 
             if(perspective_cam)
             {
@@ -377,7 +377,7 @@ void PBRViewer::create_camera_controls()
     m_camera_control.fly->transform_cb = transform_cb;
 
     // update camera from current
-    m_camera->set_transform(m_camera_control.current->transform());
+    m_camera->transform = m_camera_control.current->transform();
 
     m_camera->set_fov(m_settings.fov);
 }

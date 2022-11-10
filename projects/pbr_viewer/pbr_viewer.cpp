@@ -370,7 +370,7 @@ void PBRViewer::load_model(const std::string &path)
                     mesh_node->set_scale(scale);
 
                     // center aabb
-                    auto aabb = mesh_node->aabb().transform(mesh_node->transform());
+                    auto aabb = mesh_node->aabb().transform(mesh_node->transform);
                     mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * i));
 
                     m_scene->add_object(mesh_node);
@@ -521,7 +521,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     {
         for(const auto &obj: m_selected_objects)
         {
-            auto modelview = m_camera->view_matrix() * obj->transform();
+            auto modelview = m_camera->view_matrix() * obj->transform;
             auto mesh_node = std::dynamic_pointer_cast<vierkant::MeshNode>(obj);
 
             if(m_settings.draw_aabbs)
