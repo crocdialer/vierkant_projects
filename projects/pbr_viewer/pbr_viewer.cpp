@@ -7,7 +7,6 @@
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
-#include <vierkant/MeshNode.hpp>
 #include "ziparchive.h"
 
 #include <vierkant/gltf.hpp>
@@ -361,19 +360,24 @@ void PBRViewer::load_model(const std::string &path)
                 m_scene->clear();
 
                 // tmp test-loop
-                for(uint32_t i = 0; i < 1; ++i)
+                for(uint32_t i = 0; i < 10; ++i)
                 {
-                    auto mesh_node = vierkant::MeshNode::create(mesh, m_scene->registry());
+                    auto object = vierkant::Object3D::create(m_scene->registry());
+                    object->add_component(mesh);
+                    if(!mesh->node_animations.empty()){ object->add_component<vierkant::animation_state_t>(); }
+                    vierkant::AABB aabb;
+                    for(const auto &entry: mesh->entries){ aabb += entry.bounding_box.transform(entry.transform); }
+                    object->add_component(aabb);
 
                     // scale
-                    float scale = 5.f / glm::length(mesh_node->aabb().half_extents());
-                    mesh_node->set_scale(scale);
+                    float scale = 5.f / glm::length(object->aabb().half_extents());
+                    object->set_scale(scale);
 
                     // center aabb
-                    auto aabb = mesh_node->aabb().transform(mesh_node->transform);
-                    mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * i));
+                    aabb = object->aabb().transform(object->transform);
+                    object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * i));
 
-                    m_scene->add_object(mesh_node);
+                    m_scene->add_object(object);
                 }
 
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
@@ -400,7 +404,8 @@ void PBRViewer::load_model(const std::string &path)
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
 
-        auto mesh_node = vierkant::MeshNode::create(mesh, m_scene->registry());
+        auto mesh_node = vierkant::Object3D::create(m_scene->registry());
+        mesh_node->add_component(mesh);
 
         m_selected_objects.clear();
         m_scene->clear();
@@ -522,16 +527,15 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         for(const auto &obj: m_selected_objects)
         {
             auto modelview = m_camera->view_matrix() * obj->transform;
-            auto mesh_node = std::dynamic_pointer_cast<vierkant::MeshNode>(obj);
 
             if(m_settings.draw_aabbs)
             {
                 m_draw_context.draw_boundingbox(m_renderer_overlay, obj->aabb(), modelview,
                                                 m_camera->projection_matrix());
 
-                if(mesh_node)
+                if(obj->has_component<vierkant::MeshPtr>())
                 {
-                    const auto &mesh = mesh_node->get_component<vierkant::MeshPtr>();
+                    const auto &mesh = obj->get_component<vierkant::MeshPtr>();
 
                     for(const auto &entry: mesh->entries)
                     {
@@ -546,11 +550,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             {
                 vierkant::nodes::node_animation_t animation = {};
 
-                if(mesh_node && mesh_node->has_component<vierkant::animation_state_t>())
+                if(obj->has_component<vierkant::animation_state_t>())
                 {
-                    const auto &mesh = mesh_node->get_component<vierkant::MeshPtr>();
+                    const auto &mesh = obj->get_component<vierkant::MeshPtr>();
 
-                    auto &animation_state = mesh_node->get_component<vierkant::animation_state_t>();
+                    auto &animation_state = obj->get_component<vierkant::animation_state_t>();
                     animation = mesh->node_animations[animation_state.index];
                     auto node = mesh->root_bone ? mesh->root_bone : mesh->root_node;
                     m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,
