@@ -360,7 +360,7 @@ void PBRViewer::load_model(const std::string &path)
                 m_scene->clear();
 
                 // tmp test-loop
-                for(uint32_t i = 0; i < 10; ++i)
+                for(uint32_t i = 0; i < 1; ++i)
                 {
                     auto object = vierkant::Object3D::create(m_scene->registry());
                     object->add_component(mesh);
