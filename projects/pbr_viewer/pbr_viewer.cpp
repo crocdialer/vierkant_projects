@@ -362,19 +362,14 @@ void PBRViewer::load_model(const std::string &path)
                 // tmp test-loop
                 for(uint32_t i = 0; i < 1; ++i)
                 {
-                    auto object = vierkant::Object3D::create(m_scene->registry());
-                    object->add_component(mesh);
-                    if(!mesh->node_animations.empty()){ object->add_component<vierkant::animation_state_t>(); }
-                    vierkant::AABB aabb;
-                    for(const auto &entry: mesh->entries){ aabb += entry.bounding_box.transform(entry.transform); }
-                    object->add_component(aabb);
+                    auto object = vierkant::create_mesh_object(m_scene->registry(), mesh);
 
                     // scale
                     float scale = 5.f / glm::length(object->aabb().half_extents());
                     object->set_scale(scale);
 
                     // center aabb
-                    aabb = object->aabb().transform(object->transform);
+                    auto aabb = object->aabb().transform(object->transform);
                     object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * i));
 
                     m_scene->add_object(object);
@@ -404,8 +399,7 @@ void PBRViewer::load_model(const std::string &path)
         if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
 
-        auto mesh_node = vierkant::Object3D::create(m_scene->registry());
-        mesh_node->add_component(mesh);
+        auto mesh_node = vierkant::create_mesh_object(m_scene->registry(), mesh);
 
         m_selected_objects.clear();
         m_scene->clear();
@@ -533,16 +527,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                 m_draw_context.draw_boundingbox(m_renderer_overlay, obj->aabb(), modelview,
                                                 m_camera->projection_matrix());
 
-                if(obj->has_component<vierkant::MeshPtr>())
-                {
-                    const auto &mesh = obj->get_component<vierkant::MeshPtr>();
+                auto sub_aabbs = obj->sub_aabbs();
 
-                    for(const auto &entry: mesh->entries)
-                    {
-                        m_draw_context.draw_boundingbox(m_renderer_overlay, entry.bounding_box,
-                                                        modelview * entry.transform,
-                                                        m_camera->projection_matrix());
-                    }
+                for(const auto &aabb: sub_aabbs)
+                {
+                    m_draw_context.draw_boundingbox(m_renderer_overlay, aabb, modelview, m_camera->projection_matrix());
                 }
             }
 
