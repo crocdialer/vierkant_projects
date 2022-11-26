@@ -509,7 +509,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
 
-    auto render_scene = [this, &framebuffer, &semaphore_infos, &w]() -> VkCommandBuffer
+    auto render_scene = [this, &framebuffer, &semaphore_infos]() -> VkCommandBuffer
     {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
