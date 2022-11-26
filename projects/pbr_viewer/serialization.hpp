@@ -118,29 +118,6 @@ void serialize(Archive &archive, vierkant::mesh_buffer_bundle_t &mesh_buffer_bun
 }
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::bc7::block_t &block)
-{
-    archive(cereal::make_nvp("value", block.value));
-}
-
-template<class Archive>
-void serialize(Archive &archive,
-               vierkant::bc7::compress_result_t &compress_result)
-{
-    archive(cereal::make_nvp("base_width", compress_result.base_width),
-            cereal::make_nvp("base_height", compress_result.base_height),
-            cereal::make_nvp("levels", compress_result.levels));
-}
-
-template<class Archive>
-void serialize(Archive &archive,
-               vierkant::model::asset_bundle_t &asset_bundle)
-{
-    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
-            cereal::make_nvp("compressed_images", asset_bundle.compressed_images));
-}
-
-template<class Archive>
 void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
 {
     archive(cereal::make_nvp("size", createInfo.size),
@@ -245,6 +222,29 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 
 namespace cereal
 {
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::bc7::block_t &block)
+{
+    archive(cereal::make_nvp("value", block.value));
+}
+
+template<class Archive>
+void serialize(Archive &archive,
+               vierkant::bc7::compress_result_t &compress_result)
+{
+    archive(cereal::make_nvp("base_width", compress_result.base_width),
+            cereal::make_nvp("base_height", compress_result.base_height),
+            cereal::make_nvp("levels", compress_result.levels));
+}
+
+template<class Archive>
+void serialize(Archive &archive,
+               vierkant::model::asset_bundle_t &asset_bundle)
+{
+    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
+            cereal::make_nvp("compressed_images", asset_bundle.compressed_images));
+}
 
 template<class Archive, class T>
 void serialize(Archive &archive, crocore::SetLRU<T> &set_lru)

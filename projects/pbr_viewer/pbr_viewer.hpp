@@ -111,10 +111,10 @@ private:
 
     static settings_t load_settings(const std::filesystem::path &path = "settings.json");
 
-    void save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
-                          const std::filesystem::path &path);
+    void save_asset_bundle(const vierkant::model::asset_bundle_t &asset_bundle,
+                           const std::filesystem::path &path);
 
-    std::optional<vierkant::mesh_buffer_bundle_t> load_mesh_bundle(const std::filesystem::path &path);
+    std::optional<vierkant::model::asset_bundle_t> load_asset_bundle(const std::filesystem::path &path);
 
     std::atomic<uint32_t> m_num_loading = 0;
 

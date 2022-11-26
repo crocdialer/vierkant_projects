@@ -25,7 +25,7 @@ const bool g_enable_validation_layers = false;
 const bool g_enable_validation_layers = true;
 #endif
 
-constexpr char g_zip_path[] = "mesh_bundle_cache.zip";
+constexpr char g_zip_path[] = "asset_bundle_cache.zip";
 
 using double_second = std::chrono::duration<double>;
 
@@ -302,7 +302,7 @@ void PBRViewer::load_model(const std::string &path)
             }
 
             // lookup
-            std::optional<vierkant::mesh_buffer_bundle_t> bundle;
+            std::optional<vierkant::model::asset_bundle_t> bundle;
             size_t hash_val = std::hash<std::string>()(path);
             crocore::hash_combine(hash_val, m_settings.optimize_vertex_cache);
             crocore::hash_combine(hash_val, m_settings.generate_lods);
@@ -310,7 +310,7 @@ void PBRViewer::load_model(const std::string &path)
             std::filesystem::path bundle_path = std::to_string(hash_val) + ".bin";
 
             bool bundle_created = false;
-            bundle = load_mesh_bundle(bundle_path);
+            bundle = load_asset_bundle(bundle_path);
 
             if(!bundle)
             {
@@ -324,7 +324,14 @@ void PBRViewer::load_model(const std::string &path)
                 params.use_vertex_colors = false;
                 params.pack_vertices = true;
 
-                bundle = vierkant::create_mesh_buffers(mesh_assets.entry_create_infos, params);
+                vierkant::model::asset_bundle_t asset_bundle;
+                asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(mesh_assets.entry_create_infos, params);
+
+                if(m_settings.texture_compression)
+                {
+                    asset_bundle.compressed_images = vierkant::model::create_compressed_images(mesh_assets.materials);
+                }
+                bundle = std::move(asset_bundle);
                 spdlog::debug("mesh-bundle done ({})", sw.elapsed());
                 bundle_created = true;
             }
@@ -350,7 +357,7 @@ void PBRViewer::load_model(const std::string &path)
             {
                 background_queue().post([this, bundle = std::move(bundle), bundle_path]()
                                         {
-                                            save_mesh_bundle(*bundle, bundle_path);
+                                            save_asset_bundle(*bundle, bundle_path);
                                         });
             }
 
@@ -682,8 +689,8 @@ void PBRViewer::load_file(const std::string &path)
     }
 }
 
-void PBRViewer::save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle,
-                                 const std::filesystem::path &path)
+void PBRViewer::save_asset_bundle(const vierkant::model::asset_bundle_t &asset_bundle,
+                                  const std::filesystem::path &path)
 {
     // save data to archive
     try
@@ -694,7 +701,7 @@ void PBRViewer::save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buff
             std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
             spdlog::debug("serializing/writing mesh_buffer_bundle: {}", path.string());
             cereal::BinaryOutputArchive archive(ofs);
-            archive(mesh_buffer_bundle);
+            archive(asset_bundle);
             spdlog::debug("done serializing/writing mesh_buffer_bundle: {} ({})", path.string(), sw.elapsed());
         }
 
@@ -711,8 +718,8 @@ void PBRViewer::save_mesh_bundle(const vierkant::mesh_buffer_bundle_t &mesh_buff
     catch(std::exception &e){ spdlog::error(e.what()); }
 }
 
-std::optional<vierkant::mesh_buffer_bundle_t>
-PBRViewer::load_mesh_bundle(const std::filesystem::path &path)
+std::optional<vierkant::model::asset_bundle_t>
+PBRViewer::load_asset_bundle(const std::filesystem::path &path)
 {
     vierkant::ziparchive zip(g_zip_path);
 
@@ -721,7 +728,7 @@ PBRViewer::load_mesh_bundle(const std::filesystem::path &path)
         try
         {
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
-            vierkant::mesh_buffer_bundle_t ret;
+            vierkant::model::asset_bundle_t ret;
 
             std::shared_lock lock(m_bundle_rw_mutex);
             auto zipstream = zip.open_file(path);
