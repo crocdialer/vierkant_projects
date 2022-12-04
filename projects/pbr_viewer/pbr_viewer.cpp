@@ -152,9 +152,9 @@ void PBRViewer::create_context_and_window()
     }
 
     if(m_settings.enable_mesh_shader_device_features &&
-       vierkant::check_device_extension_support(physical_device, {VK_NV_MESH_SHADER_EXTENSION_NAME}))
+       vierkant::check_device_extension_support(physical_device, {VK_EXT_MESH_SHADER_EXTENSION_NAME}))
     {
-        device_info.extensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
+        device_info.extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
 
     m_device = vierkant::Device::create(device_info);
