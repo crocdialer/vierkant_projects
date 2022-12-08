@@ -33,6 +33,17 @@ include_directories("submodules/cereal/include")
 
 # libzip
 cmake_policy(SET CMP0063 NEW)
+set(BUILD_TOOLS OFF)
+set(BUILD_REGRESS OFF)
+set(BUILD_EXAMPLES OFF)
+set(BUILD_DOC OFF)
+set(ENABLE_BZIP2 OFF)
+set(ENABLE_ZSTD OFF)
+set(ENABLE_COMMONCRYPTO OFF)
+set(ENABLE_GNUTLS OFF)
+set(ENABLE_MBEDTLS OFF)
+set(ENABLE_OPENSSL OFF)
+set(ENABLE_WINDOWS_CRYPTO OFF)
 add_subdirectory(submodules/libzip EXCLUDE_FROM_ALL)
 set(LIBS ${LIBS} zip)
 
