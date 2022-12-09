@@ -22,7 +22,7 @@ struct zipstreambuffer : public std::streambuf
 {
     zipstreambuffer(zip_t *_archive, const std::filesystem::path &file_path) : archive(_archive)
     {
-        zip_file = {zip_fopen(archive, file_path.c_str(), 0), zip_fclose};
+        zip_file = {zip_fopen(archive, file_path.string().c_str(), 0), zip_fclose};
     }
 
     std::streamsize xsgetn(char *s, std::streamsize n) override
@@ -46,7 +46,7 @@ ziparchive::ziparchive(const std::filesystem::path &archive_path)
     int errorp;
 
     int flags = std::filesystem::exists(archive_path) ? 0 : ZIP_EXCL | ZIP_CREATE;
-    m_archive = {zip_open(archive_path.c_str(), flags, &errorp), zip_close};
+    m_archive = {zip_open(archive_path.string().c_str(), flags, &errorp), zip_close};
 
     if(!m_archive)
     {
@@ -60,13 +60,13 @@ ziparchive::ziparchive(const std::filesystem::path &archive_path)
 void ziparchive::add_file(const std::filesystem::path &file_path)
 {
     std::unique_ptr<zip_source_t, std::function<void(zip_source_t *)>> source;
-    source = {zip_source_file(m_archive.get(), file_path.c_str(), 0, -1), zip_source_close};
-    zip_file_add(m_archive.get(), file_path.c_str(), source.get(), 0);
+    source = {zip_source_file(m_archive.get(), file_path.string().c_str(), 0, -1), zip_source_close};
+    zip_file_add(m_archive.get(), file_path.string().c_str(), source.get(), 0);
 }
 
 bool ziparchive::has_file(const std::filesystem::path &file_path) const
 {
-    return m_archive && zip_name_locate(m_archive.get(), file_path.c_str(), 0) != -1;
+    return m_archive && zip_name_locate(m_archive.get(), file_path.string().c_str(), 0) != -1;
 }
 
 ziparchive::istream ziparchive::open_file(const std::filesystem::path &file_path) const
