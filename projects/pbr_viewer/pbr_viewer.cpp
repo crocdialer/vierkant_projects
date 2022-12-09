@@ -398,6 +398,10 @@ void PBRViewer::load_model(const std::string &path)
         box->colors.clear();
 
         vierkant::Mesh::create_info_t mesh_create_info = {};
+        mesh_create_info.optimize_vertex_cache = true;
+        mesh_create_info.generate_meshlets = true;
+        mesh_create_info.use_vertex_colors = false;
+        mesh_create_info.pack_vertices = true;
         mesh_create_info.buffer_usage_flags = buffer_flags;
         mesh = vierkant::Mesh::create_from_geometry(m_device, box, mesh_create_info);
         auto mat = vierkant::Material::create();
@@ -408,8 +412,11 @@ void PBRViewer::load_model(const std::string &path)
 
         auto mesh_node = vierkant::create_mesh_object(m_scene->registry(), mesh);
 
+        // center aabb
+        auto aabb = mesh_node->aabb().transform(mesh_node->transform);
+        mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
+
         m_selected_objects.clear();
-        m_scene->clear();
         m_scene->add_object(mesh_node);
     }
 }
