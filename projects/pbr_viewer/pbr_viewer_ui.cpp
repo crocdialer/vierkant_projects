@@ -39,6 +39,7 @@ void PBRViewer::create_ui()
                     }
                     else{ m_camera_control.current = m_camera_control.orbit; }
                     m_camera->transform = m_camera_control.current->transform();
+                    if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
                     break;
 
                 case vierkant::Key::_G:m_settings.draw_grid = !m_settings.draw_grid;
@@ -111,6 +112,7 @@ void PBRViewer::create_ui()
                             }
                             else{ m_camera_control.current = m_camera_control.orbit; }
                             m_camera->transform = m_camera_control.current->transform();
+                            if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
                             break;
 
                         default:break;
@@ -212,7 +214,11 @@ void PBRViewer::create_ui()
                 m_camera_control.current = m_camera_control.fly;
                 refresh = true;
             }
-            if(refresh){ m_camera->transform = m_camera_control.current->transform(); }
+            if(refresh)
+            {
+                m_camera->transform = m_camera_control.current->transform();
+                if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+            }
 
             if(perspective_cam)
             {
