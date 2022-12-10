@@ -62,7 +62,7 @@ protected:
     void flush_() override{}
 };
 
-void PBRViewer::setup()
+PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : crocore::Application(create_info)
 {
     // create logger for renderers
     constexpr char pbr_logger_name[] = "pbr_deferred";
@@ -87,6 +87,25 @@ void PBRViewer::setup()
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
+    for(const auto &path : create_info.arguments)
+    {
+        switch(crocore::filesystem::get_file_type(path))
+        {
+            case crocore::filesystem::FileType::IMAGE:
+                m_settings.environment_path = path;
+                break;
+
+            case crocore::filesystem::FileType::MODEL:
+                m_settings.model_path = path;
+                break;
+
+            default:break;
+        }
+    }
+}
+
+void PBRViewer::setup()
+{
     create_context_and_window();
 
     // create ui and inputs
@@ -96,8 +115,8 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load stuff
-    load_model(m_settings.model_path);
-    load_environment(m_settings.environment_path);
+    load_file(m_settings.model_path);
+    load_file(m_settings.environment_path);
 }
 
 void PBRViewer::teardown()

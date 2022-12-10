@@ -77,7 +77,7 @@ public:
         float target_fps = 0.f;
     };
 
-    explicit PBRViewer(const crocore::Application::create_info_t &create_info) : crocore::Application(create_info){};
+    explicit PBRViewer(const crocore::Application::create_info_t &create_info);
 
     void load_file(const std::string &path);
 
