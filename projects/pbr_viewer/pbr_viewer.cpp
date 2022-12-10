@@ -176,6 +176,8 @@ void PBRViewer::create_context_and_window()
     {
         VkViewport viewport = {0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f};
         m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
+        m_renderer.sample_count = m_renderer_overlay.sample_count =
+                m_renderer_gui.sample_count = m_window->swapchain().sample_count();
         m_camera->set_aspect(m_window->aspect_ratio());
         m_camera_control.current->screen_size = {w, h};
     };
