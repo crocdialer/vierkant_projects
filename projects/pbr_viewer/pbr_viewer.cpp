@@ -143,16 +143,24 @@ void PBRViewer::create_context_and_window()
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.surface = m_window->surface();
 
+    // check raytracing support
+    m_settings.enable_raytracing_device_features =
+            m_settings.enable_raytracing_device_features &&
+            vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions());
+
     // add the raytracing-extensions
-    if(m_settings.enable_raytracing_device_features &&
-       vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions()))
+    if(m_settings.enable_raytracing_device_features)
     {
         device_info.use_raytracing = true;
         device_info.extensions = vierkant::RayTracer::required_extensions();
     }
 
-    if(m_settings.enable_mesh_shader_device_features &&
-       vierkant::check_device_extension_support(physical_device, {VK_EXT_MESH_SHADER_EXTENSION_NAME}))
+    // check mesh-shader support
+    m_settings.enable_mesh_shader_device_features =
+            m_settings.enable_mesh_shader_device_features &&
+            vierkant::check_device_extension_support(physical_device, {VK_EXT_MESH_SHADER_EXTENSION_NAME});
+
+    if(m_settings.enable_mesh_shader_device_features)
     {
         device_info.extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
@@ -213,6 +221,7 @@ void PBRViewer::create_graphics_pipeline()
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.pipeline_cache = m_pipeline_cache;
     pbr_render_info.settings = m_settings.pbr_settings;
+    pbr_render_info.settings.use_meshlet_pipeline = m_settings.enable_mesh_shader_device_features;
     pbr_render_info.logger_name = "pbr_deferred";
 
     if(m_pbr_renderer)
