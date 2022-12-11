@@ -115,7 +115,8 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load stuff
-    load_file(m_settings.model_path);
+    if(m_settings.model_path.empty()){ load_model(); }
+    else{ load_file(m_settings.model_path); }
     load_file(m_settings.environment_path);
 }
 
