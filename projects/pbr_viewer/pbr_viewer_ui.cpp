@@ -335,10 +335,6 @@ void PBRViewer::create_camera_controls()
     m_camera_control.orbit->screen_size = m_window->size();
     m_camera_control.orbit->enabled = true;
 
-    // initial pos
-    m_camera_control.orbit->spherical_coords = {1.1f, -0.5f};
-    m_camera_control.orbit->distance = 4.f;
-
     m_camera_control.fly = m_settings.fly_camera;
 
     if(m_settings.use_fly_camera){ m_camera_control.current = m_camera_control.fly; }

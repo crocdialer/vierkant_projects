@@ -683,6 +683,10 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 {
     PBRViewer::settings_t settings = {};
 
+    // initial pos
+    settings.orbit_camera->spherical_coords = {1.1f, -0.5f};
+    settings.orbit_camera->distance = 4.f;
+
     // create and open a character archive for input
     std::ifstream file_stream(path.string());
 

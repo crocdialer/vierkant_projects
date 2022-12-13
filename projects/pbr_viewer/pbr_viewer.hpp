@@ -118,7 +118,7 @@ private:
 
     std::atomic<uint32_t> m_num_loading = 0;
 
-    settings_t m_settings;
+    settings_t m_settings = {};
 
     // bundles basic Vulkan assets
     vierkant::Instance m_instance;
