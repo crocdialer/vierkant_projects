@@ -124,7 +124,7 @@ void PBRViewer::teardown()
 {
     spdlog::debug("joining background tasks ...");
     background_queue().join_all();
-    while(main_queue().poll()){}
+    main_queue().poll();
     vkDeviceWaitIdle(m_device->handle());
     spdlog::info("ciao {}", name());
 }
