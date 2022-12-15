@@ -8,7 +8,7 @@
 
 #include "spdlog/spdlog.h"
 #include <crocore/Application.hpp>
-#include <crocore/SetLRU.hpp>
+#include <crocore/set_lru.hpp>
 #include <vierkant/vierkant.hpp>
 #include <vierkant/PBRPathTracer.hpp>
 #include "serialization.hpp"
@@ -30,7 +30,7 @@ public:
         spdlog::level::level_enum log_level = spdlog::level::info;
         std::string model_path;
         std::string environment_path;
-        crocore::SetLRU<std::string> recent_files;
+        crocore::set_lru<std::string> recent_files;
 
         vierkant::Window::create_info_t window_info =
                 {

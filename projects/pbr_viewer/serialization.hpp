@@ -15,7 +15,7 @@
 
 #include "glm_cereal.hpp"
 
-#include <crocore/SetLRU.hpp>
+#include <crocore/set_lru.hpp>
 #include <crocore/NamedId.hpp>
 
 #include <vierkant/Window.hpp>
@@ -247,7 +247,7 @@ void serialize(Archive &archive,
 }
 
 template<class Archive, class T>
-void serialize(Archive &archive, crocore::SetLRU<T> &set_lru)
+void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
 {
     std::vector<T> array(set_lru.begin(), set_lru.end());
     archive(array);
