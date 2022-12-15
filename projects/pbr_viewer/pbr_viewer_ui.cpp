@@ -320,7 +320,8 @@ void PBRViewer::create_ui()
 
     // attach drag/drop mouse-delegate
     vierkant::mouse_delegate_t file_drop_delegate = {};
-    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &e, const std::vector<std::string> &files)
+    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &,
+                                          const std::vector<std::string> &files)
     {
         auto &f = files.back();
         load_file(f);

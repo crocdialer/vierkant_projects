@@ -72,7 +72,7 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     auto scroll_log_sink = std::make_shared<delegate_sink_t>();
     scroll_log_sink->log_delegates[name()] = [this](const std::string &msg,
                                                     spdlog::level::level_enum log_level,
-                                                    const std::string &logger_name)
+                                                    const std::string &/*logger_name*/)
     {
         std::unique_lock lock(m_log_queue_mutex);
         m_log_queue.emplace_back(msg, log_level);

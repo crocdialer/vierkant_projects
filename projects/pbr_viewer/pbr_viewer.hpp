@@ -38,7 +38,10 @@ public:
                         .size = {1920, 1080},
                         .position = {},
                         .fullscreen = false,
-                        .vsync = true
+                        .vsync = true,
+                        .monitor_index = 0,
+                        .sample_count = VK_SAMPLE_COUNT_1_BIT,
+                        .title = "pbr_viewer"
                 };
 
         vierkant::PBRDeferred::settings_t pbr_settings = {};

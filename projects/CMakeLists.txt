@@ -43,6 +43,12 @@ FOREACH(folderItem ${FOLDER_CONTENT})
 
                 add_executable(${itemName} ${FOLDER_SOURCES} ${FOLDER_HEADERS})
 
+                if(MSVC)
+                    target_compile_options(${itemName} PRIVATE /W2) #TODO /W4 /WX (warnings as errors)
+                else()
+                    target_compile_options(${itemName} PRIVATE -Wall -Wextra -Werror) # -Wpedantic
+                endif()
+
                 if(SHADERS)
                     add_dependencies(${itemName} ${SHADER_TARGET})
                 endif()
