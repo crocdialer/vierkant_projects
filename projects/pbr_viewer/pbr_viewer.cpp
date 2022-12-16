@@ -227,9 +227,9 @@ void PBRViewer::create_graphics_pipeline()
     vierkant::Renderer::create_info_t create_info = {};
     create_info.num_frames_in_flight = framebuffers.size();
     create_info.sample_count = m_window->swapchain().sample_count();
-    create_info.viewport.width = fb_extent.width;
-    create_info.viewport.height = fb_extent.height;
-    create_info.viewport.maxDepth = fb_extent.depth;
+    create_info.viewport.width = static_cast<float>(fb_extent.width);
+    create_info.viewport.height = static_cast<float>(fb_extent.height);
+    create_info.viewport.maxDepth = static_cast<float>(fb_extent.depth);
     create_info.pipeline_cache = m_pipeline_cache;
 
     m_renderer = vierkant::Renderer(m_device, create_info);
