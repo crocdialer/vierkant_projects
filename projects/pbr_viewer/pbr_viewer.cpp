@@ -417,7 +417,7 @@ void PBRViewer::load_model(const std::string &path)
 
                     // center aabb
                     auto aabb = object->aabb().transform(object->transform);
-                    object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * i));
+                    object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float)i));
 
                     m_scene->add_object(object);
                 }
@@ -505,7 +505,7 @@ void PBRViewer::load_environment(const std::string &path)
                 cmd_buf.submit(m_queue_loading, true);
 
                 // derive sane resolution for cube from panorama-width
-                float res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
+                float res = static_cast<float>(crocore::next_pow_2(std::max(img->width(), img->height()) / 4));
                 skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_loading, true);
             }
 
@@ -601,7 +601,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                     animation = mesh->node_animations[animation_state.index];
                     auto node = mesh->root_bone ? mesh->root_bone : mesh->root_node;
                     m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,
-                                                       animation_state.current_time,
+                                                       static_cast<float>(animation_state.current_time),
                                                        modelview, m_camera->projection_matrix());
                 }
             }
