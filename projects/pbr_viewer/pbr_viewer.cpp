@@ -323,10 +323,10 @@ void PBRViewer::load_model(const std::string &path)
             spdlog::debug("loading model '{}'", path);
 
             // tinygltf
-            auto mesh_assets = vierkant::model::gltf(path);
+            auto scene_assets = vierkant::model::gltf(path);
             spdlog::debug("loaded model '{}' ({})", path, double_second(std::chrono::steady_clock::now() - start_time));
 
-            if(mesh_assets.entry_create_infos.empty())
+            if(scene_assets.entry_create_infos.empty())
             {
                 spdlog::warn("could not load file: {}", path);
                 return;
@@ -356,11 +356,11 @@ void PBRViewer::load_model(const std::string &path)
                 params.pack_vertices = true;
 
                 vierkant::model::asset_bundle_t asset_bundle;
-                asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(mesh_assets.entry_create_infos, params);
+                asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos, params);
 
                 if(m_settings.texture_compression)
                 {
-                    asset_bundle.compressed_images = vierkant::model::create_compressed_images(mesh_assets.materials);
+                    asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets.materials);
                 }
                 bundle = std::move(asset_bundle);
                 spdlog::debug("mesh-bundle done ({})", sw.elapsed());
@@ -375,7 +375,7 @@ void PBRViewer::load_model(const std::string &path)
             load_params.generate_lods = m_settings.generate_lods;
             load_params.generate_meshlets = m_settings.generate_meshlets;
             load_params.buffer_flags = buffer_flags;
-            auto mesh = load_mesh(load_params, mesh_assets, bundle);
+            auto mesh = load_mesh(load_params, scene_assets, bundle);
 
             if(!mesh)
             {
@@ -392,10 +392,19 @@ void PBRViewer::load_model(const std::string &path)
                                         });
             }
 
-            auto done_cb = [this, mesh, start_time, path]()
+
+            auto done_cb = [this, mesh, lights = std::move(scene_assets.lights), start_time, path]()
             {
                 m_selected_objects.clear();
                 m_scene->clear();
+
+                for(const auto &l : lights)
+                {
+                    auto light_object = vierkant::Object3D::create(m_scene->registry());
+                    light_object->name = fmt::format("light_{}", light_object->id());
+                    light_object->add_component(l);
+                    m_scene->add_object(light_object);
+                }
 
                 // tmp test-loop
                 for(uint32_t i = 0; i < 1; ++i)
