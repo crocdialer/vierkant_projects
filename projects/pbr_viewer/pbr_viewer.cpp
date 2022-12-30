@@ -87,16 +87,14 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
-    for(const auto &path : create_info.arguments)
+    for(const auto &path: create_info.arguments)
     {
         switch(crocore::filesystem::get_file_type(path))
         {
-            case crocore::filesystem::FileType::IMAGE:
-                m_settings.environment_path = path;
+            case crocore::filesystem::FileType::IMAGE:m_settings.environment_path = path;
                 break;
 
-            case crocore::filesystem::FileType::MODEL:
-                m_settings.model_path = path;
+            case crocore::filesystem::FileType::MODEL:m_settings.model_path = path;
                 break;
 
             default:break;
@@ -197,7 +195,7 @@ void PBRViewer::create_context_and_window()
         VkViewport viewport = {0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f};
         m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
         m_renderer.sample_count = m_renderer_overlay.sample_count =
-                m_renderer_gui.sample_count = m_window->swapchain().sample_count();
+        m_renderer_gui.sample_count = m_window->swapchain().sample_count();
         m_camera->set_aspect(m_window->aspect_ratio());
         m_camera_control.current->screen_size = {w, h};
     };
@@ -356,7 +354,8 @@ void PBRViewer::load_model(const std::string &path)
                 params.pack_vertices = true;
 
                 vierkant::model::asset_bundle_t asset_bundle;
-                asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos, params);
+                asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos,
+                                                                                params);
 
                 if(m_settings.texture_compression)
                 {
@@ -398,7 +397,7 @@ void PBRViewer::load_model(const std::string &path)
                 m_selected_objects.clear();
                 m_scene->clear();
 
-                for(const auto &l : lights)
+                for(const auto &l: lights)
                 {
                     auto light_object = vierkant::Object3D::create(m_scene->registry());
                     light_object->name = fmt::format("light_{}", light_object->id());
@@ -417,7 +416,7 @@ void PBRViewer::load_model(const std::string &path)
 
                     // center aabb
                     auto aabb = object->aabb().transform(object->transform);
-                    object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float)i));
+                    object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i));
 
                     m_scene->add_object(object);
                 }
@@ -475,6 +474,8 @@ void PBRViewer::load_environment(const std::string &path)
 
         if(img)
         {
+            constexpr VkFormat hdr_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+
             bool use_float = (img->num_bytes() /
                               (img->width() * img->height() * img->num_components())) > 1;
 
@@ -506,15 +507,17 @@ void PBRViewer::load_environment(const std::string &path)
 
                 // derive sane resolution for cube from panorama-width
                 float res = static_cast<float>(crocore::next_pow_2(std::max(img->width(), img->height()) / 4));
-                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_loading, true);
+                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_loading, true, hdr_format);
             }
 
             if(skybox)
             {
                 constexpr uint32_t lambert_size = 128;
-
-                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, m_queue_loading);
-                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), m_queue_loading);
+                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size,
+                                                                    hdr_format,
+                                                                    m_queue_loading);
+                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), hdr_format,
+                                                            m_queue_loading);
 
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
