@@ -31,7 +31,11 @@ void PBRViewer::create_ui()
                     m_window->set_fullscreen(!m_window->fullscreen(), monitor_index);
                 }
                     break;
-
+                case vierkant::Key::_H:
+                {
+                    m_window->set_cursor_visible(!m_window->cursor_visible());
+                }
+                    break;
                 case vierkant::Key::_C:
                     if(m_camera_control.current == m_camera_control.orbit)
                     {
