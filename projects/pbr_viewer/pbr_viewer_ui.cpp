@@ -19,10 +19,19 @@ void PBRViewer::create_ui()
         {
             switch(e.code())
             {
-                case vierkant::Key::_ESCAPE:running = false;
+                case vierkant::Key::_Q: m_settings.current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
+                    break;
+                case vierkant::Key::_W: m_settings.current_guizmo = vierkant::gui::GuizmoType::TRANSLATE;
+                    break;
+                case vierkant::Key::_E: m_settings.current_guizmo = vierkant::gui::GuizmoType::SCALE;
+                    break;
+                case vierkant::Key::_R: m_settings.current_guizmo = vierkant::gui::GuizmoType::ROTATE;
                     break;
 
-                case vierkant::Key::_SPACE:m_settings.draw_ui = !m_settings.draw_ui;
+                case vierkant::Key::_ESCAPE: running = false;
+                    break;
+
+                case vierkant::Key::_SPACE: m_settings.draw_ui = !m_settings.draw_ui;
                     break;
 
                 case vierkant::Key::_F:
@@ -46,7 +55,7 @@ void PBRViewer::create_ui()
                     if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
                     break;
 
-                case vierkant::Key::_G:m_settings.draw_grid = !m_settings.draw_grid;
+                case vierkant::Key::_G: m_settings.draw_grid = !m_settings.draw_grid;
                     break;
 
                 case vierkant::Key::_P:
@@ -57,13 +66,13 @@ void PBRViewer::create_ui()
                     else{ m_scene_renderer = m_pbr_renderer; }
                     break;
 
-                case vierkant::Key::_B:m_settings.draw_aabbs = !m_settings.draw_aabbs;
+                case vierkant::Key::_B: m_settings.draw_aabbs = !m_settings.draw_aabbs;
                     break;
 
-                case vierkant::Key::_N:m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
+                case vierkant::Key::_N: m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
                     break;
 
-                case vierkant::Key::_W:m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
+                case vierkant::Key::_M: m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
                     break;
 
                 case vierkant::Key::_S:save_settings(m_settings);
@@ -275,7 +284,16 @@ void PBRViewer::create_ui()
     // scenegraph window
     m_gui_context.delegates["scenegraph"] = [this]
     {
-        vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
+        vierkant::gui::draw_scene_ui(m_scene, &m_selected_objects);
+    };
+
+    // object-manipulators
+    m_gui_context.delegates["guizmo"] = [this]
+    {
+        if(!m_selected_objects.empty())
+        {
+            vierkant::gui::draw_transform_guizmo(*m_selected_objects.begin(), m_camera, m_settings.current_guizmo);
+        }
     };
 
     // imgui demo window

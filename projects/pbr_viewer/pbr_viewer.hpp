@@ -76,8 +76,10 @@ public:
         bool use_fly_camera = false;
         float fov = 45.f;
 
+        vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
+
         //! desired fps, default: 0.f (disable throttling)
-        float target_fps = 0.f;
+        float target_fps = 60.f;
     };
 
     explicit PBRViewer(const crocore::Application::create_info_t &create_info);
@@ -198,5 +200,6 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
        cereal::make_nvp("fov", settings.fov),
+       cereal::make_nvp("current_guizmo", settings.current_guizmo),
        cereal::make_nvp("target_fps", settings.target_fps));
 }
