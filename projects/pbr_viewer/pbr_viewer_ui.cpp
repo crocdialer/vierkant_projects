@@ -212,7 +212,6 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
 
             ImGui::Separator();
-            auto perspective_cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera);
 
             // camera control select
             bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
@@ -231,20 +230,6 @@ void PBRViewer::create_ui()
             {
                 m_camera->transform = m_camera_control.current->transform();
                 if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
-            }
-
-            if(perspective_cam)
-            {
-                // fov
-                float fov = perspective_cam->fov();
-                if(ImGui::SliderFloat("fov", &fov, 0.f, 180.f)){ perspective_cam->set_fov(fov); }
-            }
-            // clipping planes
-            float clipping[2] = {perspective_cam->near(), perspective_cam->far()};
-
-            if(ImGui::InputFloat2("clipping near/far", clipping))
-            {
-                perspective_cam->set_clipping(clipping[0], clipping[1]);
             }
 
             ImGui::EndMenu();
@@ -308,7 +293,9 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    m_camera = vierkant::PerspectiveCamera::create(m_window->aspect_ratio(), 45.f, .01f);
+    m_settings.camera_params.aspect = m_window->aspect_ratio();
+    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), m_settings.camera_params);
+    m_camera->name = "main_camera";
 
     create_camera_controls();
 
@@ -408,5 +395,6 @@ void PBRViewer::create_camera_controls()
     // update camera from current
     m_camera->transform = m_camera_control.current->transform();
 
-    m_camera->set_fov(m_settings.fov);
+    // add/update camera_params
+    m_camera->get_component<vierkant::projective_camera_params_t>() = m_settings.camera_params;
 }

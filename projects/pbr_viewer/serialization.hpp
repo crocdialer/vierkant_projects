@@ -21,7 +21,6 @@
 #include <vierkant/Window.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
-#include <vierkant/DepthOfField.hpp>
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/Mesh.hpp>
 #include <vierkant/bc7.hpp>
@@ -152,7 +151,7 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
             cereal::make_nvp("bloom", render_settings.bloom),
             cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
-            cereal::make_nvp("dof", render_settings.dof)
+            cereal::make_nvp("depth_of_field", render_settings.depth_of_field)
     );
 }
 
@@ -171,26 +170,18 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("environment_factor", render_settings.environment_factor),
             cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
-            cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
-            cereal::make_nvp("aperture", render_settings.aperture),
-            cereal::make_nvp("focal_distance", render_settings.focal_distance)
+            cereal::make_nvp("depth_of_field", render_settings.depth_of_field)
     );
 }
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::dof_settings_t &dof_settings)
+void serialize(Archive &archive, vierkant::projective_camera_params_t &params)
 {
-    archive(cereal::make_nvp("enabled", dof_settings.enabled),
-            cereal::make_nvp("focal_depth", dof_settings.focal_depth),
-            cereal::make_nvp("focal_length", dof_settings.focal_length),
-            cereal::make_nvp("fstop", dof_settings.fstop),
-            cereal::make_nvp("circle_of_confusion_sz", dof_settings.circle_of_confusion_sz),
-            cereal::make_nvp("gain", dof_settings.gain),
-            cereal::make_nvp("fringe", dof_settings.fringe),
-            cereal::make_nvp("max_blur", dof_settings.max_blur),
-            cereal::make_nvp("auto_focus", dof_settings.auto_focus),
-            cereal::make_nvp("debug_focus", dof_settings.debug_focus)
-
+    archive(cereal::make_nvp("focal_length", params.focal_length),
+            cereal::make_nvp("sensor_width", params.sensor_width),
+            cereal::make_nvp("clipping_distances", params.clipping_distances),
+            cereal::make_nvp("focal_distance", params.focal_distance),
+            cereal::make_nvp("fstop", params.fstop)
     );
 }
 

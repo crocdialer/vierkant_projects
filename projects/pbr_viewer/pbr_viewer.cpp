@@ -196,7 +196,7 @@ void PBRViewer::create_context_and_window()
         m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
         m_renderer.sample_count = m_renderer_overlay.sample_count =
         m_renderer_gui.sample_count = m_window->swapchain().sample_count();
-        m_camera->set_aspect(m_window->aspect_ratio());
+        m_camera->get_component<vierkant::projective_camera_params_t>().aspect = m_window->aspect_ratio();
         m_camera_control.current->screen_size = {w, h};
     };
     window_delegate.close_fn = [this](){ running = false; };
@@ -668,7 +668,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
-    settings.fov = m_camera->fov();
+    settings.camera_params = m_camera->get_component<vierkant::projective_camera_params_t>();
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;

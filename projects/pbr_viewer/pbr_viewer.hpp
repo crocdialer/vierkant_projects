@@ -74,7 +74,7 @@ public:
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
         bool use_fly_camera = false;
-        float fov = 45.f;
+        vierkant::projective_camera_params_t camera_params = {};
 
         vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
 
@@ -199,7 +199,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("orbit_camera", settings.orbit_camera),
        cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
-       cereal::make_nvp("fov", settings.fov),
+       cereal::make_nvp("camera_params", settings.camera_params),
        cereal::make_nvp("current_guizmo", settings.current_guizmo),
        cereal::make_nvp("target_fps", settings.target_fps));
 }
