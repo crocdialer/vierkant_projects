@@ -208,9 +208,10 @@ void PBRViewer::create_context_and_window()
     m_pipeline_cache = vierkant::PipelineCache::create(m_device);
 
     // set some separate queues for background stuff
-    m_queue_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
-    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
-    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[3];
+    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
+    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
+    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[3];
+    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[4];
 }
 
 void PBRViewer::create_graphics_pipeline()
@@ -368,7 +369,7 @@ void PBRViewer::load_model(const std::string &path)
 
             vierkant::model::load_mesh_params_t load_params = {};
             load_params.device = m_device;
-            load_params.load_queue = m_queue_loading;
+            load_params.load_queue = m_queue_model_loading;
             load_params.compress_textures = m_settings.texture_compression;
             load_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
             load_params.generate_lods = m_settings.generate_lods;
@@ -503,11 +504,11 @@ void PBRViewer::load_environment(const std::string &path)
                 panorama->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(m_queue_loading, true);
+                cmd_buf.submit(m_queue_image_loading, true);
 
                 // derive sane resolution for cube from panorama-width
                 float res = static_cast<float>(crocore::next_pow_2(std::max(img->width(), img->height()) / 4));
-                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_loading, true, hdr_format);
+                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_image_loading, true, hdr_format);
             }
 
             if(skybox)
@@ -515,9 +516,9 @@ void PBRViewer::load_environment(const std::string &path)
                 constexpr uint32_t lambert_size = 128;
                 conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size,
                                                                     hdr_format,
-                                                                    m_queue_loading);
+                                                                    m_queue_image_loading);
                 conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), hdr_format,
-                                                            m_queue_loading);
+                                                            m_queue_image_loading);
 
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
@@ -526,7 +527,7 @@ void PBRViewer::load_environment(const std::string &path)
                 conv_ggx->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(m_queue_loading, true);
+                cmd_buf.submit(m_queue_image_loading, true);
             }
         }
 

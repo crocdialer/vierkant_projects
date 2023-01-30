@@ -131,7 +131,8 @@ private:
     // device
     vierkant::DevicePtr m_device;
 
-    VkQueue m_queue_loading = VK_NULL_HANDLE, m_queue_pbr_render = VK_NULL_HANDLE, m_queue_path_tracer = VK_NULL_HANDLE;
+    VkQueue m_queue_model_loading = VK_NULL_HANDLE, m_queue_image_loading = VK_NULL_HANDLE,
+        m_queue_pbr_render = VK_NULL_HANDLE, m_queue_path_tracer = VK_NULL_HANDLE;
 
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
