@@ -337,7 +337,8 @@ void PBRViewer::load_model(const std::string &path)
             crocore::hash_combine(hash_val, m_settings.optimize_vertex_cache);
             crocore::hash_combine(hash_val, m_settings.generate_lods);
             crocore::hash_combine(hash_val, m_settings.generate_meshlets);
-            std::filesystem::path bundle_path = std::to_string(hash_val) + ".bin";
+            std::filesystem::path bundle_path = fmt::format("{}_{}.bin",
+                                                            std::filesystem::path(path).filename().string(), hash_val);
 
             bool bundle_created = false;
             bundle = load_asset_bundle(bundle_path);
@@ -345,7 +346,6 @@ void PBRViewer::load_model(const std::string &path)
             if(!bundle)
             {
                 spdlog::stopwatch sw;
-                spdlog::debug("creating mesh-bundle ...");
 
                 vierkant::create_mesh_buffers_params_t params = {};
                 params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
@@ -353,6 +353,10 @@ void PBRViewer::load_model(const std::string &path)
                 params.generate_meshlets = m_settings.generate_meshlets;
                 params.use_vertex_colors = false;
                 params.pack_vertices = true;
+
+                spdlog::debug("creating asset-bundle '{}' - lod: {} - meshlets: {} - bc7-compression: {}",
+                              bundle_path.string(), params.generate_lods, params.generate_meshlets,
+                              m_settings.texture_compression);
 
                 vierkant::model::asset_bundle_t asset_bundle;
                 asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos,
@@ -363,7 +367,7 @@ void PBRViewer::load_model(const std::string &path)
                     asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets.materials);
                 }
                 bundle = std::move(asset_bundle);
-                spdlog::debug("mesh-bundle done ({})", sw.elapsed());
+                spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
                 bundle_created = true;
             }
 
