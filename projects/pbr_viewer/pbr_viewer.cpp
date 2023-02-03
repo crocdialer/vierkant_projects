@@ -410,7 +410,7 @@ void PBRViewer::load_model(const std::string &path)
                 for(uint32_t i = 0; i < 1; ++i)
                 {
                     auto object = vierkant::create_mesh_object(m_scene->registry(), mesh);
-                    object->name = std::filesystem::path(path).filename();
+                    object->name = std::filesystem::path(path).filename().string();
 
                     // scale
                     float scale = 5.f / glm::length(object->aabb().half_extents());
