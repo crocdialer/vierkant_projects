@@ -175,7 +175,7 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
 }
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::projective_camera_params_t &params)
+void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
 {
     archive(cereal::make_nvp("focal_length", params.focal_length),
             cereal::make_nvp("sensor_width", params.sensor_width),

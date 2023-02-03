@@ -74,7 +74,7 @@ public:
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
         bool use_fly_camera = false;
-        vierkant::projective_camera_params_t camera_params = {};
+        vierkant::physical_camera_params_t camera_params = {};
 
         vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
 

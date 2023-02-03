@@ -396,5 +396,5 @@ void PBRViewer::create_camera_controls()
     m_camera->transform = m_camera_control.current->transform();
 
     // add/update camera_params
-    m_camera->get_component<vierkant::projective_camera_params_t>() = m_settings.camera_params;
+    m_camera->get_component<vierkant::physical_camera_params_t>() = m_settings.camera_params;
 }
