@@ -13,79 +13,66 @@ void PBRViewer::create_ui()
 {
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
-    key_delegate.key_press = [this](const vierkant::KeyEvent &e)
-    {
+    key_delegate.key_press = [this](const vierkant::KeyEvent &e) {
         if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureKeyboard))
         {
             switch(e.code())
             {
-                case vierkant::Key::_Q: m_settings.current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
-                    break;
-                case vierkant::Key::_W: m_settings.current_guizmo = vierkant::gui::GuizmoType::TRANSLATE;
-                    break;
-                case vierkant::Key::_E: m_settings.current_guizmo = vierkant::gui::GuizmoType::SCALE;
-                    break;
-                case vierkant::Key::_R: m_settings.current_guizmo = vierkant::gui::GuizmoType::ROTATE;
-                    break;
+                case vierkant::Key::_Q: m_settings.current_guizmo = vierkant::gui::GuizmoType::INACTIVE; break;
+                case vierkant::Key::_W: m_settings.current_guizmo = vierkant::gui::GuizmoType::TRANSLATE; break;
+                case vierkant::Key::_E: m_settings.current_guizmo = vierkant::gui::GuizmoType::SCALE; break;
+                case vierkant::Key::_R: m_settings.current_guizmo = vierkant::gui::GuizmoType::ROTATE; break;
 
-                case vierkant::Key::_ESCAPE: running = false;
-                    break;
+                case vierkant::Key::_ESCAPE: running = false; break;
 
-                case vierkant::Key::_SPACE: m_settings.draw_ui = !m_settings.draw_ui;
-                    break;
+                case vierkant::Key::_SPACE: m_settings.draw_ui = !m_settings.draw_ui; break;
 
                 case vierkant::Key::_F:
                 {
                     size_t monitor_index = m_window->monitor_index();
                     m_window->set_fullscreen(!m_window->fullscreen(), monitor_index);
                 }
-                    break;
+                break;
                 case vierkant::Key::_H:
                 {
                     m_window->set_cursor_visible(!m_window->cursor_visible());
                 }
-                    break;
+                break;
                 case vierkant::Key::_C:
                     if(m_camera_control.current == m_camera_control.orbit)
                     {
                         m_camera_control.current = m_camera_control.fly;
                     }
-                    else{ m_camera_control.current = m_camera_control.orbit; }
+                    else { m_camera_control.current = m_camera_control.orbit; }
                     m_camera->transform = m_camera_control.current->transform();
-                    if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+                    if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
 
-                case vierkant::Key::_G: m_settings.draw_grid = !m_settings.draw_grid;
-                    break;
+                case vierkant::Key::_G: m_settings.draw_grid = !m_settings.draw_grid; break;
 
                 case vierkant::Key::_P:
                     if(m_scene_renderer == m_pbr_renderer)
                     {
                         m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
                     }
-                    else{ m_scene_renderer = m_pbr_renderer; }
+                    else { m_scene_renderer = m_pbr_renderer; }
                     break;
 
-                case vierkant::Key::_B: m_settings.draw_aabbs = !m_settings.draw_aabbs;
-                    break;
+                case vierkant::Key::_B: m_settings.draw_aabbs = !m_settings.draw_aabbs; break;
 
-                case vierkant::Key::_N: m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy;
-                    break;
+                case vierkant::Key::_N: m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy; break;
 
-                case vierkant::Key::_M: m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
-                    break;
+                case vierkant::Key::_M: m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe; break;
 
-                case vierkant::Key::_S:save_settings(m_settings);
-                    break;
-                default:break;
+                case vierkant::Key::_S: save_settings(m_settings); break;
+                default: break;
             }
         }
     };
     m_window->key_delegates[name()] = key_delegate;
 
     vierkant::joystick_delegate_t joystick_delegate = {};
-    joystick_delegate.joystick_cb = [&](const auto &joysticks)
-    {
+    joystick_delegate.joystick_cb = [&](const auto &joysticks) {
         if(!joysticks.empty())
         {
             auto &js = joysticks.front();
@@ -98,24 +85,24 @@ void PBRViewer::create_ui()
                 {
                     switch(input)
                     {
-                        case vierkant::Joystick::Input::BUTTON_MENU:m_settings.draw_ui = !m_settings.draw_ui;
-                            break;
+                        case vierkant::Joystick::Input::BUTTON_MENU: m_settings.draw_ui = !m_settings.draw_ui; break;
 
-                        case vierkant::Joystick::Input::BUTTON_X:m_settings.draw_grid = !m_settings.draw_grid;
-                            break;
+                        case vierkant::Joystick::Input::BUTTON_X: m_settings.draw_grid = !m_settings.draw_grid; break;
 
                         case vierkant::Joystick::Input::BUTTON_Y:
                             if(m_scene_renderer == m_pbr_renderer)
                             {
                                 m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
                             }
-                            else{ m_scene_renderer = m_pbr_renderer; }
+                            else { m_scene_renderer = m_pbr_renderer; }
                             break;
 
-                        case vierkant::Joystick::Input::BUTTON_A:m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
+                        case vierkant::Joystick::Input::BUTTON_A:
+                            m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
                             break;
 
-                        case vierkant::Joystick::Input::BUTTON_B:m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
+                        case vierkant::Joystick::Input::BUTTON_B:
+                            m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_BACK:
@@ -123,12 +110,12 @@ void PBRViewer::create_ui()
                             {
                                 m_camera_control.current = m_camera_control.fly;
                             }
-                            else{ m_camera_control.current = m_camera_control.orbit; }
+                            else { m_camera_control.current = m_camera_control.orbit; }
                             m_camera->transform = m_camera_control.current->transform();
-                            if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+                            if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
 
-                        default:break;
+                        default: break;
                     }
                 }
             }
@@ -154,8 +141,7 @@ void PBRViewer::create_ui()
     colors[ImGuiCol_TitleBg] = ImVec4(0, 0, 0, bg_alpha);
     colors[ImGuiCol_TitleBgActive] = ImVec4(0, 0, 0, bg_alpha_active);
 
-    m_gui_context.delegates["application"] = [this]
-    {
+    m_gui_context.delegates["application"] = [this] {
         int corner = 0;
 
         const float DISTANCE = 10.0f;
@@ -168,8 +154,9 @@ void PBRViewer::create_ui()
 
         ImGui::Begin("about: blank", nullptr,
                      (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoTitleBar |
-                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize |
-                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+                             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+                             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
         if(ImGui::BeginMenu(name().c_str()))
         {
@@ -198,8 +185,8 @@ void PBRViewer::create_ui()
                 spdlog::warn("menu: reload");
                 m_settings = load_settings();
                 create_camera_controls();
-                if(m_settings.path_tracing){ m_scene_renderer = m_path_tracer; }
-                else{ m_scene_renderer = m_pbr_renderer; }
+                if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
+                else { m_scene_renderer = m_pbr_renderer; }
             }
             ImGui::Separator();
             ImGui::Checkbox("draw grid", &m_settings.draw_grid);
@@ -229,7 +216,7 @@ void PBRViewer::create_ui()
             if(refresh)
             {
                 m_camera->transform = m_camera_control.current->transform();
-                if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
 
             ImGui::EndMenu();
@@ -240,13 +227,15 @@ void PBRViewer::create_ui()
     };
 
     // renderer window
-    m_gui_context.delegates["renderer"] = [this]
-    {
+    m_gui_context.delegates["renderer"] = [this] {
         bool is_path_tracer = m_scene_renderer == m_path_tracer;
+
+        ImGui::SetNextWindowPos(ImVec2(1025, 10), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
 
         ImGui::Begin("renderer");
 
-        if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)){ m_scene_renderer = m_pbr_renderer; }
+        if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)) { m_scene_renderer = m_pbr_renderer; }
         ImGui::SameLine();
         if(ImGui::RadioButton("pathtracer", is_path_tracer))
         {
@@ -260,21 +249,21 @@ void PBRViewer::create_ui()
     };
 
     // log window
-    m_gui_context.delegates["logger"] = [&log_queue = m_log_queue, &mutex = m_log_queue_mutex]
-    {
+    m_gui_context.delegates["logger"] = [&log_queue = m_log_queue, &mutex = m_log_queue_mutex] {
         std::shared_lock lock(mutex);
         vierkant::gui::draw_logger_ui(log_queue);
     };
 
     // scenegraph window
-    m_gui_context.delegates["scenegraph"] = [this]
-    {
+    m_gui_context.delegates["scenegraph"] = [this] {
+        ImGui::SetNextWindowPos(ImVec2(1470, 10), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
+
         vierkant::gui::draw_scene_ui(m_scene, &m_selected_objects);
     };
 
     // object-manipulators
-    m_gui_context.delegates["guizmo"] = [this]
-    {
+    m_gui_context.delegates["guizmo"] = [this] {
         if(!m_selected_objects.empty())
         {
             vierkant::gui::draw_transform_guizmo(*m_selected_objects.begin(), m_camera, m_settings.current_guizmo);
@@ -282,10 +271,9 @@ void PBRViewer::create_ui()
     };
 
     // imgui demo window
-    m_gui_context.delegates["demo"] = []
-    {
-        if(DEMO_GUI){ ImGui::ShowDemoWindow(&DEMO_GUI); }
-        if(DEMO_GUI){ ImPlot::ShowDemoWindow(&DEMO_GUI); }
+    m_gui_context.delegates["demo"] = [] {
+        if(DEMO_GUI) { ImGui::ShowDemoWindow(&DEMO_GUI); }
+        if(DEMO_GUI) { ImPlot::ShowDemoWindow(&DEMO_GUI); }
     };
 
     // attach gui input-delegates to window
@@ -300,11 +288,10 @@ void PBRViewer::create_ui()
     create_camera_controls();
 
     vierkant::mouse_delegate_t simple_mouse = {};
-    simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e)
-    {
+    simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e) {
         if(!(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
         {
-            if(e.is_right()){ m_selected_objects.clear(); }
+            if(e.is_right()) { m_selected_objects.clear(); }
             else if(e.is_left())
             {
                 auto picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
@@ -313,13 +300,10 @@ void PBRViewer::create_ui()
                 {
                     if(e.is_control_down())
                     {
-                        if(m_selected_objects.contains(picked_object))
-                        {
-                            m_selected_objects.erase(picked_object);
-                        }
-                        else{ m_selected_objects.insert(picked_object); }
+                        if(m_selected_objects.contains(picked_object)) { m_selected_objects.erase(picked_object); }
+                        else { m_selected_objects.insert(picked_object); }
                     }
-                    else{ m_selected_objects = {picked_object}; }
+                    else { m_selected_objects = {picked_object}; }
                 }
             }
         }
@@ -329,9 +313,7 @@ void PBRViewer::create_ui()
 
     // attach drag/drop mouse-delegate
     vierkant::mouse_delegate_t file_drop_delegate = {};
-    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &,
-                                          const std::vector<std::string> &files)
-    {
+    file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &, const std::vector<std::string> &files) {
         auto &f = files.back();
         load_file(f);
     };
@@ -347,13 +329,12 @@ void PBRViewer::create_camera_controls()
 
     m_camera_control.fly = m_settings.fly_camera;
 
-    if(m_settings.use_fly_camera){ m_camera_control.current = m_camera_control.fly; }
-    else{ m_camera_control.current = m_camera_control.orbit; }
+    if(m_settings.use_fly_camera) { m_camera_control.current = m_camera_control.fly; }
+    else { m_camera_control.current = m_camera_control.orbit; }
 
     // attach arcball mouse delegate
     auto arcball_delegeate = m_camera_control.orbit->mouse_delegate();
-    arcball_delegeate.enabled = [this]()
-    {
+    arcball_delegeate.enabled = [this]() {
         bool is_active = m_camera_control.current == m_camera_control.orbit;
         bool ui_captured =
                 m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
@@ -363,8 +344,7 @@ void PBRViewer::create_camera_controls()
     m_window->joystick_delegates["orbit"] = m_camera_control.orbit->joystick_delegate();
 
     auto flycamera_delegeate = m_camera_control.fly->mouse_delegate();
-    flycamera_delegeate.enabled = [this]()
-    {
+    flycamera_delegeate.enabled = [this]() {
         bool is_active = m_camera_control.current == m_camera_control.fly;
         bool ui_captured =
                 m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
@@ -373,8 +353,7 @@ void PBRViewer::create_camera_controls()
     m_window->mouse_delegates["flycamera"] = std::move(flycamera_delegeate);
 
     auto fly_key_delegeate = m_camera_control.fly->key_delegate();
-    fly_key_delegeate.enabled = [this]()
-    {
+    fly_key_delegeate.enabled = [this]() {
         bool is_active = m_camera_control.current == m_camera_control.fly;
         bool ui_captured =
                 m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
@@ -384,10 +363,9 @@ void PBRViewer::create_camera_controls()
     m_window->joystick_delegates["flycamera"] = m_camera_control.fly->joystick_delegate();
 
     // update camera with arcball
-    auto transform_cb = [this](const glm::mat4 &transform)
-    {
+    auto transform_cb = [this](const glm::mat4 &transform) {
         m_camera->set_global_transform(transform);
-        if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+        if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
