@@ -1,16 +1,16 @@
 #include <fstream>
 
+#include <crocore/Image.hpp>
 #include <crocore/filesystem.hpp>
 #include <crocore/http.hpp>
-#include <crocore/Image.hpp>
 
-#include <vierkant/imgui/imgui_util.h>
+#include "ziparchive.h"
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/cubemap_utils.hpp>
-#include "ziparchive.h"
+#include <vierkant/imgui/imgui_util.h>
 
-#include <vierkant/gltf.hpp>
 #include <vierkant/Visitor.hpp>
+#include <vierkant/gltf.hpp>
 
 #include "spdlog/sinks/base_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -29,8 +29,7 @@ constexpr char g_zip_path[] = "asset_bundle_cache.zip";
 
 using double_second = std::chrono::duration<double>;
 
-using log_delegate_fn_t = std::function<void(const std::string &msg,
-                                             spdlog::level::level_enum log_level,
+using log_delegate_fn_t = std::function<void(const std::string &msg, spdlog::level::level_enum log_level,
                                              const std::string &logger_name)>;
 
 class delegate_sink_t : public spdlog::sinks::base_sink<std::mutex>
@@ -53,13 +52,13 @@ protected:
         {
             if(delegate)
             {
-                delegate(fmt::to_string(formatted), msg.level, std::string(msg.logger_name.begin(),
-                                                                           msg.logger_name.end()));
+                delegate(fmt::to_string(formatted), msg.level,
+                         std::string(msg.logger_name.begin(), msg.logger_name.end()));
             }
         }
     }
 
-    void flush_() override{}
+    void flush_() override {}
 };
 
 PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : crocore::Application(create_info)
@@ -70,15 +69,13 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     _loggers[spdlog::default_logger()->name()] = spdlog::default_logger();
 
     auto scroll_log_sink = std::make_shared<delegate_sink_t>();
-    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg,
-                                                    spdlog::level::level_enum log_level,
-                                                    const std::string &/*logger_name*/)
-    {
+    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level,
+                                                    const std::string & /*logger_name*/) {
         std::unique_lock lock(m_log_queue_mutex);
         m_log_queue.emplace_back(msg, log_level);
-        while(m_log_queue.size() > m_max_log_queue_size){ m_log_queue.pop_front(); }
+        while(m_log_queue.size() > m_max_log_queue_size) { m_log_queue.pop_front(); }
     };
-    for(auto &[name, logger]: _loggers){ logger->sinks().push_back(scroll_log_sink); }
+    for(auto &[name, logger]: _loggers) { logger->sinks().push_back(scroll_log_sink); }
 
     // try to read settings
     m_settings = load_settings();
@@ -91,13 +88,11 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     {
         switch(crocore::filesystem::get_file_type(path))
         {
-            case crocore::filesystem::FileType::IMAGE:m_settings.environment_path = path;
-                break;
+            case crocore::filesystem::FileType::IMAGE: m_settings.environment_path = path; break;
 
-            case crocore::filesystem::FileType::MODEL:m_settings.model_path = path;
-                break;
+            case crocore::filesystem::FileType::MODEL: m_settings.model_path = path; break;
 
-            default:break;
+            default: break;
         }
     }
 }
@@ -113,8 +108,8 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load stuff
-    if(m_settings.model_path.empty()){ load_model(); }
-    else{ load_file(m_settings.model_path); }
+    if(m_settings.model_path.empty()) { load_model(); }
+    else { load_file(m_settings.model_path); }
     load_file(m_settings.environment_path);
 }
 
@@ -129,7 +124,7 @@ void PBRViewer::teardown()
 
 void PBRViewer::poll_events()
 {
-    if(m_window){ m_window->poll_events(); }
+    if(m_window) { m_window->poll_events(); }
 }
 
 void PBRViewer::create_context_and_window()
@@ -189,17 +184,16 @@ void PBRViewer::create_context_and_window()
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
-    window_delegate.draw_fn = [this](const vierkant::WindowPtr &w){ return draw(w); };
-    window_delegate.resize_fn = [this](uint32_t w, uint32_t h)
-    {
+    window_delegate.draw_fn = [this](const vierkant::WindowPtr &w) { return draw(w); };
+    window_delegate.resize_fn = [this](uint32_t w, uint32_t h) {
         VkViewport viewport = {0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f};
         m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
-        m_renderer.sample_count = m_renderer_overlay.sample_count =
-        m_renderer_gui.sample_count = m_window->swapchain().sample_count();
+        m_renderer.sample_count = m_renderer_overlay.sample_count = m_renderer_gui.sample_count =
+                m_window->swapchain().sample_count();
         m_camera->get_component<vierkant::physical_camera_params_t>().aspect = m_window->aspect_ratio();
         m_camera_control.current->screen_size = {w, h};
     };
-    window_delegate.close_fn = [this](){ running = false; };
+    window_delegate.close_fn = [this]() { running = false; };
     m_window->window_delegates[name()] = window_delegate;
 
     // create a draw context
@@ -266,8 +260,8 @@ void PBRViewer::create_graphics_pipeline()
         m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
     }
 
-    if(use_raytracer){ m_scene_renderer = m_path_tracer; }
-    else{ m_scene_renderer = m_pbr_renderer; }
+    if(use_raytracer) { m_scene_renderer = m_path_tracer; }
+    else { m_scene_renderer = m_pbr_renderer; }
 }
 
 void PBRViewer::create_texture_image()
@@ -279,14 +273,12 @@ void PBRViewer::create_texture_image()
     vierkant::Image::Format fmt;
 
     // create from downloaded data
-    if(!http_response.data.empty()){ img = crocore::create_image_from_data(http_response.data, 4); }
+    if(!http_response.data.empty()) { img = crocore::create_image_from_data(http_response.data, 4); }
     else
     {
         // create 4x4 black/white checkerboard image
-        uint32_t v[] = {0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
-                        0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
-                        0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
-                        0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF};
+        uint32_t v[] = {0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
+                        0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF};
 
         img = crocore::Image_<uint8_t>::create(reinterpret_cast<uint8_t *>(v), 4, 4, 4);
         fmt.mag_filter = VK_FILTER_NEAREST;
@@ -302,8 +294,7 @@ void PBRViewer::load_model(const std::string &path)
     vierkant::MeshPtr mesh;
 
     // additionally required buffer-flags for raytracing/compute/mesh-shading
-    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
     if(m_settings.enable_raytracing_device_features)
     {
@@ -314,8 +305,7 @@ void PBRViewer::load_model(const std::string &path)
     {
         m_settings.model_path = path;
 
-        auto load_task = [this, path, buffer_flags]()
-        {
+        auto load_task = [this, path, buffer_flags]() {
             m_num_loading++;
             auto start_time = std::chrono::steady_clock::now();
 
@@ -337,8 +327,8 @@ void PBRViewer::load_model(const std::string &path)
             crocore::hash_combine(hash_val, m_settings.optimize_vertex_cache);
             crocore::hash_combine(hash_val, m_settings.generate_lods);
             crocore::hash_combine(hash_val, m_settings.generate_meshlets);
-            std::filesystem::path bundle_path = fmt::format("{}_{}.bin",
-                                                            std::filesystem::path(path).filename().string(), hash_val);
+            std::filesystem::path bundle_path =
+                    fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
             bool bundle_created = false;
             bundle = load_asset_bundle(bundle_path);
@@ -359,8 +349,8 @@ void PBRViewer::load_model(const std::string &path)
                               m_settings.texture_compression);
 
                 vierkant::model::asset_bundle_t asset_bundle;
-                asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos,
-                                                                                params);
+                asset_bundle.mesh_buffer_bundle =
+                        vierkant::create_mesh_buffers(scene_assets.entry_create_infos, params);
 
                 if(m_settings.texture_compression)
                 {
@@ -390,15 +380,12 @@ void PBRViewer::load_model(const std::string &path)
 
             if(bundle_created && m_settings.cache_mesh_bundles)
             {
-                background_queue().post([this, bundle = std::move(bundle), bundle_path]()
-                                        {
-                                            save_asset_bundle(*bundle, bundle_path);
-                                        });
+                background_queue().post(
+                        [this, bundle = std::move(bundle), bundle_path]() { save_asset_bundle(*bundle, bundle_path); });
             }
 
 
-            auto done_cb = [this, mesh, lights = std::move(scene_assets.lights), start_time, path]()
-            {
+            auto done_cb = [this, mesh, lights = std::move(scene_assets.lights), start_time, path]() {
                 m_selected_objects.clear();
                 m_scene->clear();
 
@@ -417,17 +404,17 @@ void PBRViewer::load_model(const std::string &path)
                     object->name = std::filesystem::path(path).filename().string();
 
                     // scale
-                    float scale = 5.f / glm::length(object->aabb().half_extents());
-                    object->set_scale(scale);
+                    object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
 
                     // center aabb
-                    auto aabb = object->aabb().transform(object->transform);
-                    object->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i));
+                    auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
+                    object->transform.translation =
+                            -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i);
 
                     m_scene->add_object(object);
                 }
 
-                if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
                 auto dur = double_second(std::chrono::steady_clock::now() - start_time);
                 spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
@@ -452,14 +439,14 @@ void PBRViewer::load_model(const std::string &path)
         auto mat = vierkant::Material::create();
 
         auto it = m_textures.find("test");
-        if(it != m_textures.end()){ mat->textures[vierkant::Material::Color] = it->second; }
+        if(it != m_textures.end()) { mat->textures[vierkant::Material::Color] = it->second; }
         mesh->materials = {mat};
 
         auto mesh_node = vierkant::create_mesh_object(m_scene->registry(), mesh);
 
         // center aabb
-        auto aabb = mesh_node->aabb().transform(mesh_node->transform);
-        mesh_node->set_position(-aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f));
+        auto aabb = mesh_node->aabb().transform(vierkant::mat4_cast(mesh_node->transform));
+        mesh_node->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f);
 
         m_selected_objects.clear();
         m_scene->add_object(mesh_node);
@@ -468,8 +455,7 @@ void PBRViewer::load_model(const std::string &path)
 
 void PBRViewer::load_environment(const std::string &path)
 {
-    auto load_task = [&, path]()
-    {
+    auto load_task = [&, path]() {
         m_num_loading++;
 
         auto start_time = std::chrono::steady_clock::now();
@@ -482,8 +468,7 @@ void PBRViewer::load_environment(const std::string &path)
         {
             constexpr VkFormat hdr_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 
-            bool use_float = (img->num_bytes() /
-                              (img->width() * img->height() * img->num_components())) > 1;
+            bool use_float = (img->num_bytes() / (img->width() * img->height() * img->num_components())) > 1;
 
             // command pool for background transfer
             auto command_pool = vierkant::create_command_pool(m_device, vierkant::Device::Queue::GRAPHICS,
@@ -519,8 +504,7 @@ void PBRViewer::load_environment(const std::string &path)
             if(skybox)
             {
                 constexpr uint32_t lambert_size = 128;
-                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size,
-                                                                    hdr_format,
+                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, hdr_format,
                                                                     m_queue_image_loading);
                 conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), hdr_format,
                                                             m_queue_image_loading);
@@ -536,20 +520,19 @@ void PBRViewer::load_environment(const std::string &path)
             }
         }
 
-        main_queue().post([this, path, skybox, conv_lambert, conv_ggx, start_time]()
-                          {
-                              m_scene->set_environment(skybox);
+        main_queue().post([this, path, skybox, conv_lambert, conv_ggx, start_time]() {
+            m_scene->set_environment(skybox);
 
-                              m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
+            m_pbr_renderer->set_environment(conv_lambert, conv_ggx);
 
-                              if(m_path_tracer){ m_path_tracer->reset_accumulator(); }
+            if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
-                              m_settings.environment_path = path;
+            m_settings.environment_path = path;
 
-                              auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-                              spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
-                              m_num_loading--;
-                          });
+            auto dur = double_second(std::chrono::steady_clock::now() - start_time);
+            spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
+            m_num_loading--;
+        });
     };
     background_queue().post(load_task);
 }
@@ -572,18 +555,16 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
 
-    auto render_scene = [this, &framebuffer, &semaphore_infos]() -> VkCommandBuffer
-    {
+    auto render_scene = [this, &framebuffer, &semaphore_infos]() -> VkCommandBuffer {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos = render_result.semaphore_infos;
         return m_renderer.render(framebuffer);
     };
 
-    auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer
-    {
+    auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer {
         for(const auto &obj: m_selected_objects)
         {
-            auto modelview = m_camera->view_matrix() * obj->transform;
+            auto modelview = m_camera->view_matrix() * vierkant::mat4_cast(obj->transform);
 
             if(m_settings.draw_aabbs)
             {
@@ -610,8 +591,8 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                     animation = mesh->node_animations[animation_state.index];
                     auto node = mesh->root_bone ? mesh->root_bone : mesh->root_node;
                     m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,
-                                                       static_cast<float>(animation_state.current_time),
-                                                       modelview, m_camera->projection_matrix());
+                                                       static_cast<float>(animation_state.current_time), modelview,
+                                                       m_camera->projection_matrix());
                 }
             }
         }
@@ -625,8 +606,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         return m_renderer_overlay.render(framebuffer);
     };
 
-    auto render_gui = [this, &framebuffer]() -> VkCommandBuffer
-    {
+    auto render_gui = [this, &framebuffer]() -> VkCommandBuffer {
         m_gui_context.draw_gui(m_renderer_gui);
         return m_renderer_gui.render(framebuffer);
     };
@@ -637,14 +617,14 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     std::vector<std::future<VkCommandBuffer>> cmd_futures;
     cmd_futures.push_back(background_queue().post(render_scene));
     cmd_futures.push_back(background_queue().post(render_scene_overlays));
-    if(m_settings.draw_ui){ cmd_futures.push_back(background_queue().post(render_gui)); }
+    if(m_settings.draw_ui) { cmd_futures.push_back(background_queue().post(render_gui)); }
     crocore::wait_all(cmd_futures);
 
     // get values from completed futures
     for(auto &f: cmd_futures)
     {
         VkCommandBuffer commandbuffer = f.get();
-        if(commandbuffer){ ret.command_buffers.push_back(commandbuffer); }
+        if(commandbuffer) { ret.command_buffers.push_back(commandbuffer); }
     }
 
     // get semaphore infos
@@ -678,7 +658,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
-    if(m_path_tracer){ settings.path_tracer_settings = m_path_tracer->settings; }
+    if(m_path_tracer) { settings.path_tracer_settings = m_path_tracer->settings; }
     settings.path_tracing = m_scene_renderer == m_path_tracer;
 
     // create and open a character archive for output
@@ -692,7 +672,10 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
         // write class instance to archive
         archive(settings);
 
-    } catch(std::exception &e){ spdlog::error(e.what()); }
+    } catch(std::exception &e)
+    {
+        spdlog::error(e.what());
+    }
 
     spdlog::debug("save settings: {}", path.string());
 }
@@ -717,7 +700,10 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
             // read class instance from archive
             archive(settings);
-        } catch(std::exception &e){ spdlog::error(e.what()); }
+        } catch(std::exception &e)
+        {
+            spdlog::error(e.what());
+        }
 
         spdlog::debug("loading settings: {}", path.string());
     }
@@ -726,26 +712,26 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
 void PBRViewer::load_file(const std::string &path)
 {
-    auto add_to_recent_files = [this](const std::string &f)
-    {
-        main_queue().post([this, f]
-                          {
-                              m_settings.recent_files.push_back(f);
-                              while(m_settings.recent_files.size() > 10){ m_settings.recent_files.pop_front(); }
-                          });
+    auto add_to_recent_files = [this](const std::string &f) {
+        main_queue().post([this, f] {
+            m_settings.recent_files.push_back(f);
+            while(m_settings.recent_files.size() > 10) { m_settings.recent_files.pop_front(); }
+        });
     };
 
     switch(crocore::filesystem::get_file_type(path))
     {
-        case crocore::filesystem::FileType::IMAGE:add_to_recent_files(path);
+        case crocore::filesystem::FileType::IMAGE:
+            add_to_recent_files(path);
             load_environment(path);
             break;
 
-        case crocore::filesystem::FileType::MODEL:add_to_recent_files(path);
+        case crocore::filesystem::FileType::MODEL:
+            add_to_recent_files(path);
             load_model(path);
             break;
 
-        default:break;
+        default: break;
     }
 }
 
@@ -774,12 +760,13 @@ void PBRViewer::save_asset_bundle(const vierkant::model::asset_bundle_t &asset_b
         }
         spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
         std::filesystem::remove(path);
+    } catch(std::exception &e)
+    {
+        spdlog::error(e.what());
     }
-    catch(std::exception &e){ spdlog::error(e.what()); }
 }
 
-std::optional<vierkant::model::asset_bundle_t>
-PBRViewer::load_asset_bundle(const std::filesystem::path &path)
+std::optional<vierkant::model::asset_bundle_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
 {
     vierkant::ziparchive zip(g_zip_path);
 
@@ -795,8 +782,10 @@ PBRViewer::load_asset_bundle(const std::filesystem::path &path)
             cereal::BinaryInputArchive archive(zipstream);
             archive(ret);
             return ret;
+        } catch(std::exception &e)
+        {
+            spdlog::error(e.what());
         }
-        catch(std::exception &e){ spdlog::error(e.what()); }
     }
     return {};
 }

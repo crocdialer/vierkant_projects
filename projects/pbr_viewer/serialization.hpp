@@ -18,6 +18,7 @@
 #include <crocore/set_lru.hpp>
 #include <crocore/NamedId.hpp>
 
+#include <vierkant/transform.hpp>
 #include <vierkant/Window.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
@@ -28,6 +29,14 @@
 
 namespace vierkant
 {
+
+template<class Archive, class T>
+void serialize(Archive &archive, vierkant::transform_t_<T> &t)
+{
+    archive(cereal::make_nvp("translation", t.translation),
+            cereal::make_nvp("rotation", t.rotation),
+            cereal::make_nvp("scale", t.scale));
+}
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::AABB &aabb)
