@@ -364,7 +364,7 @@ void PBRViewer::create_camera_controls()
 
     // update camera with arcball
     auto transform_cb = [this](const glm::mat4 &transform) {
-        m_camera->set_global_transform(transform);
+        m_camera->set_global_transform(vierkant::transform_cast(transform));
         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
     };
     m_camera_control.orbit->transform_cb = transform_cb;
