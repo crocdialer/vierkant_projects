@@ -324,9 +324,9 @@ void PBRViewer::load_model(const std::string &path)
             // lookup
             std::optional<vierkant::model::asset_bundle_t> bundle;
             size_t hash_val = std::hash<std::string>()(path);
-            crocore::hash_combine(hash_val, m_settings.optimize_vertex_cache);
-            crocore::hash_combine(hash_val, m_settings.generate_lods);
-            crocore::hash_combine(hash_val, m_settings.generate_meshlets);
+            vierkant::hash_combine(hash_val, m_settings.optimize_vertex_cache);
+            vierkant::hash_combine(hash_val, m_settings.generate_lods);
+            vierkant::hash_combine(hash_val, m_settings.generate_meshlets);
             std::filesystem::path bundle_path =
                     fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
