@@ -49,6 +49,8 @@ public:
 
         bool draw_ui = true;
 
+        float ui_scale = 1.f;
+
         bool draw_grid = true;
 
         bool draw_aabbs = false;
@@ -186,6 +188,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_ui", settings.draw_ui),
+       cereal::make_nvp("ui_scale", settings.ui_scale),
        cereal::make_nvp("draw_grid", settings.draw_grid),
        cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),

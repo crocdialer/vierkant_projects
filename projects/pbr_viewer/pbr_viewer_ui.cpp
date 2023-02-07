@@ -130,7 +130,7 @@ void PBRViewer::create_ui()
 
     // create a gui and add a draw-delegate
     vierkant::gui::Context::create_info_t gui_create_info = {};
-    gui_create_info.ui_scale = 2.f;
+    gui_create_info.ui_scale = m_settings.ui_scale;
     gui_create_info.font_data = http_response.data;
     gui_create_info.font_size = 23.f;
     m_gui_context = vierkant::gui::Context(m_device, gui_create_info);
