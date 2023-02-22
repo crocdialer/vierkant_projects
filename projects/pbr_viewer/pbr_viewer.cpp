@@ -398,7 +398,7 @@ void PBRViewer::load_model(const std::string &path)
                 }
 
                 // tmp test-loop
-                for(uint32_t i = 0; i < 8; ++i)
+                for(uint32_t i = 0; i < 1; ++i)
                 {
                     auto object = vierkant::create_mesh_object(m_scene->registry(), mesh);
                     object->name = std::filesystem::path(path).filename().string();
