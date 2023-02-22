@@ -398,7 +398,7 @@ void PBRViewer::load_model(const std::string &path)
                 }
 
                 // tmp test-loop
-                for(uint32_t i = 0; i < 1; ++i)
+                for(uint32_t i = 0; i < 8; ++i)
                 {
                     auto object = vierkant::create_mesh_object(m_scene->registry(), mesh);
                     object->name = std::filesystem::path(path).filename().string();
@@ -564,7 +564,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer {
         for(const auto &obj: m_selected_objects)
         {
-            auto modelview = m_camera->view_matrix() * vierkant::mat4_cast(obj->transform);
+            auto modelview = vierkant::mat4_cast(m_camera->view_transform() * obj->transform);
 
             if(m_settings.draw_aabbs)
             {
@@ -599,7 +599,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_grid)
         {
-            m_draw_context.draw_grid(m_renderer_overlay, 10.f, 100, m_camera->view_matrix(),
+            m_draw_context.draw_grid(m_renderer_overlay, 10.f, 100, vierkant::mat4_cast(m_camera->view_transform()),
                                      m_camera->projection_matrix());
         }
 

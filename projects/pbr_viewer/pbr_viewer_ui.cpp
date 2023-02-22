@@ -44,7 +44,7 @@ void PBRViewer::create_ui()
                         m_camera_control.current = m_camera_control.fly;
                     }
                     else { m_camera_control.current = m_camera_control.orbit; }
-                    m_camera->transform = vierkant::transform_cast(m_camera_control.current->transform());
+                    m_camera->transform = m_camera_control.current->transform();
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
 
@@ -111,7 +111,7 @@ void PBRViewer::create_ui()
                                 m_camera_control.current = m_camera_control.fly;
                             }
                             else { m_camera_control.current = m_camera_control.orbit; }
-                            m_camera->transform = vierkant::transform_cast(m_camera_control.current->transform());
+                            m_camera->transform = m_camera_control.current->transform();
                             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
 
@@ -215,7 +215,7 @@ void PBRViewer::create_ui()
             }
             if(refresh)
             {
-                m_camera->transform = vierkant::transform_cast(m_camera_control.current->transform());
+                m_camera->transform = m_camera_control.current->transform();
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
 
@@ -363,15 +363,15 @@ void PBRViewer::create_camera_controls()
     m_window->joystick_delegates["flycamera"] = m_camera_control.fly->joystick_delegate();
 
     // update camera with arcball
-    auto transform_cb = [this](const glm::mat4 &transform) {
-        m_camera->set_global_transform(vierkant::transform_cast(transform));
+    auto transform_cb = [this](const vierkant::transform_t &transform) {
+        m_camera->set_global_transform(transform);
         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
 
     // update camera from current
-    m_camera->transform = vierkant::transform_cast(m_camera_control.current->transform());
+    m_camera->transform = m_camera_control.current->transform();
 
     // add/update camera_params
     m_camera->get_component<vierkant::physical_camera_params_t>() = m_settings.camera_params;
