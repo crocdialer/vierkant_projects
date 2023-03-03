@@ -289,7 +289,7 @@ void PBRViewer::create_texture_image()
     m_textures["test"] = vierkant::Image::create(m_device, img->data(), fmt);
 }
 
-void PBRViewer::load_model(const std::string &path)
+void PBRViewer::load_model(const std::filesystem::path &path)
 {
     vierkant::MeshPtr mesh;
 
@@ -309,21 +309,21 @@ void PBRViewer::load_model(const std::string &path)
             m_num_loading++;
             auto start_time = std::chrono::steady_clock::now();
 
-            spdlog::debug("loading model '{}'", path);
+            spdlog::debug("loading model '{}'", path.string());
 
             // tinygltf
             auto scene_assets = vierkant::model::gltf(path);
-            spdlog::debug("loaded model '{}' ({})", path, double_second(std::chrono::steady_clock::now() - start_time));
+            spdlog::debug("loaded model '{}' ({})", path.string(), double_second(std::chrono::steady_clock::now() - start_time));
 
             if(scene_assets.entry_create_infos.empty())
             {
-                spdlog::warn("could not load file: {}", path);
+                spdlog::warn("could not load file: {}", path.string());
                 return;
             }
 
             // lookup
             std::optional<vierkant::model::asset_bundle_t> bundle;
-            size_t hash_val = std::hash<std::string>()(path);
+            size_t hash_val = std::hash<std::string>()(path.filename());
             vierkant::hash_combine(hash_val, m_settings.optimize_vertex_cache);
             vierkant::hash_combine(hash_val, m_settings.generate_lods);
             vierkant::hash_combine(hash_val, m_settings.generate_meshlets);
@@ -373,7 +373,7 @@ void PBRViewer::load_model(const std::string &path)
 
             if(!mesh)
             {
-                spdlog::warn("loading '{}' failed ...", path);
+                spdlog::warn("loading '{}' failed ...", path.string());
                 m_num_loading--;
                 return;
             }
@@ -417,7 +417,7 @@ void PBRViewer::load_model(const std::string &path)
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
                 auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-                spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
+                spdlog::debug("loaded '{}' -- ({:03.2f})", path.string(), dur.count());
                 m_num_loading--;
             };
             main_queue().post(done_cb);
@@ -564,7 +564,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer {
         for(const auto &obj: m_selected_objects)
         {
-            auto modelview = vierkant::mat4_cast(m_camera->view_transform() * obj->transform);
+            auto modelview = m_camera->view_transform() * obj->transform;
 
             if(m_settings.draw_aabbs)
             {
@@ -599,7 +599,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_grid)
         {
-            m_draw_context.draw_grid(m_renderer_overlay, 10.f, 100, vierkant::mat4_cast(m_camera->view_transform()),
+            m_draw_context.draw_grid(m_renderer_overlay, 10.f, 100, m_camera->view_transform(),
                                      m_camera->projection_matrix());
         }
 
@@ -794,7 +794,7 @@ int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = 4;//std::thread::hardware_concurrency();
+    create_info.num_background_threads = std::thread::hardware_concurrency();
 
     auto app = std::make_shared<PBRViewer>(create_info);
     return app->run();

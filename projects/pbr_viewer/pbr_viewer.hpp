@@ -110,7 +110,7 @@ private:
 
     void create_texture_image();
 
-    void load_model(const std::string &path = "");
+    void load_model(const std::filesystem::path &path = {});
 
     void load_environment(const std::string &path);
 
