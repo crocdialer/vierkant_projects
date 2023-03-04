@@ -303,7 +303,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
 
     if(!path.empty())
     {
-        m_settings.model_path = path;
+        m_settings.model_path = path.string();
 
         auto load_task = [this, path, buffer_flags]() {
             m_num_loading++;
