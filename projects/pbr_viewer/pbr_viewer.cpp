@@ -323,7 +323,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
 
             // lookup
             std::optional<vierkant::model::asset_bundle_t> bundle;
-            size_t hash_val = std::hash<std::string>()(path.filename());
+            size_t hash_val = std::hash<std::string>()(path.filename().string());
             vierkant::hash_combine(hash_val, m_settings.optimize_vertex_cache);
             vierkant::hash_combine(hash_val, m_settings.generate_lods);
             vierkant::hash_combine(hash_val, m_settings.generate_meshlets);
