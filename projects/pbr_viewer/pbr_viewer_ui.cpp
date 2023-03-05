@@ -65,6 +65,10 @@ void PBRViewer::create_ui()
                 case vierkant::Key::_M: m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe; break;
 
                 case vierkant::Key::_S: save_settings(m_settings); break;
+
+                case vierkant::Key::_DELETE:
+                    for(const auto &obj: m_selected_objects) { m_scene->remove_object(obj); }
+                    break;
                 default: break;
             }
         }
