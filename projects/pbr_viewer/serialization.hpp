@@ -39,6 +39,15 @@ void serialize(Archive &archive, vierkant::transform_t_<T> &t)
             cereal::make_nvp("scale", t.scale));
 }
 
+template<class Archive, class T>
+void serialize(Archive &archive, vierkant::animation_state_t_<T> &a)
+{
+    archive(cereal::make_nvp("index", a.index),
+            cereal::make_nvp("playing", a.playing),
+            cereal::make_nvp("animation_speed", a.animation_speed),
+            cereal::make_nvp("current_time", a.current_time));
+}
+
 template<class Archive>
 void serialize(Archive &archive, vierkant::AABB &aabb)
 {

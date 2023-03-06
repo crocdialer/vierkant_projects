@@ -692,7 +692,7 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
                 {
                     path_map[path_it->second] = data.model_paths.size();
                     index = data.model_paths.size();
-                    data.model_paths.push_back(path_it->second);
+                    data.model_paths.push_back(path_it->second.string());
                 }
                 else { index = path_map.at(path_it->second); }
                 mesh_indices[mesh] = index;
@@ -708,6 +708,10 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         node.name = object->name;
         node.mesh_index = mesh_indices[mesh];
         node.transform = object->global_transform();
+        if(object->has_component<vierkant::animation_state_t>())
+        {
+            node.animation_state = object->get_component<vierkant::animation_state_t>();
+        }
         data.nodes.push_back(node);
     }
 
@@ -744,6 +748,7 @@ void PBRViewer::load_scene(const std::filesystem::path &path)
             } catch(std::exception &e)
             {
                 spdlog::error(e.what());
+                return;
             }
 
             spdlog::debug("loading scene: {}", path.string());
@@ -771,6 +776,10 @@ void PBRViewer::load_scene(const std::filesystem::path &path)
                     auto object = vierkant::create_mesh_object(m_scene->registry(), meshes[node.mesh_index]);
                     object->name = node.name;
                     object->transform = node.transform;
+                    if(node.animation_state && object->has_component<vierkant::animation_state_t>())
+                    {
+                        object->get_component<vierkant::animation_state_t>() = *node.animation_state;
+                    }
                     m_scene->add_object(object);
                 }
             }
@@ -893,7 +902,7 @@ int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = std::thread::hardware_concurrency();
+    create_info.num_background_threads = 4;//std::thread::hardware_concurrency();
 
     auto app = std::make_shared<PBRViewer>(create_info);
     return app->run();

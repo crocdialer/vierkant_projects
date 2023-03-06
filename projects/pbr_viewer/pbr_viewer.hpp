@@ -86,6 +86,7 @@ public:
         std::string name;
         size_t mesh_index = std::numeric_limits<size_t>::max();
         vierkant::transform_t transform = {};
+        std::optional<vierkant::animation_state_t> animation_state = {};
     };
 
     struct scene_data_t
@@ -224,13 +225,16 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
-    ar(cereal::make_nvp("name", scene_node.name), cereal::make_nvp("mesh_index", scene_node.mesh_index),
-       cereal::make_nvp("transform", scene_node.transform));
+    ar(cereal::make_nvp("name", scene_node.name),
+       cereal::make_nvp("mesh_index", scene_node.mesh_index),
+       cereal::make_nvp("transform", scene_node.transform),
+       cereal::make_nvp("animation_state", scene_node.animation_state));
 }
 
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
 {
     ar(cereal::make_nvp("environment_path", scene_data.environment_path),
-       cereal::make_nvp("m_model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes));
+       cereal::make_nvp("model_paths", scene_data.model_paths),
+       cereal::make_nvp("nodes", scene_data.nodes));
 }
