@@ -294,7 +294,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
     m_settings.model_path = path.string();
 
     auto load_task = [this, path]() {
-        //            m_num_loading++;
+        m_num_loading++;
         auto start_time = std::chrono::steady_clock::now();
         auto mesh = load_mesh(path);
 
@@ -316,7 +316,6 @@ void PBRViewer::load_model(const std::filesystem::path &path)
 
                 m_scene->add_object(object);
             }
-
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
@@ -782,6 +781,7 @@ void PBRViewer::load_scene(const std::filesystem::path &path)
                     }
                     m_scene->add_object(object);
                 }
+                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
         };
         main_queue().post(done_cb);
