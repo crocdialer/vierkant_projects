@@ -5,7 +5,7 @@ https://github.com/crocdialer/vierkant
 
 - pbr_viewer ![Preview](https://crocdialer.com/wp-content/uploads/2022/10/2022-09-30-chessboard.jpg)
   - small 3d-viewer with a raster- and raytracing backends
-  - ![example workflow](https://github.com/crocdialer/vierkant_projects/actions/workflows/cmake_build.yml/badge.svg)
+  - win64: ![example workflow](https://github.com/crocdialer/vierkant_projects/actions/workflows/cmake_build_windows.yml/badge.svg) linux: ![example workflow](https://github.com/crocdialer/vierkant_projects/actions/workflows/cmake_build.yml/badge.svg)
   
 dependencies:
 -
