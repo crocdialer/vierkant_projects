@@ -19,7 +19,7 @@ jobs:
       - name: Download linux artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
-          workflow: cmake_build_windows.yml
+          workflow: cmake_build.yml
           workflow_conclusion: success
           name: pbr_viewer_linux_x64
           skip_unpack: true
