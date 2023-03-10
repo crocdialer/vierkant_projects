@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [ drizzle_nightly ]
+    branches: [ master ]
   pull_request:
-    branches: [ drizzle_nightly ]
+    branches: [ master ]
   schedule:
     - cron: '0 3 * * *'
 
@@ -25,12 +25,12 @@ jobs:
           skip_unpack: true
 
       - name: Download windows artifacts
-          uses: dawidd6/action-download-artifact@v2
-          with:
-            workflow: cmake_build_windows.yml
-            workflow_conclusion: success
-            name: pbr_viewer_win_x64
-            skip_unpack: true
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: cmake_build_windows.yml
+          workflow_conclusion: success
+          name: pbr_viewer_win_x64
+          skip_unpack: true
 
       - name: Update nightly pre-release
         # - Upload artifacts defined by the user.
