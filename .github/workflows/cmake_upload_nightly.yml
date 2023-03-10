@@ -18,7 +18,7 @@ jobs:
           workflow: cmake_build.yml
           workflow_conclusion: success
           name: pbr_viewer_linux_x64
-          skip_unpack: true
+          skip_unpack: false
 
       - name: Download windows artifacts
         uses: dawidd6/action-download-artifact@v2
@@ -35,7 +35,7 @@ jobs:
           tag: nightly
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            pbr_viewer_linux_x64.zip
+            pbr_viewer_linux_x64.tar.gz
             pbr_viewer_win_x64.zip
       
 
