@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    branches: [ drizzle_nightly ]
+  pull_request:
+    branches: [ drizzle_nightly ]
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download linux artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: cmake_build_windows.yml
+          workflow_conclusion: success
+          name: pbr_viewer_linux_x64
+          skip_unpack: true
+
+      - name: Download windows artifacts
+          uses: dawidd6/action-download-artifact@v2
+          with:
+            workflow: cmake_build_windows.yml
+            workflow_conclusion: success
+            name: pbr_viewer_win_x64
+            skip_unpack: true
+
+      - name: Update nightly pre-release
+        # - Upload artifacts defined by the user.
+        uses: pyTooling/Actions/releaser@r0
+        with:
+          tag: nightly
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            pbr_viewer_linux_x64.zip
+            pbr_viewer_win_x64.zip
+      
+
+

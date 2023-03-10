@@ -48,7 +48,7 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: pbr_viewer
+          name: pbr_viewer_win_x64
           path: |
             ${{github.workspace}}/build/projects/${{env.BUILD_TYPE}}
             !${{github.workspace}}/build/projects/${{env.BUILD_TYPE}}/*.lib
