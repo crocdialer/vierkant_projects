@@ -200,10 +200,11 @@ void PBRViewer::create_context_and_window()
     m_pipeline_cache = vierkant::PipelineCache::create(m_device);
 
     // set some separate queues for background stuff
-    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1];
-    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2];
-    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[3];
-    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[4];
+    auto num_queues = m_device->queues(vierkant::Device::Queue::GRAPHICS).size();
+    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1 % num_queues];
+    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2 % num_queues];
+    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[3 % num_queues];
+    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[4 % num_queues];
 }
 
 void PBRViewer::create_graphics_pipeline()
@@ -215,6 +216,12 @@ void PBRViewer::create_graphics_pipeline()
     const auto &framebuffers = m_window->swapchain().framebuffers();
     auto fb_extent = framebuffers.front().extent();
 
+    // create a DescriptorPool
+    vierkant::descriptor_count_t descriptor_counts = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512},
+                                                      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 256},
+                                                      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 256}};
+    m_descriptor_pool = vierkant::create_descriptor_pool(m_device, descriptor_counts, 128);
+
     vierkant::Renderer::create_info_t create_info = {};
     create_info.num_frames_in_flight = framebuffers.size();
     create_info.sample_count = m_window->swapchain().sample_count();
@@ -222,6 +229,7 @@ void PBRViewer::create_graphics_pipeline()
     create_info.viewport.height = static_cast<float>(fb_extent.height);
     create_info.viewport.maxDepth = static_cast<float>(fb_extent.depth);
     create_info.pipeline_cache = m_pipeline_cache;
+    create_info.descriptor_pool = m_descriptor_pool;
 
     m_renderer = vierkant::Renderer(m_device, create_info);
     m_renderer_overlay = vierkant::Renderer(m_device, create_info);
@@ -233,6 +241,7 @@ void PBRViewer::create_graphics_pipeline()
     pbr_render_info.queue = m_queue_pbr_render;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.pipeline_cache = m_pipeline_cache;
+    pbr_render_info.descriptor_pool = m_descriptor_pool;
     pbr_render_info.settings = m_settings.pbr_settings;
     pbr_render_info.settings.use_meshlet_pipeline = m_settings.enable_mesh_shader_device_features;
     pbr_render_info.logger_name = "pbr_deferred";
@@ -873,7 +882,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 
     if(!mesh)
     {
-        spdlog::warn("loading '{}' failed ...", path.string());
+        spdlog::warn("loading '{}' failed -> fallback to textured cube ...", path.string());
 
         auto box = vierkant::Geometry::Box(glm::vec3(.5f));
         box->colors.clear();
