@@ -170,7 +170,7 @@ private:
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
-    vierkant::DescriptorPoolPtr m_descriptor_pool;
+//    vierkant::DescriptorPoolPtr m_descriptor_pool;
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
 

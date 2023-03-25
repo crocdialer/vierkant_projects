@@ -216,11 +216,11 @@ void PBRViewer::create_graphics_pipeline()
     const auto &framebuffers = m_window->swapchain().framebuffers();
     auto fb_extent = framebuffers.front().extent();
 
-    // create a DescriptorPool
-    vierkant::descriptor_count_t descriptor_counts = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512},
-                                                      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 256},
-                                                      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 256}};
-    m_descriptor_pool = vierkant::create_descriptor_pool(m_device, descriptor_counts, 128);
+    //    // create a DescriptorPool
+    //    vierkant::descriptor_count_t descriptor_counts = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512},
+    //                                                      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 256},
+    //                                                      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 256}};
+    //    m_descriptor_pool = vierkant::create_descriptor_pool(m_device, descriptor_counts, 128);
 
     vierkant::Renderer::create_info_t create_info = {};
     create_info.num_frames_in_flight = framebuffers.size();
@@ -229,7 +229,7 @@ void PBRViewer::create_graphics_pipeline()
     create_info.viewport.height = static_cast<float>(fb_extent.height);
     create_info.viewport.maxDepth = static_cast<float>(fb_extent.depth);
     create_info.pipeline_cache = m_pipeline_cache;
-    create_info.descriptor_pool = m_descriptor_pool;
+    //    create_info.descriptor_pool = m_descriptor_pool;
 
     m_renderer = vierkant::Renderer(m_device, create_info);
     m_renderer_overlay = vierkant::Renderer(m_device, create_info);
@@ -241,7 +241,7 @@ void PBRViewer::create_graphics_pipeline()
     pbr_render_info.queue = m_queue_pbr_render;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.pipeline_cache = m_pipeline_cache;
-    pbr_render_info.descriptor_pool = m_descriptor_pool;
+    //    pbr_render_info.descriptor_pool = m_descriptor_pool;
     pbr_render_info.settings = m_settings.pbr_settings;
     pbr_render_info.settings.use_meshlet_pipeline = m_settings.enable_mesh_shader_device_features;
     pbr_render_info.logger_name = "pbr_deferred";
@@ -742,9 +742,9 @@ void PBRViewer::load_scene(const std::filesystem::path &path)
 {
     auto load_task = [this, path]() {
         scene_data_t data;
+
         // create and open a character archive for input
         std::ifstream file_stream(path.string());
-
 
         // load data from archive
         if(file_stream.is_open())
@@ -771,6 +771,7 @@ void PBRViewer::load_scene(const std::filesystem::path &path)
         // TODO: use threadpool
         std::vector<vierkant::MeshPtr> meshes;
         for(const auto &p: data.model_paths) { meshes.push_back(load_mesh(p)); }
+        if(data.model_paths.empty()) { meshes.push_back(load_mesh("")); }
 
         auto done_cb = [this, nodes = std::move(data.nodes), meshes = std::move(meshes),
                         /*lights = std::move(scene_assets.lights),*/ start_time, path]() {
