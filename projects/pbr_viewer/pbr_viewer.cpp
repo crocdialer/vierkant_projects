@@ -127,7 +127,11 @@ void PBRViewer::poll_events()
 
 void PBRViewer::create_context_and_window()
 {
-    m_instance = vierkant::Instance(g_enable_validation_layers, vierkant::Window::required_extensions());
+    vierkant::Instance::create_info_t instance_info = {};
+    instance_info.extensions = vierkant::Window::required_extensions();
+    instance_info.use_validation_layers = g_enable_validation_layers;
+    instance_info.use_debug_labels = g_enable_validation_layers;
+    m_instance = vierkant::Instance(instance_info);
 
     m_settings.window_info.title = name();
     m_settings.window_info.instance = m_instance.handle();
@@ -152,6 +156,7 @@ void PBRViewer::create_context_and_window()
     device_info.instance = m_instance.handle();
     device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
+    device_info.debug_labels = true;
     device_info.surface = m_window->surface();
 
     // check raytracing support
@@ -771,7 +776,11 @@ void PBRViewer::load_scene(const std::filesystem::path &path)
         // TODO: use threadpool
         std::vector<vierkant::MeshPtr> meshes;
         for(const auto &p: data.model_paths) { meshes.push_back(load_mesh(p)); }
-        if(data.model_paths.empty()) { meshes.push_back(load_mesh("")); }
+        if(data.model_paths.empty())
+        {
+            meshes.push_back(load_mesh(""));
+            data.nodes.push_back({"hasslecube", 0});
+        }
 
         auto done_cb = [this, nodes = std::move(data.nodes), meshes = std::move(meshes),
                         /*lights = std::move(scene_assets.lights),*/ start_time, path]() {
@@ -811,80 +820,83 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 
     m_num_loading++;
     auto start_time = std::chrono::steady_clock::now();
+    vierkant::MeshPtr mesh;
 
-    spdlog::debug("loading model '{}'", path.string());
-
-    // tinygltf
-    auto scene_assets = vierkant::model::gltf(path);
-    spdlog::debug("loaded model '{}' ({})", path.string(),
-                  double_second(std::chrono::steady_clock::now() - start_time));
-
-    if(scene_assets.entry_create_infos.empty())
+    if(!path.empty())
     {
-        spdlog::warn("could not load file: {}", path.string());
-        return {};
-    }
 
-    // lookup
-    std::optional<vierkant::model::asset_bundle_t> bundle;
-    size_t hash_val = std::hash<std::string>()(path.filename().string());
-    vierkant::hash_combine(hash_val, m_settings.optimize_vertex_cache);
-    vierkant::hash_combine(hash_val, m_settings.generate_lods);
-    vierkant::hash_combine(hash_val, m_settings.generate_meshlets);
-    std::filesystem::path bundle_path =
-            fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
+        spdlog::debug("loading model '{}'", path.string());
 
-    bool bundle_created = false;
-    bundle = load_asset_bundle(bundle_path);
+        // tinygltf
+        auto scene_assets = vierkant::model::gltf(path);
+        spdlog::debug("loaded model '{}' ({})", path.string(),
+                      double_second(std::chrono::steady_clock::now() - start_time));
 
-    if(!bundle)
-    {
-        spdlog::stopwatch sw;
-
-        vierkant::create_mesh_buffers_params_t params = {};
-        params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
-        params.generate_lods = m_settings.generate_lods;
-        params.generate_meshlets = m_settings.generate_meshlets;
-        params.use_vertex_colors = false;
-        params.pack_vertices = true;
-
-        spdlog::debug("creating asset-bundle '{}' - lod: {} - meshlets: {} - bc7-compression: {}", bundle_path.string(),
-                      params.generate_lods, params.generate_meshlets, m_settings.texture_compression);
-
-        vierkant::model::asset_bundle_t asset_bundle;
-        asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos, params);
-
-        if(m_settings.texture_compression)
+        if(scene_assets.entry_create_infos.empty())
         {
-            asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets.materials);
+            spdlog::warn("could not load file: {}", path.string());
+            return {};
         }
-        bundle = std::move(asset_bundle);
-        spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
-        bundle_created = true;
+
+        // lookup
+        std::optional<vierkant::model::asset_bundle_t> bundle;
+        size_t hash_val = std::hash<std::string>()(path.filename().string());
+        vierkant::hash_combine(hash_val, m_settings.optimize_vertex_cache);
+        vierkant::hash_combine(hash_val, m_settings.generate_lods);
+        vierkant::hash_combine(hash_val, m_settings.generate_meshlets);
+        std::filesystem::path bundle_path =
+                fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
+
+        bool bundle_created = false;
+        bundle = load_asset_bundle(bundle_path);
+
+        if(!bundle)
+        {
+            spdlog::stopwatch sw;
+
+            vierkant::create_mesh_buffers_params_t params = {};
+            params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
+            params.generate_lods = m_settings.generate_lods;
+            params.generate_meshlets = m_settings.generate_meshlets;
+            params.use_vertex_colors = false;
+            params.pack_vertices = true;
+
+            spdlog::debug("creating asset-bundle '{}' - lod: {} - meshlets: {} - bc7-compression: {}",
+                          bundle_path.string(), params.generate_lods, params.generate_meshlets,
+                          m_settings.texture_compression);
+
+            vierkant::model::asset_bundle_t asset_bundle;
+            asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos, params);
+
+            if(m_settings.texture_compression)
+            {
+                asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets.materials);
+            }
+            bundle = std::move(asset_bundle);
+            spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
+            bundle_created = true;
+        }
+
+        vierkant::model::load_mesh_params_t load_params = {};
+        load_params.device = m_device;
+        load_params.load_queue = m_queue_model_loading;
+        load_params.compress_textures = m_settings.texture_compression;
+        load_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
+        load_params.generate_lods = m_settings.generate_lods;
+        load_params.generate_meshlets = m_settings.generate_meshlets;
+        load_params.buffer_flags = buffer_flags;
+        mesh = vierkant::model::load_mesh(load_params, scene_assets, bundle);
+
+        m_num_loading--;
+
+        if(bundle_created && m_settings.cache_mesh_bundles)
+        {
+            background_queue().post(
+                    [this, bundle = std::move(bundle), bundle_path]() { save_asset_bundle(*bundle, bundle_path); });
+        }
     }
-
-    vierkant::model::load_mesh_params_t load_params = {};
-    load_params.device = m_device;
-    load_params.load_queue = m_queue_model_loading;
-    load_params.compress_textures = m_settings.texture_compression;
-    load_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
-    load_params.generate_lods = m_settings.generate_lods;
-    load_params.generate_meshlets = m_settings.generate_meshlets;
-    load_params.buffer_flags = buffer_flags;
-    auto mesh = vierkant::model::load_mesh(load_params, scene_assets, bundle);
-
-    m_num_loading--;
-
-    if(bundle_created && m_settings.cache_mesh_bundles)
+    else
     {
-        background_queue().post(
-                [this, bundle = std::move(bundle), bundle_path]() { save_asset_bundle(*bundle, bundle_path); });
-    }
-
-    if(!mesh)
-    {
-        spdlog::warn("loading '{}' failed -> fallback to textured cube ...", path.string());
-
         auto box = vierkant::Geometry::Box(glm::vec3(.5f));
         box->colors.clear();
 
