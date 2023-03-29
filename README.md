@@ -19,10 +19,16 @@ mkdir -p vierkant_projects/build
 cd vierkant_projects/build
 cmake .. && make -jX
 ```
+nightly builds:
+-
+- windows:
+[pbr_viewer_win_x64.zip](https://github.com/crocdialer/vierkant_projects/releases/download/nightly/pbr_viewer_win_x64.zip)
+
+- linux:
+[pbr_viewer_linux_x64.tar.gz](https://github.com/crocdialer/vierkant_projects/releases/download/nightly/pbr_viewer_linux_x64.tar.gz)
 
 usage:
 -
-
 - view a gltf2-model using an HDR-background:
 ```
 ./pbr_viewer foo.gltf bar.hdr
