@@ -221,12 +221,6 @@ void PBRViewer::create_graphics_pipeline()
     const auto &framebuffers = m_window->swapchain().framebuffers();
     auto fb_extent = framebuffers.front().extent();
 
-    //    // create a DescriptorPool
-    //    vierkant::descriptor_count_t descriptor_counts = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512},
-    //                                                      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 256},
-    //                                                      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 256}};
-    //    m_descriptor_pool = vierkant::create_descriptor_pool(m_device, descriptor_counts, 128);
-
     vierkant::Renderer::create_info_t create_info = {};
     create_info.num_frames_in_flight = framebuffers.size();
     create_info.sample_count = m_window->swapchain().sample_count();
@@ -234,13 +228,13 @@ void PBRViewer::create_graphics_pipeline()
     create_info.viewport.height = static_cast<float>(fb_extent.height);
     create_info.viewport.maxDepth = static_cast<float>(fb_extent.depth);
     create_info.pipeline_cache = m_pipeline_cache;
-    //    create_info.descriptor_pool = m_descriptor_pool;
 
     m_renderer = vierkant::Renderer(m_device, create_info);
     m_renderer_overlay = vierkant::Renderer(m_device, create_info);
     m_renderer_overlay.indirect_draw = true;
 
     m_renderer_gui = vierkant::Renderer(m_device, create_info);
+    m_renderer_gui.debug_label = "imgui";
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.queue = m_queue_pbr_render;
