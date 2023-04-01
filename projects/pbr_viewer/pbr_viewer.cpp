@@ -205,11 +205,12 @@ void PBRViewer::create_context_and_window()
     m_pipeline_cache = vierkant::PipelineCache::create(m_device);
 
     // set some separate queues for background stuff
+    uint32_t i = 1;
     auto num_queues = m_device->queues(vierkant::Device::Queue::GRAPHICS).size();
-    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[1 % num_queues];
-    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[2 % num_queues];
-    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[3 % num_queues];
-    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[4 % num_queues];
+    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
 }
 
 void PBRViewer::create_graphics_pipeline()
@@ -240,7 +241,6 @@ void PBRViewer::create_graphics_pipeline()
     pbr_render_info.queue = m_queue_pbr_render;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.pipeline_cache = m_pipeline_cache;
-    //    pbr_render_info.descriptor_pool = m_descriptor_pool;
     pbr_render_info.settings = m_settings.pbr_settings;
     pbr_render_info.settings.use_meshlet_pipeline = m_settings.enable_mesh_shader_device_features;
     pbr_render_info.logger_name = "pbr_deferred";
@@ -342,9 +342,8 @@ void PBRViewer::load_environment(const std::string &path)
 
         auto start_time = std::chrono::steady_clock::now();
 
-        auto img = crocore::create_image_from_file(path, 4);
-
         vierkant::ImagePtr panorama, skybox, conv_lambert, conv_ggx;
+        auto img = crocore::create_image_from_file(path, 4);
 
         if(img)
         {
@@ -591,6 +590,8 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
         spdlog::debug("loading settings: {}", path.string());
     }
+    settings.model_path.clear();
+    settings.environment_path.clear();
     return settings;
 }
 

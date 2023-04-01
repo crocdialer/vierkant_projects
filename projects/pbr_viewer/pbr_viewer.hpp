@@ -170,8 +170,6 @@ private:
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
-//    vierkant::DescriptorPoolPtr m_descriptor_pool;
-
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
 
     // selection of scene-renderers
@@ -193,6 +191,8 @@ private:
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
     std::shared_mutex m_log_queue_mutex, m_bundle_rw_mutex;
     std::map<std::string, std::shared_ptr<spdlog::logger>> _loggers;
+
+    scene_data_t m_scene_data;
 
     // tmp, keep track of mesh/model-paths
     std::map<vierkant::MeshWeakPtr, std::filesystem::path, std::owner_less<vierkant::MeshWeakPtr>> m_model_paths;
