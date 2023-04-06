@@ -88,9 +88,14 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     {
         switch(crocore::filesystem::get_file_type(path))
         {
-            case crocore::filesystem::FileType::IMAGE: m_settings.environment_path = path; break;
+            case crocore::filesystem::FileType::IMAGE: m_scene_data.environment_path = path; break;
 
-            case crocore::filesystem::FileType::MODEL: m_settings.model_path = path; break;
+            case crocore::filesystem::FileType::MODEL:
+            {
+                m_scene_data.model_paths = {path};
+                m_scene_data.nodes = {{std::filesystem::path(path).filename(), 0}};
+                break;
+            }
 
             default: break;
         }
@@ -108,7 +113,7 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load a scene
-    load_scene();
+    build_scene(m_scene_data.nodes.empty() ? load_scene_data() : m_scene_data);
 }
 
 void PBRViewer::teardown()
@@ -235,7 +240,7 @@ void PBRViewer::create_graphics_pipeline()
     m_renderer_overlay.indirect_draw = true;
 
     m_renderer_gui = vierkant::Renderer(m_device, create_info);
-    m_renderer_gui.debug_label = "imgui";
+    m_renderer_gui.debug_label = {"imgui"};
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.queue = m_queue_pbr_render;
@@ -616,6 +621,18 @@ void PBRViewer::load_file(const std::string &path)
             load_model(path);
             break;
 
+        case crocore::filesystem::FileType::OTHER:
+            if(std::filesystem::path(path).extension() == ".json")
+            {
+                auto loaded_scene = load_scene_data(path);
+                if(loaded_scene)
+                {
+                    m_scene->clear();
+                    add_to_recent_files(path);
+                    build_scene(loaded_scene);
+                }
+            }
+            break;
         default: break;
     }
 }
@@ -738,47 +755,29 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     }
 }
 
-void PBRViewer::load_scene(const std::filesystem::path &path)
+void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
 {
-    auto load_task = [this, path]() {
-        scene_data_t data;
-
-        // create and open a character archive for input
-        std::ifstream file_stream(path.string());
-
-        // load data from archive
-        if(file_stream.is_open())
-        {
-            try
-            {
-                cereal::JSONInputArchive archive(file_stream);
-                archive(data);
-            } catch(std::exception &e)
-            {
-                spdlog::error(e.what());
-                return;
-            }
-
-            spdlog::debug("loading scene: {}", path.string());
-        }
-
+    auto load_task = [this, scene_data]() {
         // load background
-        load_file(data.environment_path);
-
-        //            m_num_loading++;
-        auto start_time = std::chrono::steady_clock::now();
+        if(scene_data) { load_file(scene_data->environment_path); }
 
         // TODO: use threadpool
         std::vector<vierkant::MeshPtr> meshes;
-        for(const auto &p: data.model_paths) { meshes.push_back(load_mesh(p)); }
-        if(data.model_paths.empty())
+        std::vector<scene_node_t> nodes;
+
+        if(scene_data)
+        {
+            for(const auto &p: scene_data->model_paths) { meshes.push_back(load_mesh(p)); }
+            nodes = scene_data->nodes;
+        }
+        else
         {
             meshes.push_back(load_mesh(""));
-            data.nodes.push_back({"hasslecube", 0});
+            nodes.push_back({"hasslecube", 0});
         }
 
-        auto done_cb = [this, nodes = std::move(data.nodes), meshes = std::move(meshes),
-                        /*lights = std::move(scene_assets.lights),*/ start_time, path]() {
+        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes)
+                        /*lights = std::move(scene_assets.lights),*/]() {
             if(!nodes.empty())
             {
                 m_scene->clear();
@@ -913,6 +912,28 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     m_model_paths[mesh] = path;
 
     return mesh;
+}
+std::optional<PBRViewer::scene_data_t> PBRViewer::load_scene_data(const std::filesystem::path &path)
+{
+    // create and open a character archive for input
+    std::ifstream file_stream(path.string());
+
+    // load data from archive
+    if(file_stream.is_open())
+    {
+        try
+        {
+            cereal::JSONInputArchive archive(file_stream);
+            PBRViewer::scene_data_t scene_data;
+            spdlog::debug("loading scene: {}", path.string());
+            archive(scene_data);
+            return scene_data;
+        } catch(std::exception &e)
+        {
+            spdlog::warn(e.what());
+        }
+    }
+    return {};
 }
 
 int main(int argc, char *argv[])

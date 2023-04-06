@@ -137,7 +137,9 @@ private:
 
     void save_scene(const std::filesystem::path &path = "scene.json") const;
 
-    void load_scene(const std::filesystem::path &path = "scene.json");
+    static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = "scene.json");
+
+    void build_scene(const std::optional<scene_data_t> &scene_data);
 
     std::atomic<uint32_t> m_num_loading = 0;
 
@@ -180,8 +182,6 @@ private:
     vierkant::SceneRendererPtr m_scene_renderer;
 
     vierkant::Renderer m_renderer, m_renderer_overlay, m_renderer_gui;
-
-    vierkant::FontPtr m_font;
 
     vierkant::gui::Context m_gui_context;
 

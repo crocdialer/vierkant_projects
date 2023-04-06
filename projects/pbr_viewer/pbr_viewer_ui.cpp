@@ -129,8 +129,7 @@ void PBRViewer::create_ui()
 
     // try to fetch a font from google-fonts
     auto http_response = crocore::net::http::get(g_font_url);
-
-    m_font = vierkant::Font::create(m_device, http_response.data, 64);
+    if(http_response.status_code != 200) { spdlog::warn("failed fetching a font from: {}", g_font_url); }
 
     // create a gui and add a draw-delegate
     vierkant::gui::Context::create_info_t gui_create_info = {};
@@ -164,6 +163,24 @@ void PBRViewer::create_ui()
 
         if(ImGui::BeginMenu(name().c_str()))
         {
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if(ImGui::MenuItem("save")) { save_settings(m_settings); }
+
+            ImGui::Separator();
+            ImGui::Spacing();
+            if(ImGui::MenuItem("reload"))
+            {
+                spdlog::warn("menu: reload");
+                m_settings = load_settings();
+                create_camera_controls();
+                if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
+                else { m_scene_renderer = m_pbr_renderer; }
+            }
+            ImGui::Separator();
+            ImGui::Spacing();
+
             if(ImGui::BeginMenu("recent files"))
             {
                 for(const auto &f: m_settings.recent_files)
@@ -178,21 +195,8 @@ void PBRViewer::create_ui()
                 ImGui::EndMenu();
             }
             ImGui::Separator();
+            ImGui::Spacing();
 
-            if(ImGui::MenuItem("save"))
-            {
-                spdlog::debug("menu: save");
-                save_settings(m_settings);
-            }
-            if(ImGui::MenuItem("reload"))
-            {
-                spdlog::warn("menu: reload");
-                m_settings = load_settings();
-                create_camera_controls();
-                if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
-                else { m_scene_renderer = m_pbr_renderer; }
-            }
-            ImGui::Separator();
             ImGui::Checkbox("draw grid", &m_settings.draw_grid);
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
@@ -201,17 +205,19 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("generate mesh-LODs", &m_settings.generate_lods);
             ImGui::Checkbox("generate meshlets", &m_settings.generate_meshlets);
             ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
-
             ImGui::Separator();
+            ImGui::Spacing();
 
             // camera control select
             bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
+
             if(ImGui::RadioButton("orbit", orbit_cam))
             {
                 m_camera_control.current = m_camera_control.orbit;
                 refresh = true;
             }
             ImGui::SameLine();
+
             if(ImGui::RadioButton("fly", !orbit_cam))
             {
                 m_camera_control.current = m_camera_control.fly;
@@ -223,9 +229,11 @@ void PBRViewer::create_ui()
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
 
+            ImGui::Separator();
+            ImGui::Spacing();
+            if(ImGui::MenuItem("quit")) { running = false; }
             ImGui::EndMenu();
         }
-
         vierkant::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
         ImGui::End();
     };
