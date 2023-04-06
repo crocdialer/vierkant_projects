@@ -93,7 +93,7 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
             case crocore::filesystem::FileType::MODEL:
             {
                 m_scene_data.model_paths = {path};
-                m_scene_data.nodes = {{std::filesystem::path(path).filename(), 0}};
+                m_scene_data.nodes = {{std::filesystem::path(path).filename().string(), 0}};
                 break;
             }
 
@@ -303,7 +303,6 @@ void PBRViewer::create_texture_image()
 void PBRViewer::load_model(const std::filesystem::path &path)
 {
     vierkant::MeshPtr mesh;
-
     m_settings.model_path = path.string();
 
     auto load_task = [this, path]() {
@@ -335,7 +334,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
             spdlog::debug("loaded '{}' -- ({:03.2f})", path.string(), dur.count());
             m_num_loading--;
         };
-        main_queue().post(done_cb);
+        if(mesh){ main_queue().post(done_cb); }
     };
     background_queue().post(load_task);
 }
@@ -773,7 +772,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
         else
         {
             meshes.push_back(load_mesh(""));
-            nodes.push_back({"hasslecube", 0});
+            scene_node_t n = {"hasslecube", 0};
+            nodes.push_back(n);
         }
 
         auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes)
