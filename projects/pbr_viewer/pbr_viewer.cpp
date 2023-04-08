@@ -164,16 +164,28 @@ void PBRViewer::create_context_and_window()
     device_info.debug_labels = true;
     device_info.surface = m_window->surface();
 
-    // check raytracing support
-    m_settings.enable_raytracing_device_features =
-            m_settings.enable_raytracing_device_features &&
+    // check raytracing-pipeline support
+    m_settings.enable_raytracing_pipeline_features =
+            m_settings.enable_raytracing_pipeline_features &&
             vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions());
 
     // add the raytracing-extensions
-    if(m_settings.enable_raytracing_device_features)
+    if(m_settings.enable_raytracing_pipeline_features)
     {
-        device_info.use_raytracing = true;
         device_info.extensions = vierkant::RayTracer::required_extensions();
+    }
+
+    // check ray-query support
+    m_settings.enable_ray_query_features =
+            m_settings.enable_ray_query_features &&
+            vierkant::check_device_extension_support(physical_device, vierkant::RayBuilder::required_extensions()) &&
+            vierkant::check_device_extension_support(physical_device, {VK_KHR_RAY_QUERY_EXTENSION_NAME});
+
+    // add the raytracing-extensions
+    if(m_settings.enable_ray_query_features)
+    {
+        for(const auto &ext: vierkant::RayBuilder::required_extensions()) { device_info.extensions.push_back(ext); }
+        device_info.extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
     }
 
     // check mesh-shader support
@@ -259,7 +271,7 @@ void PBRViewer::create_graphics_pipeline()
     }
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 
-    if(m_settings.enable_raytracing_device_features)
+    if(m_settings.enable_raytracing_pipeline_features)
     {
         vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
         path_tracer_info.num_frames_in_flight = framebuffers.size();
@@ -334,7 +346,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
             spdlog::debug("loaded '{}' -- ({:03.2f})", path.string(), dur.count());
             m_num_loading--;
         };
-        if(mesh){ main_queue().post(done_cb); }
+        if(mesh) { main_queue().post(done_cb); }
     };
     background_queue().post(load_task);
 }
@@ -807,7 +819,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     // additionally required buffer-flags for raytracing/compute/mesh-shading
     VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-    if(m_settings.enable_raytracing_device_features)
+    if(m_settings.enable_raytracing_pipeline_features)
     {
         buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
