@@ -168,6 +168,7 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
             cereal::make_nvp("environment_factor", render_settings.environment_factor),
             cereal::make_nvp("tonemap", render_settings.tonemap),
             cereal::make_nvp("ambient_occlusion", render_settings.ambient_occlusion),
+            cereal::make_nvp("max_ao_distance", render_settings.max_ao_distance),
             cereal::make_nvp("bloom", render_settings.bloom),
             cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
