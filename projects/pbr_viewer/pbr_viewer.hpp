@@ -75,7 +75,6 @@ public:
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
         bool use_fly_camera = false;
-        vierkant::physical_camera_params_t camera_params = {};
 
         vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
 
@@ -91,11 +90,19 @@ public:
         std::optional<vierkant::animation_state_t> animation_state = {};
     };
 
+    struct scene_camera_t
+    {
+        std::string name;
+        vierkant::transform_t transform = {};
+        vierkant::physical_camera_params_t params = {};
+    };
+
     struct scene_data_t
     {
         std::vector<std::string> model_paths;
         std::string environment_path;
         std::vector<scene_node_t> nodes;
+        std::vector<scene_camera_t> cameras;
     };
 
     explicit PBRViewer(const crocore::Application::create_info_t &create_info);
@@ -222,7 +229,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("enable_mesh_shader_device_features", settings.enable_mesh_shader_device_features),
        cereal::make_nvp("orbit_camera", settings.orbit_camera), cereal::make_nvp("fly_camera", settings.fly_camera),
        cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
-       cereal::make_nvp("camera_params", settings.camera_params),
+//       cereal::make_nvp("camera_params", settings.camera_params),
        cereal::make_nvp("current_guizmo", settings.current_guizmo),
        cereal::make_nvp("target_fps", settings.target_fps));
 }
@@ -237,9 +244,18 @@ void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 }
 
 template<class Archive>
+void serialize(Archive &ar, PBRViewer::scene_camera_t &camera)
+{
+    ar(cereal::make_nvp("name", camera.name),
+       cereal::make_nvp("transform", camera.transform),
+       cereal::make_nvp("params", camera.params));
+}
+
+template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
 {
     ar(cereal::make_nvp("environment_path", scene_data.environment_path),
        cereal::make_nvp("model_paths", scene_data.model_paths),
-       cereal::make_nvp("nodes", scene_data.nodes));
+       cereal::make_nvp("nodes", scene_data.nodes),
+       cereal::make_nvp("cameras", scene_data.cameras));
 }

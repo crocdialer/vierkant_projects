@@ -293,9 +293,8 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    m_settings.camera_params.aspect = m_window->aspect_ratio();
-    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), m_settings.camera_params);
-    m_camera->name = "main_camera";
+    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+    m_camera->name = "default";
 
     create_camera_controls();
 
@@ -385,6 +384,6 @@ void PBRViewer::create_camera_controls()
     // update camera from current
     m_camera->transform = m_camera_control.current->transform();
 
-    // add/update camera_params
-    m_camera->get_component<vierkant::physical_camera_params_t>() = m_settings.camera_params;
+//    // add/update camera_params
+//    m_camera->get_component<vierkant::physical_camera_params_t>() = m_settings.camera_params;
 }

@@ -551,7 +551,6 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
-    settings.camera_params = m_camera->get_component<vierkant::physical_camera_params_t>();
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
@@ -709,6 +708,12 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     scene_data_t data;
     data.environment_path = m_settings.environment_path;
 
+    scene_camera_t scene_camera = {};
+    scene_camera.name = m_camera->name;
+    scene_camera.transform = m_camera->transform;
+    scene_camera.params = m_camera->get_component<vierkant::physical_camera_params_t>();
+    data.cameras = {scene_camera};
+
     // set of meshes -> indices / paths !?
     std::map<vierkant::MeshWeakPtr, size_t, std::owner_less<vierkant::MeshWeakPtr>> mesh_indices;
     std::map<std::filesystem::path, size_t> path_map;
@@ -775,20 +780,26 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
         // TODO: use threadpool
         std::vector<vierkant::MeshPtr> meshes;
         std::vector<scene_node_t> nodes;
+        std::vector<scene_camera_t> cameras;
 
         if(scene_data)
         {
             for(const auto &p: scene_data->model_paths) { meshes.push_back(load_mesh(p)); }
             nodes = scene_data->nodes;
+            cameras = scene_data->cameras;
         }
         else
         {
             meshes.push_back(load_mesh(""));
             scene_node_t n = {"hasslecube", 0};
             nodes.push_back(n);
+
+            scene_camera_t scene_camera = {};
+            scene_camera.name = "main_camera";
+            cameras.push_back(scene_camera);
         }
 
-        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes)
+        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)
                         /*lights = std::move(scene_assets.lights),*/]() {
             if(!nodes.empty())
             {
@@ -805,6 +816,16 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                         object->get_component<vierkant::animation_state_t>() = *node.animation_state;
                     }
                     m_scene->add_object(object);
+                }
+
+                for(const auto &cam : cameras)
+                {
+                    auto object = vierkant::PerspectiveCamera::create(m_scene->registry(), cam.params);
+                    object->name = cam.name;
+                    object->transform = cam.transform;
+                    m_scene->add_object(object);
+
+                    m_camera = object;
                 }
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
