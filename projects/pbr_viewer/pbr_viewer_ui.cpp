@@ -255,7 +255,7 @@ void PBRViewer::create_ui()
         }
         ImGui::Separator();
 
-        vierkant::gui::draw_scene_renderer_ui(m_scene_renderer, m_camera);
+        vierkant::gui::draw_scene_renderer_ui(m_scene_renderer);
 
         ImGui::End();
     };
@@ -271,7 +271,7 @@ void PBRViewer::create_ui()
         ImGui::SetNextWindowPos(ImVec2(1470, 10), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
 
-        vierkant::gui::draw_scene_ui(m_scene, &m_selected_objects);
+        vierkant::gui::draw_scene_ui(m_scene, &m_selected_objects, m_camera);
     };
 
     // object-manipulators
