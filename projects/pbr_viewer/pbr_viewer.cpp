@@ -708,11 +708,16 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     scene_data_t data;
     data.environment_path = m_settings.environment_path;
 
-    scene_camera_t scene_camera = {};
-    scene_camera.name = m_camera->name;
-    scene_camera.transform = m_camera->transform;
-    scene_camera.params = m_camera->get_component<vierkant::physical_camera_params_t>();
-    data.cameras = {scene_camera};
+    auto cam_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::physical_camera_params_t>();
+
+    for(const auto &[entity, object, cam_params]: cam_view.each())
+    {
+        scene_camera_t scene_camera = {};
+        scene_camera.name = object->name;
+        scene_camera.transform = object->transform;
+        scene_camera.params = cam_params;
+        data.cameras.push_back(scene_camera);
+    }
 
     // set of meshes -> indices / paths !?
     std::map<vierkant::MeshWeakPtr, size_t, std::owner_less<vierkant::MeshWeakPtr>> mesh_indices;

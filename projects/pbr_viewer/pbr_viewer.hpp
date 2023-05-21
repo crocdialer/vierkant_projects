@@ -168,7 +168,7 @@ private:
 
     std::map<std::string, vierkant::ImagePtr> m_textures;
 
-    vierkant::PerspectiveCameraPtr m_camera;
+    vierkant::CameraPtr m_camera;
 
     struct camera_control_t
     {
