@@ -264,9 +264,10 @@ void PBRViewer::create_graphics_pipeline()
 
     if(m_pbr_renderer)
     {
-        pbr_render_info.conv_lambert = m_pbr_renderer->environment_lambert();
-        pbr_render_info.conv_ggx = m_pbr_renderer->environment_ggx();
-        pbr_render_info.brdf_lut = m_pbr_renderer->bsdf_lut();
+        const auto &prev_images = m_pbr_renderer->image_bundle();
+        pbr_render_info.conv_lambert = prev_images.environment_diffuse;
+        pbr_render_info.conv_ggx = prev_images.environment_specular;
+        pbr_render_info.brdf_lut = prev_images.bsdf_lut;
         pbr_render_info.settings = m_pbr_renderer->settings;
     }
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
