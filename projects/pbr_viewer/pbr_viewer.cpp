@@ -316,7 +316,6 @@ void PBRViewer::create_texture_image()
 void PBRViewer::load_model(const std::filesystem::path &path)
 {
     vierkant::MeshPtr mesh;
-    m_settings.model_path = path.string();
 
     auto load_task = [this, path]() {
         m_num_loading++;
@@ -425,8 +424,7 @@ void PBRViewer::load_environment(const std::string &path)
 
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
-            m_settings.environment_path = path;
-
+            m_scene_data.environment_path = path;
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
             spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
             m_num_loading--;
@@ -606,8 +604,6 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
         spdlog::debug("loading settings: {}", path.string());
     }
-    settings.model_path.clear();
-    settings.environment_path.clear();
     return settings;
 }
 
@@ -707,7 +703,7 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 {
     // scene traversal
     scene_data_t data;
-    data.environment_path = m_settings.environment_path;
+    data.environment_path = m_scene_data.environment_path;
 
     auto cam_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::physical_camera_params_t>();
 
