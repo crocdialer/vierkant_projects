@@ -328,7 +328,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
             // tmp test-loop
             for(uint32_t i = 0; i < 1; ++i)
             {
-                auto object = vierkant::create_mesh_object(m_scene->registry(), mesh);
+                auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
                 object->name = std::filesystem::path(path).filename().string();
 
                 // scale
@@ -457,8 +457,8 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         return m_renderer.render(framebuffer);
     };
 
-    auto render_scene_overlays = [this, &framebuffer]() -> VkCommandBuffer {
-        for(const auto &obj: m_selected_objects)
+    auto render_scene_overlays = [this, &framebuffer, selected_objects = m_selected_objects]() -> VkCommandBuffer {
+        for(const auto &obj: selected_objects)
         {
             auto modelview = m_camera->view_transform() * obj->transform;
 
@@ -717,13 +717,15 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     }
 
     // set of meshes -> indices / paths !?
-    std::map<vierkant::MeshWeakPtr, size_t, std::owner_less<vierkant::MeshWeakPtr>> mesh_indices;
+    std::map<vierkant::MeshConstPtr, size_t> mesh_indices;
     std::map<std::filesystem::path, size_t> path_map;
 
-    auto view = m_scene->registry()->view<vierkant::Object3D *, vierkant::MeshPtr>();
+    auto view = m_scene->registry()->view<vierkant::Object3D *, vierkant::mesh_component_t>();
 
-    for(const auto &[entity, object, mesh]: view.each())
+    for(const auto &[entity, object, mesh_component]: view.each())
     {
+        const auto &mesh = mesh_component.mesh;
+
         if(!mesh_indices.contains(mesh))
         {
             auto path_it = m_model_paths.find(mesh);
@@ -743,13 +745,14 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         }
     }
 
-    for(const auto &[entity, object, mesh]: view.each())
+    for(const auto &[entity, object, mesh_component]: view.each())
     {
         scene_node_t node = {};
 
         // transforms / mesh/index
         node.name = object->name;
-        node.mesh_index = mesh_indices[mesh];
+        node.mesh_index = mesh_indices[mesh_component.mesh];
+        node.entry_indices = mesh_component.entry_indices;
         node.transform = object->global_transform();
         if(object->has_component<vierkant::animation_state_t>())
         {
@@ -810,7 +813,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 {
                     assert(node.mesh_index < meshes.size());
 
-                    auto object = vierkant::create_mesh_object(m_scene->registry(), meshes[node.mesh_index]);
+                    vierkant::mesh_component_t mesh_component = {meshes[node.mesh_index], node.entry_indices};
+                    auto object = vierkant::create_mesh_object(m_scene->registry(),
+                                                               {meshes[node.mesh_index], node.entry_indices});
                     object->name = node.name;
                     object->transform = node.transform;
                     if(node.animation_state && object->has_component<vierkant::animation_state_t>())
@@ -820,7 +825,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                     m_scene->add_object(object);
                 }
 
-                for(const auto &cam : cameras)
+                for(const auto &cam: cameras)
                 {
                     auto object = vierkant::PerspectiveCamera::create(m_scene->registry(), cam.params);
                     object->name = cam.name;

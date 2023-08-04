@@ -103,8 +103,7 @@ void serialize(Archive &archive, vierkant::Mesh::entry_t &entry)
             cereal::make_nvp("material_index", entry.material_index),
             cereal::make_nvp("primitive_type", entry.primitive_type),
             cereal::make_nvp("morph_vertex_offset", entry.morph_vertex_offset),
-            cereal::make_nvp("morph_weights", entry.morph_weights),
-            cereal::make_nvp("enabled", entry.enabled));
+            cereal::make_nvp("morph_weights", entry.morph_weights));
 }
 
 template<class Archive>

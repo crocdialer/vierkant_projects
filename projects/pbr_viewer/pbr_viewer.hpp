@@ -84,6 +84,10 @@ public:
     {
         std::string name;
         size_t mesh_index = std::numeric_limits<size_t>::max();
+
+        //! optional set of enabled entries.
+        std::optional<std::set<uint32_t>> entry_indices = {};
+
         vierkant::transform_t transform = {};
         std::optional<vierkant::animation_state_t> animation_state = {};
     };
@@ -202,7 +206,7 @@ private:
     scene_data_t m_scene_data;
 
     // tmp, keep track of mesh/model-paths
-    std::map<vierkant::MeshWeakPtr, std::filesystem::path, std::owner_less<vierkant::MeshWeakPtr>> m_model_paths;
+    std::map<vierkant::MeshConstPtr , std::filesystem::path> m_model_paths;
 };
 
 template<class Archive>
@@ -232,7 +236,9 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
-    ar(cereal::make_nvp("name", scene_node.name), cereal::make_nvp("mesh_index", scene_node.mesh_index),
+    ar(cereal::make_nvp("name", scene_node.name),
+       cereal::make_nvp("mesh_index", scene_node.mesh_index),
+       cereal::make_nvp("entry_indices", scene_node.entry_indices),
        cereal::make_nvp("transform", scene_node.transform),
        cereal::make_nvp("animation_state", scene_node.animation_state));
 }

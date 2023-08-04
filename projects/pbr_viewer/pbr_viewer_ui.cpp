@@ -68,6 +68,7 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_DELETE:
                     for(const auto &obj: m_selected_objects) { m_scene->remove_object(obj); }
+                    m_selected_objects.clear();
                     break;
                 default: break;
             }
