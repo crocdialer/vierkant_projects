@@ -4,6 +4,7 @@
 
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRPathTracer.hpp>
+#include <vierkant/PBRDeferred.hpp>
 #include <vierkant/gltf.hpp>
 
 #include "pbr_thumbnailer.h"
@@ -73,12 +74,23 @@ void PBRThumbnailer::setup()
     if(settings.use_pathtracer)
     {
         vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
-        path_tracer_info.num_frames_in_flight = 1;
         path_tracer_info.settings.compaction = false;
+        path_tracer_info.settings.resolution = settings.result_image_size;
         path_tracer_info.settings.max_num_batches = 256;
         path_tracer_info.settings.num_samples = 8;
-        path_tracer_info.settings.draw_skybox = false;
+        path_tracer_info.settings.draw_skybox = settings.draw_skybox;
         m_scene_renderer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
+    }
+    else
+    {
+        vierkant::PBRDeferred::create_info_t pbr_render_info = {};
+        pbr_render_info.settings.resolution = settings.result_image_size;
+        pbr_render_info.settings.output_resolution = settings.result_image_size;
+        pbr_render_info.settings.draw_skybox = settings.draw_skybox;
+        pbr_render_info.settings.indirect_draw = false;
+        pbr_render_info.settings.use_taa = false;
+        pbr_render_info.settings.use_fxaa = true;
+        m_scene_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
     }
 
     vierkant::Renderer::create_info_t create_info = {};
@@ -92,12 +104,12 @@ void PBRThumbnailer::setup()
     camera_params.aspect =
             static_cast<float>(settings.result_image_size.x) / static_cast<float>(settings.result_image_size.y);
     m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), camera_params);
-    m_scene->add_object(m_camera);
+//    m_scene->add_object(m_camera);
 
     // set camera-position
     auto orbit_cam_controller = vierkant::OrbitCamera();
-//    orbit_cam_controller.spherical_coords = {0.5414924621582031, -0.4363316595554352};
-    orbit_cam_controller.distance = 15.f;
+    orbit_cam_controller.spherical_coords = {1.1f, -0.5f};
+    orbit_cam_controller.distance = 5.f;
     m_camera->transform = orbit_cam_controller.transform();
 
     // create framebuffer
@@ -117,7 +129,7 @@ void PBRThumbnailer::update(double /*time_delta*/)
         spdlog::stopwatch sw;
         spdlog::debug("render image");
 
-        for(uint32_t i = 0; i < 5; ++i)
+        for(uint32_t i = 0; i < 50; ++i)
         {
             m_framebuffer.wait_fence();
             m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
@@ -133,7 +145,8 @@ void PBRThumbnailer::update(double /*time_delta*/)
     {
         spdlog::stopwatch sw;
         spdlog::debug("saving image: {}", settings.result_image_path.string());
-        // TODO: download result image from GPU
+
+        // download result image from GPU
         vierkant::Buffer::create_info_t host_buffer_info = {};
         host_buffer_info.device = m_device;
         host_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -199,7 +212,7 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
             object->name = std::filesystem::path(path).filename().string();
 
             // scale
-            object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
+            object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
 
             // center aabb
             auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));

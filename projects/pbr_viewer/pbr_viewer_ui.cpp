@@ -128,7 +128,7 @@ void PBRViewer::create_ui()
     };
     m_window->joystick_delegates[name()] = joystick_delegate;
 
-    // try to fetch a font from google-fonts
+    // try to fetch a font-file via http
     auto http_response = crocore::net::http::get(g_font_url);
     if(http_response.status_code != 200) { spdlog::warn("failed fetching a font from: {}", g_font_url); }
 

@@ -22,9 +22,11 @@ public:
 
         std::filesystem::path result_image_path;
 
-        glm::uvec2 result_image_size = {512, 512};
+        glm::uvec2 result_image_size = {1024, 1024};
 
-        bool use_pathtracer = true;
+        bool use_pathtracer = false;
+
+        bool draw_skybox = true;
     };
 
     explicit PBRThumbnailer(const crocore::Application::create_info_t &create_info)
