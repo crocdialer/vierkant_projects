@@ -799,9 +799,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             scene_node_t n = {"hasslecube", 0};
             nodes.push_back(n);
 
-            scene_camera_t scene_camera = {};
-            scene_camera.name = "main_camera";
-            cameras.push_back(scene_camera);
+//            scene_camera_t scene_camera = {};
+//            scene_camera.name = "main_camera";
+//            cameras.push_back(scene_camera);
         }
 
         auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)
