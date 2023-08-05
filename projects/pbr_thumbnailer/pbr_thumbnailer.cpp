@@ -160,7 +160,7 @@ void PBRThumbnailer::update(double /*time_delta*/)
         auto result_img =
                 crocore::Image_<uint8_t>::create(static_cast<uint8_t *>(host_buffer->map()),
                                                  settings.result_image_size.x, settings.result_image_size.y, 4, true);
-        crocore::save_image_to_file(result_img, settings.result_image_path);
+        crocore::save_image_to_file(result_img, settings.result_image_path.string());
         spdlog::debug("done ({})", sw.elapsed());
     }
 }
