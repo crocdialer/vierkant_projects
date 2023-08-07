@@ -2,7 +2,7 @@
 // Created by crocdialer on 05.08.23.
 //
 
-#include <getopt.h>
+//#include <getopt.h>
 
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRDeferred.hpp>
@@ -148,7 +148,7 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
 
 void print_usage()
 {
-    spdlog::info("usage: pbr_thumbnailer [-w|--width|-h|--height|-p|--pathtracer] <model_path> <result_image_path>");
+    spdlog::error("usage: pbr_thumbnailer [-w|--width|-h|--height|-p|--pathtracer] <model_path> <result_image_path>");
 }
 
 void PBRThumbnailer::create_graphics_pipeline()
@@ -246,37 +246,37 @@ void PBRThumbnailer::create_graphics_pipeline()
     spdlog::info("graphics-pipeline initialized: {}", sw.elapsed());
 }
 
-PBRThumbnailer::settings_t parse_options(char **argv, int argc)
+PBRThumbnailer::settings_t parse_options(char **/*argv*/, int /*argc*/)
 {
     PBRThumbnailer::settings_t ret = {};
-    int opt, long_idx = -1;
-
-    option long_opts[] = {
-            {.name = "verbose", .has_arg = no_argument, .flag = nullptr, .val = 'v'},
-            {.name = "width", .has_arg = required_argument, .flag = nullptr, .val = 'w'},
-            {.name = "height", .has_arg = required_argument, .flag = nullptr, .val = 'h'},
-            {.name = "pathtracer", .has_arg = no_argument, .flag = nullptr, .val = 'p'},
-            {.name = "angle", .has_arg = required_argument, .flag = nullptr, .val = 'a'},
-    };
-
-    while((opt = getopt_long(argc, argv, "w:h:a:pv", long_opts, &long_idx)) != -1)
-    {
-        switch(opt)
-        {
-            case 'w': ret.result_image_size.x = std::stoi(optarg); break;
-            case 'h': ret.result_image_size.y = std::stoi(optarg); break;
-            case 'a': ret.cam_spherical_coords.x = glm::radians(std::stof(optarg)); break;
-            case 'p': ret.use_pathtracer = true; break;
-            case 'v': ret.log_level = spdlog::level::info; break;
-            default: break;
-        }
-    }
-    if((optind + 1) < argc)
-    {
-        ret.model_path = argv[optind];
-        ret.result_image_path = argv[optind + 1];
-    }
-    else { print_usage(); }
+//    int opt, long_idx = -1;
+//
+//    option long_opts[] = {
+//            {.name = "verbose", .has_arg = no_argument, .flag = nullptr, .val = 'v'},
+//            {.name = "width", .has_arg = required_argument, .flag = nullptr, .val = 'w'},
+//            {.name = "height", .has_arg = required_argument, .flag = nullptr, .val = 'h'},
+//            {.name = "pathtracer", .has_arg = no_argument, .flag = nullptr, .val = 'p'},
+//            {.name = "angle", .has_arg = required_argument, .flag = nullptr, .val = 'a'},
+//    };
+//
+//    while((opt = getopt_long(argc, argv, "w:h:a:pv", long_opts, &long_idx)) != -1)
+//    {
+//        switch(opt)
+//        {
+//            case 'w': ret.result_image_size.x = std::stoi(optarg); break;
+//            case 'h': ret.result_image_size.y = std::stoi(optarg); break;
+//            case 'a': ret.cam_spherical_coords.x = glm::radians(std::stof(optarg)); break;
+//            case 'p': ret.use_pathtracer = true; break;
+//            case 'v': ret.log_level = spdlog::level::info; break;
+//            default: break;
+//        }
+//    }
+//    if((optind + 1) < argc)
+//    {
+//        ret.model_path = argv[optind];
+//        ret.result_image_path = argv[optind + 1];
+//    }
+//    else { print_usage(); }
     return ret;
 }
 
