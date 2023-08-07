@@ -888,7 +888,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         {
             spdlog::stopwatch sw;
 
-            vierkant::create_mesh_buffers_params_t params = {};
+            vierkant::mesh_buffer_params_t params = {};
             params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
             params.generate_lods = m_settings.generate_lods;
             params.generate_meshlets = m_settings.generate_meshlets;
@@ -915,9 +915,10 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.device = m_device;
         load_params.load_queue = m_queue_model_loading;
         load_params.compress_textures = m_settings.texture_compression;
-        load_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
-        load_params.generate_lods = m_settings.generate_lods;
-        load_params.generate_meshlets = m_settings.generate_meshlets;
+        load_params.mesh_buffers_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
+        load_params.mesh_buffers_params.generate_lods = m_settings.generate_lods;
+        load_params.mesh_buffers_params.generate_meshlets = m_settings.generate_meshlets;
+        load_params.mesh_buffers_params.pack_vertices = true;
         load_params.buffer_flags = buffer_flags;
         mesh = vierkant::model::load_mesh(load_params, scene_assets, bundle);
 
@@ -935,10 +936,10 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         box->colors.clear();
 
         vierkant::Mesh::create_info_t mesh_create_info = {};
-        mesh_create_info.optimize_vertex_cache = true;
-        mesh_create_info.generate_meshlets = true;
-        mesh_create_info.use_vertex_colors = false;
-        mesh_create_info.pack_vertices = true;
+        mesh_create_info.mesh_buffer_params.optimize_vertex_cache = true;
+        mesh_create_info.mesh_buffer_params.generate_meshlets = true;
+        mesh_create_info.mesh_buffer_params.use_vertex_colors = false;
+        mesh_create_info.mesh_buffer_params.pack_vertices = true;
         mesh_create_info.buffer_usage_flags = buffer_flags;
         mesh = vierkant::Mesh::create_from_geometry(m_device, box, mesh_create_info);
         auto mat = vierkant::Material::create();

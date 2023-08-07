@@ -2,33 +2,159 @@
 // Created by crocdialer on 05.08.23.
 //
 
+#include <getopt.h>
+
 #include <vierkant/CameraControl.hpp>
-#include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/PBRDeferred.hpp>
+#include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/gltf.hpp>
 
 #include "pbr_thumbnailer.h"
 
 using double_second = std::chrono::duration<double>;
 
+void print_usage();
+
 void PBRThumbnailer::setup()
 {
-    settings.log_level = spdlog::level::debug;
-    bool use_validation = true;
-
     spdlog::set_level(settings.log_level);
 
-    if(args().size() > 2)
+    auto load_future = background_queue().post([this]() -> bool { return load_model_file(settings.model_path); });
+
+    // create required vulkan-resources
+    create_graphics_pipeline();
+
+    // load model
+    this->running = load_future.get();
+}
+
+void PBRThumbnailer::update(double /*time_delta*/)
+{
+    // render image
     {
-        settings.model_path = args()[1];
-        settings.result_image_path = args()[2];
-    }
-    else
-    {
-        print_usage();
+        spdlog::stopwatch sw;
+
+        uint32_t num_passes = settings.use_pathtracer ? 128 : 1;
+
+        for(uint32_t i = 0; i < num_passes; ++i)
+        {
+            auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+            auto cmd_buffer = m_renderer.render(m_framebuffer);
+            m_framebuffer.submit({cmd_buffer}, m_device->queue(), render_result.semaphore_infos);
+            m_framebuffer.wait_fence();
+        }
+
+        // if 'done' -> terminate loop
+        spdlog::info("rendering done ({})", sw.elapsed());
         this->running = false;
-        return;
     }
+
+    {
+        spdlog::stopwatch sw;
+
+        // download result image from GPU
+        vierkant::Buffer::create_info_t host_buffer_info = {};
+        host_buffer_info.device = m_device;
+        host_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        host_buffer_info.mem_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+        host_buffer_info.num_bytes = vierkant::num_bytes(m_framebuffer.color_attachment()->format().format) *
+                                     settings.result_image_size.x * settings.result_image_size.y;
+        auto host_buffer = vierkant::Buffer::create(host_buffer_info);
+        m_framebuffer.color_attachment()->copy_to(host_buffer);
+
+        // save image to disk
+        auto result_img =
+                crocore::Image_<uint8_t>::create(static_cast<uint8_t *>(host_buffer->map()),
+                                                 settings.result_image_size.x, settings.result_image_size.y, 4, true);
+        crocore::save_image_to_file(result_img, settings.result_image_path.string());
+        spdlog::info("png/jpg encoding ({})", sw.elapsed());
+    }
+}
+
+void PBRThumbnailer::teardown()
+{
+    vkDeviceWaitIdle(m_device->handle());
+    spdlog::info("total: {}s", application_time());
+}
+
+bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
+{
+    if(exists(path))
+    {
+        auto start_time = std::chrono::steady_clock::now();
+
+        spdlog::debug("loading model '{}'", path.string());
+
+        // tinygltf
+        auto scene_assets = vierkant::model::gltf(path);
+        spdlog::info("loaded model: '{}' ({})", path.string(),
+                      double_second(std::chrono::steady_clock::now() - start_time));
+
+        if(scene_assets.entry_create_infos.empty())
+        {
+            spdlog::warn("could not load file: {}", path.string());
+            return false;
+        }
+
+        // additionally required buffer-flags for raytracing/compute/mesh-shading
+        VkBufferUsageFlags buffer_flags =
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+        if(settings.use_pathtracer)
+        {
+            buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        }
+
+        // create a gpu-mesh from loaded assets
+        vierkant::model::load_mesh_params_t load_params = {};
+        load_params.device = m_device;
+        load_params.buffer_flags = buffer_flags;
+        load_params.mesh_buffers_params.pack_vertices = true;
+        auto mesh = vierkant::model::load_mesh(load_params, scene_assets);
+
+        if(settings.debug_override_model)
+        {
+            auto box = vierkant::Geometry::Box(glm::vec3(.5f));
+            box->colors.clear();
+
+            vierkant::Mesh::create_info_t mesh_create_info = {};
+            mesh_create_info.buffer_usage_flags = buffer_flags;
+            mesh_create_info.mesh_buffer_params.pack_vertices = true;
+            mesh = vierkant::Mesh::create_from_geometry(m_device, box, mesh_create_info);
+            auto mat = vierkant::Material::create();
+            mat->color = {1.f, 0.f, 0.f, 1.f};
+            mesh->materials = {mat};
+        }
+
+        // attach mesh to an object, insert into scene
+        {
+            auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
+            object->name = std::filesystem::path(path).filename().string();
+
+            // scale
+            object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
+
+            // center aabb
+            auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
+            object->transform.translation = -aabb.center();//+ glm::vec3(0.f, aabb.height() / 2.f, 0.f);
+
+            m_scene->add_object(object);
+        }
+        return true;
+    }
+    spdlog::error("could not find file: '{}'", path.string());
+    return false;
+}
+
+void print_usage()
+{
+    spdlog::info("usage: pbr_thumbnailer [-w|--width|-h|--height|-p|--pathtracer] <model_path> <result_image_path>");
+}
+
+void PBRThumbnailer::create_graphics_pipeline()
+{
+    spdlog::stopwatch sw;
+    bool use_validation = true;
 
     vierkant::Instance::create_info_t instance_info = {};
     instance_info.use_validation_layers = use_validation;
@@ -70,7 +196,7 @@ void PBRThumbnailer::setup()
 
     m_device = vierkant::Device::create(device_info);
 
-    // TODO: setup renderer
+    // setup a scene-renderer
     if(settings.use_pathtracer)
     {
         vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
@@ -104,12 +230,11 @@ void PBRThumbnailer::setup()
     camera_params.aspect =
             static_cast<float>(settings.result_image_size.x) / static_cast<float>(settings.result_image_size.y);
     m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), camera_params);
-//    m_scene->add_object(m_camera);
 
     // set camera-position
     auto orbit_cam_controller = vierkant::OrbitCamera();
-    orbit_cam_controller.spherical_coords = {1.1f, -0.5f};
-    orbit_cam_controller.distance = 5.f;
+    orbit_cam_controller.spherical_coords = settings.cam_spherical_coords;
+    orbit_cam_controller.distance = 2.5f;
     m_camera->transform = orbit_cam_controller.transform();
 
     // create framebuffer
@@ -118,122 +243,51 @@ void PBRThumbnailer::setup()
     framebuffer_info.color_attachment_format.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     m_framebuffer = vierkant::Framebuffer(m_device, framebuffer_info);
 
-    // load model
-    this->running = load_model_file(settings.model_path);
+    spdlog::info("graphics-pipeline initialized: {}", sw.elapsed());
 }
 
-void PBRThumbnailer::update(double /*time_delta*/)
+PBRThumbnailer::settings_t parse_options(char **argv, int argc)
 {
-    // TODO: render image
+    PBRThumbnailer::settings_t ret = {};
+    int opt, long_idx = -1;
+
+    option long_opts[] = {
+            {.name = "verbose", .has_arg = no_argument, .flag = nullptr, .val = 'v'},
+            {.name = "width", .has_arg = required_argument, .flag = nullptr, .val = 'w'},
+            {.name = "height", .has_arg = required_argument, .flag = nullptr, .val = 'h'},
+            {.name = "pathtracer", .has_arg = no_argument, .flag = nullptr, .val = 'p'},
+            {.name = "angle", .has_arg = required_argument, .flag = nullptr, .val = 'a'},
+    };
+
+    while((opt = getopt_long(argc, argv, "w:h:a:pv", long_opts, &long_idx)) != -1)
     {
-        spdlog::stopwatch sw;
-        spdlog::debug("render image");
-
-        for(uint32_t i = 0; i < 50; ++i)
+        switch(opt)
         {
-            m_framebuffer.wait_fence();
-            m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
-            auto cmd_buffer = m_renderer.render(m_framebuffer);
-            m_framebuffer.submit({cmd_buffer}, m_device->queue());
+            case 'w': ret.result_image_size.x = std::stoi(optarg); break;
+            case 'h': ret.result_image_size.y = std::stoi(optarg); break;
+            case 'a': ret.cam_spherical_coords.x = glm::radians(std::stof(optarg)); break;
+            case 'p': ret.use_pathtracer = true; break;
+            case 'v': ret.log_level = spdlog::level::info; break;
+            default: break;
         }
-
-        // TODO: if 'done' -> terminate loop
-        spdlog::debug("done ({})", sw.elapsed());
-        this->running = false;
     }
-
+    if((optind + 1) < argc)
     {
-        spdlog::stopwatch sw;
-        spdlog::debug("saving image: {}", settings.result_image_path.string());
-
-        // download result image from GPU
-        vierkant::Buffer::create_info_t host_buffer_info = {};
-        host_buffer_info.device = m_device;
-        host_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        host_buffer_info.mem_usage = VMA_MEMORY_USAGE_CPU_ONLY;
-        host_buffer_info.num_bytes = vierkant::num_bytes(m_framebuffer.color_attachment()->format().format) *
-                                     settings.result_image_size.x * settings.result_image_size.y;
-        auto host_buffer = vierkant::Buffer::create(host_buffer_info);
-        m_framebuffer.color_attachment()->copy_to(host_buffer);
-
-        // save image to disk
-        auto result_img =
-                crocore::Image_<uint8_t>::create(static_cast<uint8_t *>(host_buffer->map()),
-                                                 settings.result_image_size.x, settings.result_image_size.y, 4, true);
-        crocore::save_image_to_file(result_img, settings.result_image_path.string());
-        spdlog::debug("done ({})", sw.elapsed());
+        ret.model_path = argv[optind];
+        ret.result_image_path = argv[optind + 1];
     }
+    else { print_usage(); }
+    return ret;
 }
-
-void PBRThumbnailer::teardown()
-{
-    // TODO: report
-    vkDeviceWaitIdle(m_device->handle());
-    spdlog::info("processing took: {} ms", 1000.0 * application_time());
-}
-
-bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
-{
-    if(exists(path))
-    {
-        auto start_time = std::chrono::steady_clock::now();
-
-        spdlog::debug("loading model '{}'", path.string());
-
-        // tinygltf
-        auto scene_assets = vierkant::model::gltf(path);
-        spdlog::debug("loaded model '{}' ({})", path.string(),
-                      double_second(std::chrono::steady_clock::now() - start_time));
-
-        if(scene_assets.entry_create_infos.empty())
-        {
-            spdlog::warn("could not load file: {}", path.string());
-            return false;
-        }
-
-        // additionally required buffer-flags for raytracing/compute/mesh-shading
-        VkBufferUsageFlags buffer_flags =
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-        if(settings.use_pathtracer)
-        {
-            buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-        }
-
-        // create a gpu-mesh from loaded assets
-        vierkant::model::load_mesh_params_t load_params = {};
-        load_params.device = m_device;
-        load_params.buffer_flags = buffer_flags;
-        auto mesh = vierkant::model::load_mesh(load_params, scene_assets);
-
-        // attach mesh to an object, insert into scene
-        {
-            auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
-            object->name = std::filesystem::path(path).filename().string();
-
-            // scale
-            object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
-
-            // center aabb
-            auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
-            object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 0.f);
-
-            m_scene->add_object(object);
-        }
-        return true;
-    }
-    spdlog::error("invalid model-path: '{}'", path.string());
-    return false;
-}
-
-void PBRThumbnailer::print_usage() { spdlog::info("usage: {} <model_path> <result_image_path>", name()); }
 
 int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = 4;//std::thread::hardware_concurrency();
+    create_info.num_background_threads = 1;
 
+    auto settings = parse_options(argv, argc);
     auto app = std::make_shared<PBRThumbnailer>(create_info);
+    app->settings = settings;
     return app->run();
 }

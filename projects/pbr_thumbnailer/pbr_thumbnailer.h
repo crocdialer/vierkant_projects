@@ -16,7 +16,7 @@ class PBRThumbnailer : public crocore::Application
 public:
     struct settings_t
     {
-        spdlog::level::level_enum log_level = spdlog::level::info;
+        spdlog::level::level_enum log_level = spdlog::level::off;
 
         std::filesystem::path model_path;
 
@@ -24,9 +24,14 @@ public:
 
         glm::uvec2 result_image_size = {1024, 1024};
 
+        //! polar- and azimuth-angles for camera-placement
+        glm::vec2 cam_spherical_coords = {1.1f, -0.5f};
+
         bool use_pathtracer = false;
 
-        bool draw_skybox = true;
+        bool draw_skybox = false;
+
+        bool debug_override_model = false;
     };
 
     explicit PBRThumbnailer(const crocore::Application::create_info_t &create_info)
@@ -45,7 +50,7 @@ private:
 
     void poll_events() override{};
 
-    void print_usage();
+    void create_graphics_pipeline();
 
     // instance
     vierkant::Instance m_instance;
