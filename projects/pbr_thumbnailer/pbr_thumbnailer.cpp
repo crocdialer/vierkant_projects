@@ -1,8 +1,26 @@
+//  MIT License
 //
-// Created by crocdialer on 05.08.23.
+//  Copyright (c) 2023 Fabian Schmidt (github.com/crocdialer)
 //
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
 
-//#include <getopt.h>
+#include <boost/program_options.hpp>
 
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRDeferred.hpp>
@@ -12,8 +30,6 @@
 #include "pbr_thumbnailer.h"
 
 using double_second = std::chrono::duration<double>;
-
-void print_usage();
 
 void PBRThumbnailer::setup()
 {
@@ -45,7 +61,7 @@ void PBRThumbnailer::update(double /*time_delta*/)
         }
 
         // if 'done' -> terminate loop
-        spdlog::info("rendering done ({})", sw.elapsed());
+        spdlog::info("rendering done (#passes: {} - {})", num_passes, sw.elapsed());
         this->running = false;
     }
 
@@ -88,7 +104,7 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
         // tinygltf
         auto scene_assets = vierkant::model::gltf(path);
         spdlog::info("loaded model: '{}' ({})", path.string(),
-                      double_second(std::chrono::steady_clock::now() - start_time));
+                     double_second(std::chrono::steady_clock::now() - start_time));
 
         if(scene_assets.entry_create_infos.empty())
         {
@@ -112,20 +128,6 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
         load_params.mesh_buffers_params.pack_vertices = true;
         auto mesh = vierkant::model::load_mesh(load_params, scene_assets);
 
-        if(settings.debug_override_model)
-        {
-            auto box = vierkant::Geometry::Box(glm::vec3(.5f));
-            box->colors.clear();
-
-            vierkant::Mesh::create_info_t mesh_create_info = {};
-            mesh_create_info.buffer_usage_flags = buffer_flags;
-            mesh_create_info.mesh_buffer_params.pack_vertices = true;
-            mesh = vierkant::Mesh::create_from_geometry(m_device, box, mesh_create_info);
-            auto mat = vierkant::Material::create();
-            mat->color = {1.f, 0.f, 0.f, 1.f};
-            mesh->materials = {mat};
-        }
-
         // attach mesh to an object, insert into scene
         {
             auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
@@ -146,18 +148,12 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
     return false;
 }
 
-void print_usage()
-{
-    spdlog::error("usage: pbr_thumbnailer [-w|--width|-h|--height|-p|--pathtracer] <model_path> <result_image_path>");
-}
-
 void PBRThumbnailer::create_graphics_pipeline()
 {
     spdlog::stopwatch sw;
-    bool use_validation = true;
 
     vierkant::Instance::create_info_t instance_info = {};
-    instance_info.use_validation_layers = use_validation;
+    instance_info.use_validation_layers = settings.use_validation;
     m_instance = vierkant::Instance(instance_info);
 
     VkPhysicalDevice physical_device = m_instance.physical_devices().front();
@@ -246,37 +242,61 @@ void PBRThumbnailer::create_graphics_pipeline()
     spdlog::info("graphics-pipeline initialized: {}", sw.elapsed());
 }
 
-PBRThumbnailer::settings_t parse_options(char **/*argv*/, int /*argc*/)
+std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
 {
+    namespace po = boost::program_options;
     PBRThumbnailer::settings_t ret = {};
-//    int opt, long_idx = -1;
-//
-//    option long_opts[] = {
-//            {.name = "verbose", .has_arg = no_argument, .flag = nullptr, .val = 'v'},
-//            {.name = "width", .has_arg = required_argument, .flag = nullptr, .val = 'w'},
-//            {.name = "height", .has_arg = required_argument, .flag = nullptr, .val = 'h'},
-//            {.name = "pathtracer", .has_arg = no_argument, .flag = nullptr, .val = 'p'},
-//            {.name = "angle", .has_arg = required_argument, .flag = nullptr, .val = 'a'},
-//    };
-//
-//    while((opt = getopt_long(argc, argv, "w:h:a:pv", long_opts, &long_idx)) != -1)
-//    {
-//        switch(opt)
-//        {
-//            case 'w': ret.result_image_size.x = std::stoi(optarg); break;
-//            case 'h': ret.result_image_size.y = std::stoi(optarg); break;
-//            case 'a': ret.cam_spherical_coords.x = glm::radians(std::stof(optarg)); break;
-//            case 'p': ret.use_pathtracer = true; break;
-//            case 'v': ret.log_level = spdlog::level::info; break;
-//            default: break;
-//        }
-//    }
-//    if((optind + 1) < argc)
-//    {
-//        ret.model_path = argv[optind];
-//        ret.result_image_path = argv[optind + 1];
-//    }
-//    else { print_usage(); }
+
+    bool success = false;
+
+    // Declare the supported options.
+    po::options_description desc("Available options");
+    desc.add_options()("help", "produce help message");
+    desc.add_options()("width,w", po::value<uint32_t>(), "set result-image width in px");
+    desc.add_options()("height,h", po::value<uint32_t>(), "set result-image height in px");
+    desc.add_options()("angle,a", po::value<float>(), "set camera rotation-angle in degrees");
+    desc.add_options()("skybox,s", po::bool_switch(), "render skybox");
+    desc.add_options()("pathtracer,p", po::bool_switch(), "use pathtracing");
+    desc.add_options()("verbose,v", po::bool_switch(), "verbose printing");
+    desc.add_options()("validation", po::bool_switch(), "enable vulkan validation");
+    desc.add_options()("input-file", po::value<std::vector<std::string>>(), "input file");
+
+    po::positional_options_description p;
+    p.add("input-file", -1);
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+    po::notify(vm);
+
+    if(vm.count("input-file"))
+    {
+        const auto &files = vm["input-file"].as<std::vector<std::string>>();
+
+        if(files.size() == 2)
+        {
+            ret.model_path = files[0];
+            ret.result_image_path = files[1];
+            success = true;
+        }
+    }
+
+    // print usage
+    if(!success || vm.count("help"))
+    {
+        spdlog::info("usage: pbr_thumbnailer [options...] <model_path> <result_image_path>");
+        std::stringstream ss;
+        ss << desc;
+        spdlog::set_pattern("%v");
+        spdlog::info("\n{}",ss.str());
+        return {};
+    }
+    if(vm.count("width")) { ret.result_image_size.x = vm["width"].as<uint32_t>(); }
+    if(vm.count("height")) { ret.result_image_size.y = vm["height"].as<uint32_t>(); }
+    if(vm.count("angle")) { ret.cam_spherical_coords.x = glm::radians(vm["angle"].as<float>()); }
+    if(vm.count("skybox") && vm["skybox"].as<bool>()) { ret.draw_skybox = true; }
+    if(vm.count("pathtracer") && vm["pathtracer"].as<bool>()) { ret.use_pathtracer = true; }
+    if(vm.count("validation") && vm["validation"].as<bool>()) { ret.use_validation = true; }
+    if(vm.count("verbose") && vm["verbose"].as<bool>()) { ret.log_level = spdlog::level::info; }
     return ret;
 }
 
@@ -286,8 +306,11 @@ int main(int argc, char *argv[])
     create_info.arguments = {argv, argv + argc};
     create_info.num_background_threads = 1;
 
-    auto settings = parse_options(argv, argc);
-    auto app = std::make_shared<PBRThumbnailer>(create_info);
-    app->settings = settings;
-    return app->run();
+    if(auto settings = parse_settings(argv, argc))
+    {
+        auto app = std::make_shared<PBRThumbnailer>(create_info);
+        app->settings = *settings;
+        return app->run();
+    }
+    else { return EXIT_FAILURE; }
 }
