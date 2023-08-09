@@ -33,9 +33,9 @@ using double_second = std::chrono::duration<double>;
 
 void PBRThumbnailer::setup()
 {
-    spdlog::set_level(settings.log_level);
+    spdlog::set_level(m_settings.log_level);
 
-    auto load_future = background_queue().post([this]() -> bool { return load_model_file(settings.model_path); });
+    auto load_future = background_queue().post([this]() -> bool { return load_model_file(m_settings.model_path); });
 
     // create required vulkan-resources
     create_graphics_pipeline();
@@ -50,7 +50,7 @@ void PBRThumbnailer::update(double /*time_delta*/)
     {
         spdlog::stopwatch sw;
 
-        uint32_t num_passes = settings.use_pathtracer ? 128 : 1;
+        uint32_t num_passes = m_settings.use_pathtracer ? 32 : 1;
 
         for(uint32_t i = 0; i < num_passes; ++i)
         {
@@ -74,15 +74,15 @@ void PBRThumbnailer::update(double /*time_delta*/)
         host_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         host_buffer_info.mem_usage = VMA_MEMORY_USAGE_CPU_ONLY;
         host_buffer_info.num_bytes = vierkant::num_bytes(m_framebuffer.color_attachment()->format().format) *
-                                     settings.result_image_size.x * settings.result_image_size.y;
+                                     m_settings.result_image_size.x * m_settings.result_image_size.y;
         auto host_buffer = vierkant::Buffer::create(host_buffer_info);
         m_framebuffer.color_attachment()->copy_to(host_buffer);
 
         // save image to disk
         auto result_img =
                 crocore::Image_<uint8_t>::create(static_cast<uint8_t *>(host_buffer->map()),
-                                                 settings.result_image_size.x, settings.result_image_size.y, 4, true);
-        crocore::save_image_to_file(result_img, settings.result_image_path.string());
+                                                 m_settings.result_image_size.x, m_settings.result_image_size.y, 4, true);
+        crocore::save_image_to_file(result_img, m_settings.result_image_path.string());
         spdlog::info("png/jpg encoding ({})", sw.elapsed());
     }
 }
@@ -116,7 +116,7 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
         VkBufferUsageFlags buffer_flags =
                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-        if(settings.use_pathtracer)
+        if(m_settings.use_pathtracer)
         {
             buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         }
@@ -153,7 +153,7 @@ void PBRThumbnailer::create_graphics_pipeline()
     spdlog::stopwatch sw;
 
     vierkant::Instance::create_info_t instance_info = {};
-    instance_info.use_validation_layers = settings.use_validation;
+    instance_info.use_validation_layers = m_settings.use_validation;
     m_instance = vierkant::Instance(instance_info);
 
     VkPhysicalDevice physical_device = m_instance.physical_devices().front();
@@ -171,8 +171,8 @@ void PBRThumbnailer::create_graphics_pipeline()
     }
 
     // check raytracing-pipeline support
-    settings.use_pathtracer =
-            settings.use_pathtracer &&
+    m_settings.use_pathtracer =
+            m_settings.use_pathtracer &&
             vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions());
 
     // create device
@@ -184,7 +184,7 @@ void PBRThumbnailer::create_graphics_pipeline()
     // TODO: warn if path-tracer was requested but is not available
 
     // add the raytracing-extensions
-    if(settings.use_pathtracer)
+    if(m_settings.use_pathtracer)
     {
         device_info.extensions = crocore::concat_containers<const char *>(vierkant::RayTracer::required_extensions(),
                                                                           vierkant::RayBuilder::required_extensions());
@@ -193,22 +193,22 @@ void PBRThumbnailer::create_graphics_pipeline()
     m_device = vierkant::Device::create(device_info);
 
     // setup a scene-renderer
-    if(settings.use_pathtracer)
+    if(m_settings.use_pathtracer)
     {
         vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
         path_tracer_info.settings.compaction = false;
-        path_tracer_info.settings.resolution = settings.result_image_size;
-        path_tracer_info.settings.max_num_batches = 256;
-        path_tracer_info.settings.num_samples = 8;
-        path_tracer_info.settings.draw_skybox = settings.draw_skybox;
+        path_tracer_info.settings.resolution = m_settings.result_image_size;
+        path_tracer_info.settings.max_num_batches = 64;
+        path_tracer_info.settings.num_samples = 32;
+        path_tracer_info.settings.draw_skybox = m_settings.draw_skybox;
         m_scene_renderer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
     }
     else
     {
         vierkant::PBRDeferred::create_info_t pbr_render_info = {};
-        pbr_render_info.settings.resolution = settings.result_image_size;
-        pbr_render_info.settings.output_resolution = settings.result_image_size;
-        pbr_render_info.settings.draw_skybox = settings.draw_skybox;
+        pbr_render_info.settings.resolution = m_settings.result_image_size;
+        pbr_render_info.settings.output_resolution = m_settings.result_image_size;
+        pbr_render_info.settings.draw_skybox = m_settings.draw_skybox;
         pbr_render_info.settings.indirect_draw = false;
         pbr_render_info.settings.use_taa = false;
         pbr_render_info.settings.use_fxaa = true;
@@ -217,25 +217,25 @@ void PBRThumbnailer::create_graphics_pipeline()
 
     vierkant::Renderer::create_info_t create_info = {};
     create_info.num_frames_in_flight = 1;
-    create_info.viewport.width = static_cast<float>(settings.result_image_size.x);
-    create_info.viewport.height = static_cast<float>(settings.result_image_size.y);
+    create_info.viewport.width = static_cast<float>(m_settings.result_image_size.x);
+    create_info.viewport.height = static_cast<float>(m_settings.result_image_size.y);
     m_renderer = vierkant::Renderer(m_device, create_info);
 
     // create camera and add to scene (TODO: prefer/expose cameras included in model-files)
     vierkant::physical_camera_params_t camera_params = {};
     camera_params.aspect =
-            static_cast<float>(settings.result_image_size.x) / static_cast<float>(settings.result_image_size.y);
+            static_cast<float>(m_settings.result_image_size.x) / static_cast<float>(m_settings.result_image_size.y);
     m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), camera_params);
 
     // set camera-position
     auto orbit_cam_controller = vierkant::OrbitCamera();
-    orbit_cam_controller.spherical_coords = settings.cam_spherical_coords;
+    orbit_cam_controller.spherical_coords = m_settings.cam_spherical_coords;
     orbit_cam_controller.distance = 2.5f;
     m_camera->transform = orbit_cam_controller.transform();
 
     // create framebuffer
     vierkant::Framebuffer::create_info_t framebuffer_info = {};
-    framebuffer_info.size = {settings.result_image_size.x, settings.result_image_size.y, 1};
+    framebuffer_info.size = {m_settings.result_image_size.x, m_settings.result_image_size.y, 1};
     framebuffer_info.color_attachment_format.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     m_framebuffer = vierkant::Framebuffer(m_device, framebuffer_info);
 
@@ -308,8 +308,7 @@ int main(int argc, char *argv[])
 
     if(auto settings = parse_settings(argv, argc))
     {
-        auto app = std::make_shared<PBRThumbnailer>(create_info);
-        app->settings = *settings;
+        auto app = std::make_shared<PBRThumbnailer>(create_info, *settings);
         return app->run();
     }
     else { return EXIT_FAILURE; }

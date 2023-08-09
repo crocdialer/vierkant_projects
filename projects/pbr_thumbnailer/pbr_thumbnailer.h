@@ -59,12 +59,10 @@ public:
         bool use_validation = false;
     };
 
-    explicit PBRThumbnailer(const crocore::Application::create_info_t &create_info)
-        : crocore::Application(create_info){};
+    explicit PBRThumbnailer(const crocore::Application::create_info_t &create_info, settings_t settings)
+        : crocore::Application(create_info), m_settings(std::move(settings)){};
 
     bool load_model_file(const std::filesystem::path &path);
-
-    settings_t settings;
 
 private:
     void setup() override;
@@ -92,6 +90,8 @@ private:
     vierkant::SceneRendererPtr m_scene_renderer = nullptr;
 
     vierkant::CameraPtr m_camera;
+
+    settings_t m_settings;
 };
 
 #endif//VIERKANT_PROJECTS_PBR_THUMBNAILER_H
