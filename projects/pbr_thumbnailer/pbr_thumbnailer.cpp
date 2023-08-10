@@ -35,8 +35,6 @@ void PBRThumbnailer::setup()
 {
     spdlog::set_level(m_settings.log_level);
 
-    vierkant::model::mesh_assets_t mesh_assets;
-
     // load model in background
     auto model_future = background_queue().post(
             [path = m_settings.model_path, &pool = background_queue()] { return load_model_file(path, pool); });
