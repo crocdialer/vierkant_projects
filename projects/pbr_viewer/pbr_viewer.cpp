@@ -862,7 +862,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         spdlog::debug("loading model '{}'", path.string());
 
         // tinygltf
-        auto scene_assets = vierkant::model::gltf(path);
+        auto scene_assets = vierkant::model::gltf(path, &background_queue());
         spdlog::debug("loaded model '{}' ({})", path.string(),
                       double_second(std::chrono::steady_clock::now() - start_time));
 

@@ -52,6 +52,12 @@ public:
         //! flag to request a path-tracer rendering-backend
         bool use_pathtracer = false;
 
+        //! required total number of samples-per-pixel (spp) (applies only to path-tracer)
+        uint32_t num_samples = 1024;
+
+        //! maximum number of samples-per-pixel (spp), per frame (applies only to path-tracer)
+        uint32_t max_samples_per_frame = 32;
+
         //! flag to request drawing of used skybox
         bool draw_skybox = false;
 
@@ -62,9 +68,26 @@ public:
     explicit PBRThumbnailer(const crocore::Application::create_info_t &create_info, settings_t settings)
         : crocore::Application(create_info), m_settings(std::move(settings)){};
 
-    bool load_model_file(const std::filesystem::path &path);
-
 private:
+
+    struct graphics_context_t
+    {
+        // instance
+        vierkant::Instance instance;
+
+        // device
+        vierkant::DevicePtr device;
+
+        // output rasterizer
+        vierkant::Renderer renderer;
+        vierkant::Framebuffer framebuffer;
+
+        vierkant::SceneRendererPtr scene_renderer = nullptr;
+    };
+
+    static std::optional<vierkant::model::mesh_assets_t> load_model_file(const std::filesystem::path &path,
+                                                                         crocore::ThreadPool &pool);
+
     void setup() override;
 
     void update(double time_delta) override;
@@ -73,21 +96,13 @@ private:
 
     void poll_events() override{};
 
-    void create_graphics_pipeline();
+    bool create_graphics_context();
 
-    // instance
-    vierkant::Instance m_instance;
+    bool create_mesh(const vierkant::model::mesh_assets_t &mesh_assets);
 
-    // device
-    vierkant::DevicePtr m_device;
-
-    // output rasterizer
-    vierkant::Renderer m_renderer;
-    vierkant::Framebuffer m_framebuffer;
+    graphics_context_t m_context;
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
-
-    vierkant::SceneRendererPtr m_scene_renderer = nullptr;
 
     vierkant::CameraPtr m_camera;
 

@@ -35,13 +35,19 @@ void PBRThumbnailer::setup()
 {
     spdlog::set_level(m_settings.log_level);
 
-    auto load_future = background_queue().post([this]() -> bool { return load_model_file(m_settings.model_path); });
+    vierkant::model::mesh_assets_t mesh_assets;
+
+    // load model in background
+    auto model_future = background_queue().post(
+            [path = m_settings.model_path, &pool = background_queue()] { return load_model_file(path, pool); });
 
     // create required vulkan-resources
-    create_graphics_pipeline();
+    create_graphics_context();
+
+    auto model_data = model_future.get();
 
     // load model
-    this->running = load_future.get();
+    this->running = model_data && create_mesh(*model_data);
 }
 
 void PBRThumbnailer::update(double /*time_delta*/)
@@ -50,18 +56,18 @@ void PBRThumbnailer::update(double /*time_delta*/)
     {
         spdlog::stopwatch sw;
 
-        uint32_t num_passes = m_settings.use_pathtracer ? 32 : 1;
+        uint32_t num_passes = m_settings.num_samples / m_settings.max_samples_per_frame;
 
         for(uint32_t i = 0; i < num_passes; ++i)
         {
-            auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
-            auto cmd_buffer = m_renderer.render(m_framebuffer);
-            m_framebuffer.submit({cmd_buffer}, m_device->queue(), render_result.semaphore_infos);
-            m_framebuffer.wait_fence();
+            auto render_result = m_context.scene_renderer->render_scene(m_context.renderer, m_scene, m_camera, {});
+            auto cmd_buffer = m_context.renderer.render(m_context.framebuffer);
+            m_context.framebuffer.submit({cmd_buffer}, m_context.device->queue(), render_result.semaphore_infos);
+            m_context.framebuffer.wait_fence();
         }
 
         // if 'done' -> terminate loop
-        spdlog::info("rendering done (#passes: {} - {})", num_passes, sw.elapsed());
+        spdlog::info("rendering done (#spp: {} - {})", m_settings.num_samples, sw.elapsed());
         this->running = false;
     }
 
@@ -70,18 +76,18 @@ void PBRThumbnailer::update(double /*time_delta*/)
 
         // download result image from GPU
         vierkant::Buffer::create_info_t host_buffer_info = {};
-        host_buffer_info.device = m_device;
+        host_buffer_info.device = m_context.device;
         host_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         host_buffer_info.mem_usage = VMA_MEMORY_USAGE_CPU_ONLY;
-        host_buffer_info.num_bytes = vierkant::num_bytes(m_framebuffer.color_attachment()->format().format) *
+        host_buffer_info.num_bytes = vierkant::num_bytes(m_context.framebuffer.color_attachment()->format().format) *
                                      m_settings.result_image_size.x * m_settings.result_image_size.y;
         auto host_buffer = vierkant::Buffer::create(host_buffer_info);
-        m_framebuffer.color_attachment()->copy_to(host_buffer);
+        m_context.framebuffer.color_attachment()->copy_to(host_buffer);
 
         // save image to disk
-        auto result_img =
-                crocore::Image_<uint8_t>::create(static_cast<uint8_t *>(host_buffer->map()),
-                                                 m_settings.result_image_size.x, m_settings.result_image_size.y, 4, true);
+        auto result_img = crocore::Image_<uint8_t>::create(static_cast<uint8_t *>(host_buffer->map()),
+                                                           m_settings.result_image_size.x,
+                                                           m_settings.result_image_size.y, 4, true);
         crocore::save_image_to_file(result_img, m_settings.result_image_path.string());
         spdlog::info("png/jpg encoding ({})", sw.elapsed());
     }
@@ -89,11 +95,12 @@ void PBRThumbnailer::update(double /*time_delta*/)
 
 void PBRThumbnailer::teardown()
 {
-    vkDeviceWaitIdle(m_device->handle());
+    vkDeviceWaitIdle(m_context.device->handle());
     spdlog::info("total: {}s", application_time());
 }
 
-bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
+std::optional<vierkant::model::mesh_assets_t> PBRThumbnailer::load_model_file(const std::filesystem::path &path,
+                                                                              crocore::ThreadPool &pool)
 {
     if(exists(path))
     {
@@ -102,63 +109,32 @@ bool PBRThumbnailer::load_model_file(const std::filesystem::path &path)
         spdlog::debug("loading model '{}'", path.string());
 
         // tinygltf
-        auto scene_assets = vierkant::model::gltf(path);
+        auto scene_assets = vierkant::model::gltf(path, &pool);
         spdlog::info("loaded model: '{}' ({})", path.string(),
                      double_second(std::chrono::steady_clock::now() - start_time));
 
         if(scene_assets.entry_create_infos.empty())
         {
             spdlog::warn("could not load file: {}", path.string());
-            return false;
+            return {};
         }
-
-        // additionally required buffer-flags for raytracing/compute/mesh-shading
-        VkBufferUsageFlags buffer_flags =
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-        if(m_settings.use_pathtracer)
-        {
-            buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-        }
-
-        // create a gpu-mesh from loaded assets
-        vierkant::model::load_mesh_params_t load_params = {};
-        load_params.device = m_device;
-        load_params.buffer_flags = buffer_flags;
-        load_params.mesh_buffers_params.pack_vertices = true;
-        auto mesh = vierkant::model::load_mesh(load_params, scene_assets);
-
-        // attach mesh to an object, insert into scene
-        {
-            auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
-            object->name = std::filesystem::path(path).filename().string();
-
-            // scale
-            object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
-
-            // center aabb
-            auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
-            object->transform.translation = -aabb.center();//+ glm::vec3(0.f, aabb.height() / 2.f, 0.f);
-
-            m_scene->add_object(object);
-        }
-        return true;
+        return scene_assets;
     }
     spdlog::error("could not find file: '{}'", path.string());
-    return false;
+    return {};
 }
 
-void PBRThumbnailer::create_graphics_pipeline()
+bool PBRThumbnailer::create_graphics_context()
 {
     spdlog::stopwatch sw;
 
     vierkant::Instance::create_info_t instance_info = {};
     instance_info.use_validation_layers = m_settings.use_validation;
-    m_instance = vierkant::Instance(instance_info);
+    m_context.instance = vierkant::Instance(instance_info);
 
-    VkPhysicalDevice physical_device = m_instance.physical_devices().front();
+    VkPhysicalDevice physical_device = m_context.instance.physical_devices().front();
 
-    for(const auto &pd: m_instance.physical_devices())
+    for(const auto &pd: m_context.instance.physical_devices())
     {
         VkPhysicalDeviceProperties device_props = {};
         vkGetPhysicalDeviceProperties(pd, &device_props);
@@ -177,8 +153,8 @@ void PBRThumbnailer::create_graphics_pipeline()
 
     // create device
     vierkant::Device::create_info_t device_info = {};
-    device_info.use_validation = m_instance.use_validation_layers();
-    device_info.instance = m_instance.handle();
+    device_info.use_validation = m_context.instance.use_validation_layers();
+    device_info.instance = m_context.instance.handle();
     device_info.physical_device = physical_device;
 
     // TODO: warn if path-tracer was requested but is not available
@@ -189,8 +165,7 @@ void PBRThumbnailer::create_graphics_pipeline()
         device_info.extensions = crocore::concat_containers<const char *>(vierkant::RayTracer::required_extensions(),
                                                                           vierkant::RayBuilder::required_extensions());
     }
-
-    m_device = vierkant::Device::create(device_info);
+    m_context.device = vierkant::Device::create(device_info);
 
     // setup a scene-renderer
     if(m_settings.use_pathtracer)
@@ -198,10 +173,10 @@ void PBRThumbnailer::create_graphics_pipeline()
         vierkant::PBRPathTracer::create_info_t path_tracer_info = {};
         path_tracer_info.settings.compaction = false;
         path_tracer_info.settings.resolution = m_settings.result_image_size;
-        path_tracer_info.settings.max_num_batches = 64;
-        path_tracer_info.settings.num_samples = 32;
+        path_tracer_info.settings.max_num_batches = m_settings.num_samples / m_settings.max_samples_per_frame;
+        path_tracer_info.settings.num_samples = m_settings.max_samples_per_frame;
         path_tracer_info.settings.draw_skybox = m_settings.draw_skybox;
-        m_scene_renderer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
+        m_context.scene_renderer = vierkant::PBRPathTracer::create(m_context.device, path_tracer_info);
     }
     else
     {
@@ -212,14 +187,13 @@ void PBRThumbnailer::create_graphics_pipeline()
         pbr_render_info.settings.indirect_draw = false;
         pbr_render_info.settings.use_taa = false;
         pbr_render_info.settings.use_fxaa = true;
-        m_scene_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
+        m_context.scene_renderer = vierkant::PBRDeferred::create(m_context.device, pbr_render_info);
     }
-
     vierkant::Renderer::create_info_t create_info = {};
     create_info.num_frames_in_flight = 1;
     create_info.viewport.width = static_cast<float>(m_settings.result_image_size.x);
     create_info.viewport.height = static_cast<float>(m_settings.result_image_size.y);
-    m_renderer = vierkant::Renderer(m_device, create_info);
+    m_context.renderer = vierkant::Renderer(m_context.device, create_info);
 
     // create camera and add to scene (TODO: prefer/expose cameras included in model-files)
     vierkant::physical_camera_params_t camera_params = {};
@@ -237,9 +211,46 @@ void PBRThumbnailer::create_graphics_pipeline()
     vierkant::Framebuffer::create_info_t framebuffer_info = {};
     framebuffer_info.size = {m_settings.result_image_size.x, m_settings.result_image_size.y, 1};
     framebuffer_info.color_attachment_format.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    m_framebuffer = vierkant::Framebuffer(m_device, framebuffer_info);
+    m_context.framebuffer = vierkant::Framebuffer(m_context.device, framebuffer_info);
 
-    spdlog::info("graphics-pipeline initialized: {}", sw.elapsed());
+    // clear with transparent alpha, if requested
+    if(!m_settings.draw_skybox) { m_context.framebuffer.clear_color = {{0.f, 0.f, 0.f, 0.f}}; }
+
+    spdlog::info("graphics-context initialized: {}", sw.elapsed());
+    return true;
+}
+bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_assets)
+{
+    // additionally required buffer-flags for raytracing/compute/mesh-shading
+    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    if(m_settings.use_pathtracer)
+    {
+        buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    }
+
+    // create a gpu-mesh from loaded assets
+    vierkant::model::load_mesh_params_t load_params = {};
+    load_params.device = m_context.device;
+    load_params.buffer_flags = buffer_flags;
+    load_params.mesh_buffers_params.pack_vertices = true;
+    auto mesh = vierkant::model::load_mesh(load_params, mesh_assets);
+
+    // attach mesh to an object, insert into scene
+    {
+        auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
+        //        object->name = std::filesystem::path(path).filename().string();
+
+        // scale
+        object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
+
+        // center aabb
+        auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
+        object->transform.translation = -aabb.center();//+ glm::vec3(0.f, aabb.height() / 2.f, 0.f);
+
+        m_scene->add_object(object);
+    }
+    return true;
 }
 
 std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
@@ -287,7 +298,7 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
         std::stringstream ss;
         ss << desc;
         spdlog::set_pattern("%v");
-        spdlog::info("\n{}",ss.str());
+        spdlog::info("\n{}", ss.str());
         return {};
     }
     if(vm.count("width")) { ret.result_image_size.x = vm["width"].as<uint32_t>(); }
@@ -304,7 +315,7 @@ int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = 1;
+    create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
 
     if(auto settings = parse_settings(argv, argc))
     {
