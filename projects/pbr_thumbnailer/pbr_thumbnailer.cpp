@@ -39,13 +39,17 @@ void PBRThumbnailer::setup()
     auto model_future = background_queue().post(
             [path = m_settings.model_path, &pool = background_queue()] { return load_model_file(path, pool); });
 
+    // TODO: load optional environment-HDR
+
     // create required vulkan-resources
     create_graphics_context();
 
     auto model_data = model_future.get();
 
     // load model
-    this->running = model_data && create_mesh(*model_data);
+    bool success = model_data && create_mesh(*model_data);
+    this->running = success;
+    if(!success) { return_type = EXIT_FAILURE; }
 }
 
 void PBRThumbnailer::update(double /*time_delta*/)
@@ -108,14 +112,14 @@ std::optional<vierkant::model::mesh_assets_t> PBRThumbnailer::load_model_file(co
 
         // tinygltf
         auto scene_assets = vierkant::model::gltf(path, &pool);
-        spdlog::info("loaded model: '{}' ({})", path.string(),
-                     double_second(std::chrono::steady_clock::now() - start_time));
 
         if(scene_assets.entry_create_infos.empty())
         {
-            spdlog::warn("could not load file: {}", path.string());
+            spdlog::error("could not load file: {}", path.string());
             return {};
         }
+        spdlog::info("loaded model: '{}' ({})", path.string(),
+                     double_second(std::chrono::steady_clock::now() - start_time));
         return scene_assets;
     }
     spdlog::error("could not find file: '{}'", path.string());
@@ -217,6 +221,7 @@ bool PBRThumbnailer::create_graphics_context()
     spdlog::info("graphics-context initialized: {}", sw.elapsed());
     return true;
 }
+
 bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_assets)
 {
     // additionally required buffer-flags for raytracing/compute/mesh-shading
@@ -237,35 +242,34 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_asse
     // attach mesh to an object, insert into scene
     {
         auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
-        //        object->name = std::filesystem::path(path).filename().string();
 
         // scale
         object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
 
         // center aabb
         auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
-        object->transform.translation = -aabb.center();//+ glm::vec3(0.f, aabb.height() / 2.f, 0.f);
+        object->transform.translation = -aabb.center();
 
         m_scene->add_object(object);
     }
     return true;
 }
 
-std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
+std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
 {
     namespace po = boost::program_options;
     PBRThumbnailer::settings_t ret = {};
 
-    bool success = false;
+    bool success = true;
 
-    // Declare the supported options.
+    // available options
     po::options_description desc("Available options");
     desc.add_options()("help", "produce help message");
     desc.add_options()("width,w", po::value<uint32_t>(), "set result-image width in px");
     desc.add_options()("height,h", po::value<uint32_t>(), "set result-image height in px");
     desc.add_options()("angle,a", po::value<float>(), "set camera rotation-angle in degrees");
     desc.add_options()("skybox,s", po::bool_switch(), "render skybox");
-    desc.add_options()("pathtracer,p", po::bool_switch(), "use pathtracing");
+    desc.add_options()("raster,r", po::bool_switch(), "force fallback-rasterizer instead of path-tracing");
     desc.add_options()("verbose,v", po::bool_switch(), "verbose printing");
     desc.add_options()("validation", po::bool_switch(), "enable vulkan validation");
     desc.add_options()("input-file", po::value<std::vector<std::string>>(), "input file");
@@ -274,18 +278,40 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
     p.add("input-file", -1);
 
     po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
-    po::notify(vm);
+
+    try
+    {
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+        po::notify(vm);
+    } catch(std::exception &e)
+    {
+        success = false;
+        spdlog::error(e.what());
+    }
 
     if(vm.count("input-file"))
     {
         const auto &files = vm["input-file"].as<std::vector<std::string>>();
 
-        if(files.size() == 2)
+        for(const auto &f: files)
         {
-            ret.model_path = files[0];
-            ret.result_image_path = files[1];
-            success = true;
+            auto file_path = std::filesystem::path(f);
+            auto ext = crocore::to_lower(file_path.extension().string());
+
+            if(exists(file_path) && is_regular_file(file_path) && (ext == ".gltf" || ext == ".glb"))
+            {
+                ret.model_path = file_path;
+            }
+            else if(exists(file_path) && is_regular_file(file_path) && (ext == ".hdr"))
+            {
+                ret.environment_path = file_path;
+            }
+            else if(ext == ".png") { ret.result_image_path = file_path; }
+            else
+            {
+                success = false;
+                break;
+            }
         }
     }
 
@@ -303,7 +329,7 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
     if(vm.count("height")) { ret.result_image_size.y = vm["height"].as<uint32_t>(); }
     if(vm.count("angle")) { ret.cam_spherical_coords.x = glm::radians(vm["angle"].as<float>()); }
     if(vm.count("skybox") && vm["skybox"].as<bool>()) { ret.draw_skybox = true; }
-    if(vm.count("pathtracer") && vm["pathtracer"].as<bool>()) { ret.use_pathtracer = true; }
+    if(vm.count("raster") && vm["raster"].as<bool>()) { ret.use_pathtracer = false; }
     if(vm.count("validation") && vm["validation"].as<bool>()) { ret.use_validation = true; }
     if(vm.count("verbose") && vm["verbose"].as<bool>()) { ret.log_level = spdlog::level::info; }
     return ret;
@@ -311,14 +337,13 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(char **argv, int argc)
 
 int main(int argc, char *argv[])
 {
-    crocore::Application::create_info_t create_info = {};
-    create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
-
-    if(auto settings = parse_settings(argv, argc))
+    if(auto settings = parse_settings(argc, argv))
     {
-        auto app = std::make_shared<PBRThumbnailer>(create_info, *settings);
-        return app->run();
+        crocore::Application::create_info_t create_info = {};
+        create_info.arguments = {argv, argv + argc};
+        create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
+        auto app = PBRThumbnailer(create_info, *settings);
+        return app.run();
     }
     else { return EXIT_FAILURE; }
 }

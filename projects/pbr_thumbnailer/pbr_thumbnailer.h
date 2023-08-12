@@ -40,6 +40,9 @@ public:
         //! path to an input model-file (.gltf | .glb)
         std::filesystem::path model_path;
 
+        //! optional path to an input HDR environment-map (.hdr)
+        std::filesystem::path environment_path;
+
         //! output-image path
         std::filesystem::path result_image_path;
 
@@ -50,7 +53,7 @@ public:
         glm::vec2 cam_spherical_coords = {1.1f, -0.5f};
 
         //! flag to request a path-tracer rendering-backend
-        bool use_pathtracer = false;
+        bool use_pathtracer = true;
 
         //! required total number of samples-per-pixel (spp) (applies only to path-tracer)
         uint32_t num_samples = 1024;
