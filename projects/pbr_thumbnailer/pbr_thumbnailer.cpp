@@ -67,10 +67,7 @@ void PBRThumbnailer::update(double /*time_delta*/)
             m_context.framebuffer.submit({cmd_buffer}, m_context.device->queue(), render_result.semaphore_infos);
             m_context.framebuffer.wait_fence();
         }
-
-        // if 'done' -> terminate loop
         spdlog::info("rendering done (#spp: {} - {})", m_settings.num_samples, sw.elapsed());
-        this->running = false;
     }
 
     {
@@ -93,6 +90,9 @@ void PBRThumbnailer::update(double /*time_delta*/)
         crocore::save_image_to_file(result_img, m_settings.result_image_path.string());
         spdlog::info("png/jpg encoding ({})", sw.elapsed());
     }
+
+    // done -> terminate application-loop
+    this->running = false;
 }
 
 void PBRThumbnailer::teardown()
@@ -159,13 +159,17 @@ bool PBRThumbnailer::create_graphics_context()
     device_info.instance = m_context.instance.handle();
     device_info.physical_device = physical_device;
 
-    // TODO: warn if path-tracer was requested but is not available
-
     // add the raytracing-extensions
     if(m_settings.use_pathtracer)
     {
         device_info.extensions = crocore::concat_containers<const char *>(vierkant::RayTracer::required_extensions(),
                                                                           vierkant::RayBuilder::required_extensions());
+        if(!vierkant::check_device_extension_support(physical_device, device_info.extensions))
+        {
+            spdlog::warn("using fallback rasterizer: path-tracer was requested, but required extensions are not "
+                         "available {}",
+                         device_info.extensions);
+        }
     }
     m_context.device = vierkant::Device::create(device_info);
 
@@ -297,32 +301,22 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
         {
             auto file_path = std::filesystem::path(f);
             auto ext = crocore::to_lower(file_path.extension().string());
+            bool file_exists = exists(file_path) && is_regular_file(file_path);
 
-            if(exists(file_path) && is_regular_file(file_path) && (ext == ".gltf" || ext == ".glb"))
-            {
-                ret.model_path = file_path;
-            }
-            else if(exists(file_path) && is_regular_file(file_path) && (ext == ".hdr"))
-            {
-                ret.environment_path = file_path;
-            }
+            if(file_exists && (ext == ".gltf" || ext == ".glb")) { ret.model_path = file_path; }
+            else if(file_exists && (ext == ".hdr")) { ret.environment_path = file_path; }
             else if(ext == ".png") { ret.result_image_path = file_path; }
-            else
-            {
-                success = false;
-                break;
-            }
+            else { break; }
         }
     }
+    success = success && !ret.model_path.empty() && !ret.result_image_path.empty();
 
     // print usage
     if(!success || vm.count("help"))
     {
         spdlog::info("usage: pbr_thumbnailer [options...] <model_path> <result_image_path>");
-        std::stringstream ss;
-        ss << desc;
         spdlog::set_pattern("%v");
-        spdlog::info("\n{}", ss.str());
+        spdlog::info("\n{}", (std::stringstream() << desc).str());
         return {};
     }
     if(vm.count("width")) { ret.result_image_size.x = vm["width"].as<uint32_t>(); }
