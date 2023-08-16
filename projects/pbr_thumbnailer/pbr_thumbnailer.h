@@ -82,7 +82,7 @@ private:
         vierkant::DevicePtr device;
 
         // output rasterizer
-        vierkant::Renderer renderer;
+        vierkant::Rasterizer renderer;
         vierkant::Framebuffer framebuffer;
 
         vierkant::SceneRendererPtr scene_renderer = nullptr;

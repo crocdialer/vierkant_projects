@@ -195,11 +195,11 @@ bool PBRThumbnailer::create_graphics_context()
         pbr_render_info.settings.use_fxaa = true;
         m_context.scene_renderer = vierkant::PBRDeferred::create(m_context.device, pbr_render_info);
     }
-    vierkant::Renderer::create_info_t create_info = {};
+    vierkant::Rasterizer::create_info_t create_info = {};
     create_info.num_frames_in_flight = 1;
     create_info.viewport.width = static_cast<float>(m_settings.result_image_size.x);
     create_info.viewport.height = static_cast<float>(m_settings.result_image_size.y);
-    m_context.renderer = vierkant::Renderer(m_context.device, create_info);
+    m_context.renderer = vierkant::Rasterizer(m_context.device, create_info);
 
     // create camera and add to scene (TODO: prefer/expose cameras included in model-files)
     vierkant::physical_camera_params_t camera_params = {};

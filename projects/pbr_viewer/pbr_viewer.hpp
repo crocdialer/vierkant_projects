@@ -192,7 +192,7 @@ private:
 
     vierkant::SceneRendererPtr m_scene_renderer;
 
-    vierkant::Renderer m_renderer, m_renderer_overlay, m_renderer_gui;
+    vierkant::Rasterizer m_renderer, m_renderer_overlay, m_renderer_gui;
 
     vierkant::gui::Context m_gui_context;
 

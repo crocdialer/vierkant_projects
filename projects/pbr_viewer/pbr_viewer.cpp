@@ -239,7 +239,7 @@ void PBRViewer::create_graphics_pipeline()
     const auto &framebuffers = m_window->swapchain().framebuffers();
     auto fb_extent = framebuffers.front().extent();
 
-    vierkant::Renderer::create_info_t create_info = {};
+    vierkant::Rasterizer::create_info_t create_info = {};
     create_info.num_frames_in_flight = framebuffers.size();
     create_info.sample_count = m_window->swapchain().sample_count();
     create_info.viewport.width = static_cast<float>(fb_extent.width);
@@ -247,11 +247,11 @@ void PBRViewer::create_graphics_pipeline()
     create_info.viewport.maxDepth = static_cast<float>(fb_extent.depth);
     create_info.pipeline_cache = m_pipeline_cache;
 
-    m_renderer = vierkant::Renderer(m_device, create_info);
-    m_renderer_overlay = vierkant::Renderer(m_device, create_info);
+    m_renderer = vierkant::Rasterizer(m_device, create_info);
+    m_renderer_overlay = vierkant::Rasterizer(m_device, create_info);
     m_renderer_overlay.indirect_draw = true;
 
-    m_renderer_gui = vierkant::Renderer(m_device, create_info);
+    m_renderer_gui = vierkant::Rasterizer(m_device, create_info);
     m_renderer_gui.debug_label = {"imgui"};
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
