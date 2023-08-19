@@ -26,7 +26,8 @@ jobs:
         uses: johnwason/vcpkg-action@v4
         id: vcpkg
         with:
-          pkgs: curl boost-system boost-program-options boost-test
+          # get fucked vcpkg :(
+          pkgs: curl boost #boost-system boost-program-options boost-test
           triplet: x64-windows-release
           token: ${{ github.token }}
 
