@@ -9,7 +9,7 @@ https://github.com/crocdialer/vierkant
   
 dependencies:
 -
-`sudo apt install libboost-all-dev libcurl4-openssl-dev xorg-dev vulkan-sdk`
+`sudo apt install libboost-system-dev libboost-program-options-dev libcurl4-openssl-dev xorg-dev vulkan-sdk`
 
 checkout & build:
 -

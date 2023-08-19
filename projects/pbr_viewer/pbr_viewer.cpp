@@ -2,7 +2,7 @@
 
 #include <crocore/Image.hpp>
 #include <crocore/filesystem.hpp>
-#include <crocore/http.hpp>
+#include <netzer/http.hpp>
 
 #include "ziparchive.h"
 #include <vierkant/PBRDeferred.hpp>

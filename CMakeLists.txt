@@ -20,11 +20,17 @@ else ()
     remove_definitions(-DNDEBUG)
 endif ()
 
-# vierkant
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 option(BUILD_TESTS "Build Tests" OFF)
+
+# vierkant
 add_subdirectory("submodules/vierkant")
 set(LIBS ${LIBS} ${vierkant_LIBRARIES})
+
+# netzer
+add_subdirectory("submodules/netzer")
+set(LIBS ${LIBS} ${netzer_LIBRARIES})
+include_directories(${netzer_INCLUDE_DIRS})
 
 # cereal
 include_directories("submodules/cereal/include")
