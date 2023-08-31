@@ -9,8 +9,8 @@
 #include <vierkant/cubemap_utils.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
+#include "vierkant/model/gltf.hpp"
 #include <vierkant/Visitor.hpp>
-#include <vierkant/gltf.hpp>
 
 #include "spdlog/sinks/base_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -862,11 +862,11 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         spdlog::debug("loading model '{}'", path.string());
 
         // tinygltf
-        auto scene_assets = vierkant::model::gltf(path, &background_queue());
+        auto scene_assets = vierkant::model::load_model(path, &background_queue());
         spdlog::debug("loaded model '{}' ({})", path.string(),
                       double_second(std::chrono::steady_clock::now() - start_time));
 
-        if(scene_assets.entry_create_infos.empty())
+        if(!scene_assets || scene_assets->entry_create_infos.empty())
         {
             spdlog::warn("could not load file: {}", path.string());
             return {};
@@ -900,11 +900,11 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
                           m_settings.texture_compression);
 
             vierkant::model::asset_bundle_t asset_bundle;
-            asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets.entry_create_infos, params);
+            asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets->entry_create_infos, params);
 
             if(m_settings.texture_compression)
             {
-                asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets.materials);
+                asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets->materials);
             }
             bundle = std::move(asset_bundle);
             spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
@@ -920,7 +920,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.mesh_buffers_params.generate_meshlets = m_settings.generate_meshlets;
         load_params.mesh_buffers_params.pack_vertices = true;
         load_params.buffer_flags = buffer_flags;
-        mesh = vierkant::model::load_mesh(load_params, scene_assets, bundle);
+        mesh = vierkant::model::load_mesh(load_params, *scene_assets, bundle);
 
         m_num_loading--;
 

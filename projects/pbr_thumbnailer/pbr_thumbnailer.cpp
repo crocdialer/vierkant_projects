@@ -22,10 +22,10 @@
 
 #include <boost/program_options.hpp>
 
+#include <vierkant/model/model_loading.hpp>
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
-#include <vierkant/gltf.hpp>
 
 #include "pbr_thumbnailer.h"
 
@@ -111,9 +111,9 @@ std::optional<vierkant::model::mesh_assets_t> PBRThumbnailer::load_model_file(co
         spdlog::debug("loading model '{}'", path.string());
 
         // tinygltf
-        auto scene_assets = vierkant::model::gltf(path, &pool);
+        auto scene_assets = vierkant::model::load_model(path, &pool);
 
-        if(scene_assets.entry_create_infos.empty())
+        if(!scene_assets || scene_assets->entry_create_infos.empty())
         {
             spdlog::error("could not load file: {}", path.string());
             return {};
