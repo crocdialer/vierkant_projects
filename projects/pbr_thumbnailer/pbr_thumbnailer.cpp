@@ -303,7 +303,7 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
             auto ext = crocore::to_lower(file_path.extension().string());
             bool file_exists = exists(file_path) && is_regular_file(file_path);
 
-            if(file_exists && (ext == ".gltf" || ext == ".glb")) { ret.model_path = file_path; }
+            if(file_exists && (ext == ".gltf" || ext == ".glb" || ext == ".obj")) { ret.model_path = file_path; }
             else if(file_exists && (ext == ".hdr")) { ret.environment_path = file_path; }
             else if(ext == ".png") { ret.result_image_path = file_path; }
             else { break; }
