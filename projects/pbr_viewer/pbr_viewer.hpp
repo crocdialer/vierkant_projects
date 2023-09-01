@@ -56,6 +56,8 @@ public:
 
         bool texture_compression = false;
 
+        bool remap_indices = false;
+
         bool optimize_vertex_cache = true;
 
         bool generate_lods = false;
@@ -220,6 +222,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
+       cereal::make_nvp("remap_indices", settings.remap_indices),
        cereal::make_nvp("optimize_vertex_cache", settings.optimize_vertex_cache),
        cereal::make_nvp("generate_lods", settings.generate_lods),
        cereal::make_nvp("generate_meshlets", settings.generate_meshlets),

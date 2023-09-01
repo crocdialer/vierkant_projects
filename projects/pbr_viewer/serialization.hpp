@@ -118,6 +118,21 @@ void serialize(Archive &archive, vierkant::Mesh::meshlet_t &meshlet)
 }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::mesh_buffer_params_t &params)
+{
+    archive(cereal::make_nvp("remap_indices", params.remap_indices),
+            cereal::make_nvp("optimize_vertex_cache", params.optimize_vertex_cache),
+            cereal::make_nvp("generate_lods", params.generate_lods),
+            cereal::make_nvp("max_num_lods", params.max_num_lods),
+            cereal::make_nvp("generate_meshlets", params.generate_meshlets),
+            cereal::make_nvp("use_vertex_colors", params.use_vertex_colors),
+            cereal::make_nvp("pack_vertices", params.pack_vertices),
+            cereal::make_nvp("meshlet_max_vertices", params.meshlet_max_vertices),
+            cereal::make_nvp("meshlet_max_triangles", params.meshlet_max_triangles),
+            cereal::make_nvp("meshlet_cone_weight", params.meshlet_cone_weight));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::mesh_buffer_bundle_t &mesh_buffer_bundle)
 {
     archive(cereal::make_nvp("vertex_stride", mesh_buffer_bundle.vertex_stride),

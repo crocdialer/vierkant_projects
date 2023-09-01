@@ -889,6 +889,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
             spdlog::stopwatch sw;
 
             vierkant::mesh_buffer_params_t params = {};
+            params.remap_indices = m_settings.remap_indices;
             params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
             params.generate_lods = m_settings.generate_lods;
             params.generate_meshlets = m_settings.generate_meshlets;
