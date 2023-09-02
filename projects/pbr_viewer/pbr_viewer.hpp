@@ -42,6 +42,12 @@ public:
         vierkant::PBRDeferred::settings_t pbr_settings = {};
         vierkant::PBRPathTracer::settings_t path_tracer_settings = {};
 
+        vierkant::mesh_buffer_params_t mesh_buffer_params = {.remap_indices = false,
+                                                             .optimize_vertex_cache = true,
+                                                             .generate_lods = false,
+                                                             .generate_meshlets = false,
+                                                             .pack_vertices = true};
+
         bool draw_ui = true;
 
         float ui_scale = 1.f;
@@ -55,14 +61,6 @@ public:
         bool path_tracing = false;
 
         bool texture_compression = false;
-
-        bool remap_indices = false;
-
-        bool optimize_vertex_cache = true;
-
-        bool generate_lods = false;
-
-        bool generate_meshlets = false;
 
         bool cache_mesh_bundles = false;
 
@@ -208,7 +206,7 @@ private:
     scene_data_t m_scene_data;
 
     // tmp, keep track of mesh/model-paths
-    std::map<vierkant::MeshConstPtr , std::filesystem::path> m_model_paths;
+    std::map<vierkant::MeshConstPtr, std::filesystem::path> m_model_paths;
 };
 
 template<class Archive>
@@ -222,10 +220,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
-       cereal::make_nvp("remap_indices", settings.remap_indices),
-       cereal::make_nvp("optimize_vertex_cache", settings.optimize_vertex_cache),
-       cereal::make_nvp("generate_lods", settings.generate_lods),
-       cereal::make_nvp("generate_meshlets", settings.generate_meshlets),
+       cereal::make_nvp("mesh_buffer_params", settings.mesh_buffer_params),
        cereal::make_nvp("cache_mesh_bundles", settings.cache_mesh_bundles),
        cereal::make_nvp("enable_raytracing_pipeline_features", settings.enable_raytracing_pipeline_features),
        cereal::make_nvp("enable_ray_query_features", settings.enable_ray_query_features),
@@ -239,10 +234,8 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
-    ar(cereal::make_nvp("name", scene_node.name),
-       cereal::make_nvp("mesh_index", scene_node.mesh_index),
-       cereal::make_nvp("entry_indices", scene_node.entry_indices),
-       cereal::make_nvp("transform", scene_node.transform),
+    ar(cereal::make_nvp("name", scene_node.name), cereal::make_nvp("mesh_index", scene_node.mesh_index),
+       cereal::make_nvp("entry_indices", scene_node.entry_indices), cereal::make_nvp("transform", scene_node.transform),
        cereal::make_nvp("animation_state", scene_node.animation_state));
 }
 

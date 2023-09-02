@@ -799,9 +799,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             scene_node_t n = {"hasslecube", 0};
             nodes.push_back(n);
 
-//            scene_camera_t scene_camera = {};
-//            scene_camera.name = "main_camera";
-//            cameras.push_back(scene_camera);
+            //            scene_camera_t scene_camera = {};
+            //            scene_camera.name = "main_camera";
+            //            cameras.push_back(scene_camera);
         }
 
         auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)
@@ -872,12 +872,10 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
             return {};
         }
 
-        // lookup
+        // create hash of filename+params, search existing bundle
         std::optional<vierkant::model::asset_bundle_t> bundle;
         size_t hash_val = std::hash<std::string>()(path.filename().string());
-        vierkant::hash_combine(hash_val, m_settings.optimize_vertex_cache);
-        vierkant::hash_combine(hash_val, m_settings.generate_lods);
-        vierkant::hash_combine(hash_val, m_settings.generate_meshlets);
+        vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
         std::filesystem::path bundle_path =
                 fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
@@ -888,20 +886,13 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         {
             spdlog::stopwatch sw;
 
-            vierkant::mesh_buffer_params_t params = {};
-            params.remap_indices = m_settings.remap_indices;
-            params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
-            params.generate_lods = m_settings.generate_lods;
-            params.generate_meshlets = m_settings.generate_meshlets;
-            params.use_vertex_colors = false;
-            params.pack_vertices = true;
-
             spdlog::debug("creating asset-bundle '{}' - lod: {} - meshlets: {} - bc7-compression: {}",
-                          bundle_path.string(), params.generate_lods, params.generate_meshlets,
-                          m_settings.texture_compression);
+                          bundle_path.string(), m_settings.mesh_buffer_params.generate_lods,
+                          m_settings.mesh_buffer_params.generate_meshlets, m_settings.texture_compression);
 
             vierkant::model::asset_bundle_t asset_bundle;
-            asset_bundle.mesh_buffer_bundle = vierkant::create_mesh_buffers(scene_assets->entry_create_infos, params);
+            asset_bundle.mesh_buffer_bundle =
+                    vierkant::create_mesh_buffers(scene_assets->entry_create_infos, m_settings.mesh_buffer_params);
 
             if(m_settings.texture_compression)
             {
@@ -916,10 +907,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.device = m_device;
         load_params.load_queue = m_queue_model_loading;
         load_params.compress_textures = m_settings.texture_compression;
-        load_params.mesh_buffers_params.optimize_vertex_cache = m_settings.optimize_vertex_cache;
-        load_params.mesh_buffers_params.generate_lods = m_settings.generate_lods;
-        load_params.mesh_buffers_params.generate_meshlets = m_settings.generate_meshlets;
-        load_params.mesh_buffers_params.pack_vertices = true;
+        load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = buffer_flags;
         mesh = vierkant::model::load_mesh(load_params, *scene_assets, bundle);
 

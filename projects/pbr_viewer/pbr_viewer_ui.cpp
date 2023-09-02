@@ -202,10 +202,10 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
-            ImGui::Checkbox("remap indices", &m_settings.remap_indices);
-            ImGui::Checkbox("optimize vertex cache", &m_settings.optimize_vertex_cache);
-            ImGui::Checkbox("generate mesh-LODs", &m_settings.generate_lods);
-            ImGui::Checkbox("generate meshlets", &m_settings.generate_meshlets);
+            ImGui::Checkbox("remap indices", &m_settings.mesh_buffer_params.remap_indices);
+            ImGui::Checkbox("optimize vertex cache", &m_settings.mesh_buffer_params.optimize_vertex_cache);
+            ImGui::Checkbox("generate mesh-LODs", &m_settings.mesh_buffer_params.generate_lods);
+            ImGui::Checkbox("generate meshlets", &m_settings.mesh_buffer_params.generate_meshlets);
             ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
             ImGui::Separator();
             ImGui::Spacing();
