@@ -22,10 +22,10 @@
 
 #include <boost/program_options.hpp>
 
-#include <vierkant/model/model_loading.hpp>
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
+#include <vierkant/model/model_loading.hpp>
 
 #include "pbr_thumbnailer.h"
 
@@ -36,7 +36,7 @@ void PBRThumbnailer::setup()
     spdlog::set_level(m_settings.log_level);
 
     // load model in background
-    auto model_future = background_queue().post(
+    auto scene_future = background_queue().post(
             [path = m_settings.model_path, &pool = background_queue()] { return load_model_file(path, pool); });
 
     // TODO: load optional environment-HDR
@@ -44,10 +44,13 @@ void PBRThumbnailer::setup()
     // create required vulkan-resources
     create_graphics_context();
 
-    auto model_data = model_future.get();
+    auto scene_data = scene_future.get();
+
+    // create camera
+    if(scene_data) { create_camera(*scene_data); }
 
     // load model
-    bool success = model_data && create_mesh(*model_data);
+    bool success = scene_data && create_mesh(*scene_data);
     this->running = success;
     if(!success) { return_type = EXIT_FAILURE; }
 }
@@ -196,22 +199,9 @@ bool PBRThumbnailer::create_graphics_context()
         m_context.scene_renderer = vierkant::PBRDeferred::create(m_context.device, pbr_render_info);
     }
     vierkant::Rasterizer::create_info_t create_info = {};
-    create_info.num_frames_in_flight = 1;
     create_info.viewport.width = static_cast<float>(m_settings.result_image_size.x);
     create_info.viewport.height = static_cast<float>(m_settings.result_image_size.y);
     m_context.renderer = vierkant::Rasterizer(m_context.device, create_info);
-
-    // create camera and add to scene (TODO: prefer/expose cameras included in model-files)
-    vierkant::physical_camera_params_t camera_params = {};
-    camera_params.aspect =
-            static_cast<float>(m_settings.result_image_size.x) / static_cast<float>(m_settings.result_image_size.y);
-    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), camera_params);
-
-    // set camera-position
-    auto orbit_cam_controller = vierkant::OrbitCamera();
-    orbit_cam_controller.spherical_coords = m_settings.cam_spherical_coords;
-    orbit_cam_controller.distance = 2.5f;
-    m_camera->transform = orbit_cam_controller.transform();
 
     // create framebuffer
     vierkant::Framebuffer::create_info_t framebuffer_info = {};
@@ -222,7 +212,7 @@ bool PBRThumbnailer::create_graphics_context()
     // clear with transparent alpha, if requested
     if(!m_settings.draw_skybox) { m_context.framebuffer.clear_color = {{0.f, 0.f, 0.f, 0.f}}; }
 
-    spdlog::info("graphics-context initialized: {}", sw.elapsed());
+    spdlog::debug("graphics-context initialized: {}", sw.elapsed());
     return true;
 }
 
@@ -258,6 +248,28 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_asse
     }
     return true;
 }
+void PBRThumbnailer::create_camera(const vierkant::model::mesh_assets_t &mesh_assets)
+{
+    vierkant::model::camera_t model_camera = {};
+
+    // prefer/expose cameras included in model-files
+    if(m_settings.use_model_camera && !mesh_assets.cameras.empty()) { model_camera = mesh_assets.cameras.front(); }
+    else
+    {
+        // set camera-position
+        auto orbit_cam_controller = vierkant::OrbitCamera();
+        orbit_cam_controller.spherical_coords = m_settings.cam_spherical_coords;
+        orbit_cam_controller.distance = 2.5f;
+        model_camera.transform = orbit_cam_controller.transform();
+    }
+
+    // create camera and add to scene
+    model_camera.params.aspect =
+            static_cast<float>(m_settings.result_image_size.x) / static_cast<float>(m_settings.result_image_size.y);
+
+    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), model_camera.params);
+    m_camera->transform = model_camera.transform;
+}
 
 std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
 {
@@ -273,6 +285,7 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     desc.add_options()("height,h", po::value<uint32_t>(), "set result-image height in px");
     desc.add_options()("angle,a", po::value<float>(), "set camera rotation-angle in degrees");
     desc.add_options()("skybox,s", po::bool_switch(), "render skybox");
+    desc.add_options()("camera,c", po::bool_switch(), "prefer model-camera");
     desc.add_options()("raster,r", po::bool_switch(), "force fallback-rasterizer instead of path-tracing");
     desc.add_options()("verbose,v", po::bool_switch(), "verbose printing");
     desc.add_options()("validation", po::bool_switch(), "enable vulkan validation");
@@ -309,6 +322,9 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
             else { break; }
         }
     }
+    if(ret.model_path.empty()) { spdlog::error("no valid model-file (.gltf | .glb | .obj)"); }
+    if(ret.result_image_path.empty()) { spdlog::error("no valid output-image path (.png | .jpg)"); }
+
     success = success && !ret.model_path.empty() && !ret.result_image_path.empty();
 
     // print usage
@@ -323,6 +339,7 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     if(vm.count("height")) { ret.result_image_size.y = vm["height"].as<uint32_t>(); }
     if(vm.count("angle")) { ret.cam_spherical_coords.x = glm::radians(vm["angle"].as<float>()); }
     if(vm.count("skybox") && vm["skybox"].as<bool>()) { ret.draw_skybox = true; }
+    if(vm.count("camera") && vm["camera"].as<bool>()) { ret.use_model_camera = true; }
     if(vm.count("raster") && vm["raster"].as<bool>()) { ret.use_pathtracer = false; }
     if(vm.count("validation") && vm["validation"].as<bool>()) { ret.use_validation = true; }
     if(vm.count("verbose") && vm["verbose"].as<bool>()) { ret.log_level = spdlog::level::info; }

@@ -64,6 +64,9 @@ public:
         //! flag to request drawing of used skybox
         bool draw_skybox = false;
 
+        //! flag to use a camera contained in the model/scene file, if any
+        bool use_model_camera = false;
+
         //! flag to enable vulkan validation-layers
         bool use_validation = false;
     };
@@ -102,6 +105,8 @@ private:
     bool create_graphics_context();
 
     bool create_mesh(const vierkant::model::mesh_assets_t &mesh_assets);
+
+    void create_camera(const vierkant::model::mesh_assets_t &mesh_assets);
 
     graphics_context_t m_context;
 

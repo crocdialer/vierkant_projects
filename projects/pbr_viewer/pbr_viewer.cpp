@@ -338,6 +338,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
                 auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
                 object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i);
 
+                m_scene->clear();
                 m_scene->add_object(object);
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
@@ -921,16 +922,13 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     }
     else
     {
-        auto box = vierkant::Geometry::Box(glm::vec3(.5f));
-        box->colors.clear();
+        auto geom = vierkant::Geometry::Box(glm::vec3(.5f));
+        geom->colors.clear();
 
         vierkant::Mesh::create_info_t mesh_create_info = {};
-        mesh_create_info.mesh_buffer_params.optimize_vertex_cache = true;
-        mesh_create_info.mesh_buffer_params.generate_meshlets = true;
-        mesh_create_info.mesh_buffer_params.use_vertex_colors = false;
-        mesh_create_info.mesh_buffer_params.pack_vertices = true;
+        mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
         mesh_create_info.buffer_usage_flags = buffer_flags;
-        mesh = vierkant::Mesh::create_from_geometry(m_device, box, mesh_create_info);
+        mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
         auto mat = vierkant::Material::create();
 
         auto it = m_textures.find("test");
