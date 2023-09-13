@@ -319,7 +319,6 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
             if(file_exists && (ext == ".gltf" || ext == ".glb" || ext == ".obj")) { ret.model_path = file_path; }
             else if(file_exists && (ext == ".hdr")) { ret.environment_path = file_path; }
             else if(ext == ".png") { ret.result_image_path = file_path; }
-            else { break; }
         }
     }
     if(ret.model_path.empty()) { spdlog::error("no valid model-file (.gltf | .glb | .obj)"); }
@@ -352,7 +351,7 @@ int main(int argc, char *argv[])
     {
         crocore::Application::create_info_t create_info = {};
         create_info.arguments = {argv, argv + argc};
-        create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
+        create_info.num_background_threads = std::min<uint32_t>(4, std::thread::hardware_concurrency());
         auto app = PBRThumbnailer(create_info, *settings);
         return app.run();
     }

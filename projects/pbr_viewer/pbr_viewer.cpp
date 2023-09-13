@@ -396,7 +396,8 @@ void PBRViewer::load_environment(const std::string &path)
 
                 // derive sane resolution for cube from panorama-width
                 float res = static_cast<float>(crocore::next_pow_2(std::max(img->width(), img->height()) / 4));
-                skybox = vierkant::cubemap_from_panorama(panorama, {res, res}, m_queue_image_loading, true, hdr_format);
+                skybox = vierkant::cubemap_from_panorama(m_device, panorama, m_queue_image_loading, {res, res}, true,
+                                                         hdr_format);
             }
 
             if(skybox)
@@ -799,10 +800,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             meshes.push_back(load_mesh(""));
             scene_node_t n = {"hasslecube", 0};
             nodes.push_back(n);
-
-            //            scene_camera_t scene_camera = {};
-            //            scene_camera.name = "main_camera";
-            //            cameras.push_back(scene_camera);
         }
 
         auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)
@@ -852,14 +849,12 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     {
         buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
-
     m_num_loading++;
     auto start_time = std::chrono::steady_clock::now();
     vierkant::MeshPtr mesh;
 
     if(!path.empty())
     {
-
         spdlog::debug("loading model '{}'", path.string());
 
         // tinygltf
@@ -895,10 +890,14 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
             asset_bundle.mesh_buffer_bundle =
                     vierkant::create_mesh_buffers(scene_assets->entry_create_infos, m_settings.mesh_buffer_params);
 
-            if(m_settings.texture_compression)
+            // run in-place compression on all textures, store compressed textures in bundle
+            if(m_settings.texture_compression && scene_assets)
             {
-                asset_bundle.compressed_images = vierkant::model::create_compressed_images(scene_assets->materials);
+                vierkant::model::compress_textures(*scene_assets);
+                asset_bundle.textures = scene_assets->textures;
+                asset_bundle.materials = scene_assets->materials;
             }
+
             bundle = std::move(asset_bundle);
             spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
             bundle_created = true;
@@ -907,7 +906,6 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         vierkant::model::load_mesh_params_t load_params = {};
         load_params.device = m_device;
         load_params.load_queue = m_queue_model_loading;
-        load_params.compress_textures = m_settings.texture_compression;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = buffer_flags;
         mesh = vierkant::model::load_mesh(load_params, *scene_assets, bundle);
@@ -968,7 +966,7 @@ int main(int argc, char *argv[])
 {
     crocore::Application::create_info_t create_info = {};
     create_info.arguments = {argv, argv + argc};
-    create_info.num_background_threads = 4;//std::thread::hardware_concurrency();
+    create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
 
     auto app = std::make_shared<PBRViewer>(create_info);
     return app->run();

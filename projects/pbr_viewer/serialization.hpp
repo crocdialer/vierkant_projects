@@ -10,6 +10,7 @@
 #include <cereal/types/set.hpp>
 #include <cereal/types/unordered_map.hpp>
 #include <cereal/types/optional.hpp>
+#include <cereal/types/variant.hpp>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
@@ -27,6 +28,33 @@
 #include <vierkant/Window.hpp>
 #include <vierkant/bc7.hpp>
 #include <vierkant/transform.hpp>
+
+namespace crocore
+{
+
+template<class Archive, class T>
+std::string save_minimal(Archive const &, const crocore::NamedUUID<T> &named_id)
+{
+    return named_id.str();
+}
+
+template<class Archive, class T>
+void load_minimal(Archive const &,
+                  crocore::NamedUUID<T> &named_id,
+                  const std::string &uuid_str)
+{
+    named_id = crocore::NamedUUID<T>(uuid_str);
+}
+
+template<class Archive, class T>
+void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
+{
+    std::vector<T> array(set_lru.begin(), set_lru.end());
+    archive(array);
+    set_lru = {array.begin(), array.end()};
+}
+
+}
 
 namespace vierkant
 {
@@ -248,6 +276,50 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 
 }// namespace vierkant
 
+namespace vierkant::model
+{
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::model::material_t &material)
+{
+    archive(cereal::make_nvp("name", material.name),
+            cereal::make_nvp("base_color", material.base_color),
+            cereal::make_nvp("emission", material.emission),
+            cereal::make_nvp("emissive_strength", material.emissive_strength),
+            cereal::make_nvp("roughness", material.roughness),
+            cereal::make_nvp("metalness", material.metalness),
+            cereal::make_nvp("ior", material.ior),
+            cereal::make_nvp("attenuation_color", material.attenuation_color),
+            cereal::make_nvp("transmission", material.transmission),
+            cereal::make_nvp("attenuation_distance", material.attenuation_distance),
+            cereal::make_nvp("thickness", material.thickness),
+            cereal::make_nvp("blend_mode", material.blend_mode),
+            cereal::make_nvp("alpha_cutoff", material.alpha_cutoff),
+            cereal::make_nvp("twosided", material.twosided),
+            cereal::make_nvp("specular_factor", material.specular_factor),
+            cereal::make_nvp("specular_color", material.specular_color),
+            cereal::make_nvp("clearcoat_factor", material.clearcoat_factor),
+            cereal::make_nvp("clearcoat_roughness_factor", material.clearcoat_roughness_factor),
+            cereal::make_nvp("sheen_color", material.sheen_color),
+            cereal::make_nvp("sheen_roughness", material.sheen_roughness),
+            cereal::make_nvp("iridescence_factor", material.iridescence_factor),
+            cereal::make_nvp("iridescence_ior", material.iridescence_ior),
+            cereal::make_nvp("iridescence_thickness_range", material.iridescence_thickness_range),
+            cereal::make_nvp("texture_transform", material.texture_transform),
+            cereal::make_nvp("textures", material.textures));
+}
+
+template<class Archive>
+void serialize(Archive &archive,
+               vierkant::model::asset_bundle_t &asset_bundle)
+{
+    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
+            cereal::make_nvp("materials", asset_bundle.materials),
+            cereal::make_nvp("textures", asset_bundle.textures));
+}
+
+}// namespace vierkant::model
+
 namespace cereal
 {
 
@@ -264,36 +336,6 @@ void serialize(Archive &archive,
     archive(cereal::make_nvp("base_width", compress_result.base_width),
             cereal::make_nvp("base_height", compress_result.base_height),
             cereal::make_nvp("levels", compress_result.levels));
-}
-
-template<class Archive>
-void serialize(Archive &archive,
-               vierkant::model::asset_bundle_t &asset_bundle)
-{
-    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
-            cereal::make_nvp("compressed_images", asset_bundle.compressed_images));
-}
-
-template<class Archive, class T>
-void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
-{
-    std::vector<T> array(set_lru.begin(), set_lru.end());
-    archive(array);
-    set_lru = {array.begin(), array.end()};
-}
-
-template<class Archive, class T>
-std::string save_minimal(Archive const &, const crocore::NamedId<T> &named_id)
-{
-    return named_id.str();
-}
-
-template<class Archive, class T>
-void load_minimal(Archive const &,
-                  crocore::NamedId<T> &named_id,
-                  const std::string &uuid_str)
-{
-    named_id = crocore::NamedId<T>(uuid_str);
 }
 
 }// namespace cereal
