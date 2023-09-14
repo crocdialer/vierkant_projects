@@ -155,6 +155,7 @@ void PBRViewer::create_context_and_window()
             break;
         }
     }
+    spdlog::info(vierkant::device_info(physical_device));
 
     // create device
     vierkant::Device::create_info_t device_info = {};

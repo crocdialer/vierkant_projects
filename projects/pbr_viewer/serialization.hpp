@@ -305,8 +305,18 @@ void serialize(Archive &archive, vierkant::model::material_t &material)
             cereal::make_nvp("iridescence_factor", material.iridescence_factor),
             cereal::make_nvp("iridescence_ior", material.iridescence_ior),
             cereal::make_nvp("iridescence_thickness_range", material.iridescence_thickness_range),
-            cereal::make_nvp("texture_transform", material.texture_transform),
+//            cereal::make_nvp("texture_transform", material.texture_transform),
             cereal::make_nvp("textures", material.textures));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::model::texture_sampler_state_t &state)
+{
+    archive(cereal::make_nvp("min_filter", state.min_filter),
+            cereal::make_nvp("mag_filter", state.mag_filter),
+            cereal::make_nvp("address_mode_u", state.address_mode_u),
+            cereal::make_nvp("address_mode_v", state.address_mode_v),
+            cereal::make_nvp("transform", state.transform));
 }
 
 template<class Archive>

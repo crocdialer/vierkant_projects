@@ -35,6 +35,10 @@ void PBRThumbnailer::setup()
 {
     spdlog::set_level(m_settings.log_level);
 
+    // print vulkan/driver/vierkant-version
+    spdlog::info("{}: processing model '{}' -> '{}'", name(), m_settings.model_path.string(),
+                 m_settings.result_image_path.string());
+
     // load model in background
     auto scene_future = background_queue().post(
             [path = m_settings.model_path, &pool = background_queue()] { return load_model_file(path, pool); });
@@ -150,6 +154,8 @@ bool PBRThumbnailer::create_graphics_context()
             break;
         }
     }
+    // print vulkan-/driver-/vierkant-version
+    spdlog::debug(vierkant::device_info(physical_device));
 
     // check raytracing-pipeline support
     m_settings.use_pathtracer =
