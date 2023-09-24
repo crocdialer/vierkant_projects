@@ -11,6 +11,7 @@
 #include <crocore/Application.hpp>
 #include <crocore/set_lru.hpp>
 #include <vierkant/PBRPathTracer.hpp>
+#include <vierkant/imgui/imgui_util.h>
 #include <vierkant/vierkant.hpp>
 
 
