@@ -35,6 +35,9 @@ include_directories(${netzer_INCLUDE_DIRS})
 # cereal
 include_directories("submodules/cereal/include")
 
+# cxxopts
+include_directories("submodules/cxxopts/include")
+
 # libzip
 cmake_policy(SET CMP0063 NEW)
 set(BUILD_TOOLS OFF)

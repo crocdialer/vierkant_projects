@@ -20,8 +20,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-#include <boost/program_options.hpp>
-
+#include <cxxopts.hpp>
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
@@ -105,7 +104,7 @@ void PBRThumbnailer::update(double /*time_delta*/)
 
 void PBRThumbnailer::teardown()
 {
-    vkDeviceWaitIdle(m_context.device->handle());
+    m_context.device->wait_idle();
     spdlog::info("total: {}s", application_time());
 }
 
@@ -146,10 +145,9 @@ bool PBRThumbnailer::create_graphics_context()
 
     for(const auto &pd: m_context.instance.physical_devices())
     {
-        VkPhysicalDeviceProperties device_props = {};
-        vkGetPhysicalDeviceProperties(pd, &device_props);
+        VkPhysicalDeviceProperties2 device_props = vierkant::device_properties(pd);
 
-        if(device_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        if(device_props.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
             physical_device = pd;
             break;
@@ -293,42 +291,28 @@ void PBRThumbnailer::create_camera(const vierkant::model::mesh_assets_t &mesh_as
 
 std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
 {
-    namespace po = boost::program_options;
     PBRThumbnailer::settings_t ret = {};
-
     bool success = true;
 
     // available options
-    po::options_description desc("Available options");
-    desc.add_options()("help", "produce help message");
-    desc.add_options()("width,w", po::value<uint32_t>(), "set result-image width in px");
-    desc.add_options()("height,h", po::value<uint32_t>(), "set result-image height in px");
-    desc.add_options()("angle,a", po::value<float>(), "set camera rotation-angle in degrees");
-    desc.add_options()("skybox,s", po::bool_switch(), "render skybox");
-    desc.add_options()("camera,c", po::bool_switch(), "prefer model-camera");
-    desc.add_options()("raster,r", po::bool_switch(), "force fallback-rasterizer instead of path-tracing");
-    desc.add_options()("verbose,v", po::bool_switch(), "verbose printing");
-    desc.add_options()("validation", po::bool_switch(), "enable vulkan validation");
-    desc.add_options()("input-file", po::value<std::vector<std::string>>(), "input file");
+    cxxopts::Options options(argv[0], "3d-model thumbnailer with rasterization and path-tracer backends");
+    options.add_options()("help", "produce help message");
+    options.add_options()("w,width", "result-image width in px", cxxopts::value<uint32_t>());
+    options.add_options()("h,height", "result-image height in px", cxxopts::value<uint32_t>());
+    options.add_options()("a,angle", "camera rotation-angle in degrees", cxxopts::value<float>());
+    options.add_options()("s,skybox", "render skybox");
+    options.add_options()("c, camera", "prefer model-camera");
+    options.add_options()("r,raster", "force fallback-rasterizer instead of path-tracing");
+    options.add_options()("v,verbose", "verbose printing");
+    options.add_options()("validation", "enable vulkan validation");
+    options.add_options()("files", "provided input files", cxxopts::value<std::vector<std::string>>());
+    options.parse_positional("files");
 
-    po::positional_options_description p;
-    p.add("input-file", -1);
+    auto result = options.parse(argc, argv);
 
-    po::variables_map vm;
-
-    try
+    if(result.count("files"))
     {
-        po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
-        po::notify(vm);
-    } catch(std::exception &e)
-    {
-        success = false;
-        spdlog::error(e.what());
-    }
-
-    if(vm.count("input-file"))
-    {
-        const auto &files = vm["input-file"].as<std::vector<std::string>>();
+        const auto &files = result["files"].as<std::vector<std::string>>();
 
         for(const auto &f: files)
         {
@@ -347,21 +331,21 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     success = success && !ret.model_path.empty() && !ret.result_image_path.empty();
 
     // print usage
-    if(!success || vm.count("help"))
+    if(!success || result.count("help"))
     {
         spdlog::info("usage: pbr_thumbnailer [options...] <model_path> <result_image_path>");
         spdlog::set_pattern("%v");
-        spdlog::info("\n{}", (std::stringstream() << desc).str());
+        spdlog::info("\n{}", options.help());
         return {};
     }
-    if(vm.count("width")) { ret.result_image_size.x = vm["width"].as<uint32_t>(); }
-    if(vm.count("height")) { ret.result_image_size.y = vm["height"].as<uint32_t>(); }
-    if(vm.count("angle")) { ret.cam_spherical_coords.x = glm::radians(vm["angle"].as<float>()); }
-    if(vm.count("skybox") && vm["skybox"].as<bool>()) { ret.draw_skybox = true; }
-    if(vm.count("camera") && vm["camera"].as<bool>()) { ret.use_model_camera = true; }
-    if(vm.count("raster") && vm["raster"].as<bool>()) { ret.use_pathtracer = false; }
-    if(vm.count("validation") && vm["validation"].as<bool>()) { ret.use_validation = true; }
-    if(vm.count("verbose") && vm["verbose"].as<bool>()) { ret.log_level = spdlog::level::info; }
+    if(result.count("width")) { ret.result_image_size.x = result["width"].as<uint32_t>(); }
+    if(result.count("height")) { ret.result_image_size.y = result["height"].as<uint32_t>(); }
+    if(result.count("angle")) { ret.cam_spherical_coords.x = glm::radians(result["angle"].as<float>()); }
+    if(result.count("skybox") && result["skybox"].as<bool>()) { ret.draw_skybox = true; }
+    if(result.count("camera") && result["camera"].as<bool>()) { ret.use_model_camera = true; }
+    if(result.count("raster") && result["raster"].as<bool>()) { ret.use_pathtracer = false; }
+    if(result.count("validation") && result["validation"].as<bool>()) { ret.use_validation = true; }
+    if(result.count("verbose") && result["verbose"].as<bool>()) { ret.log_level = spdlog::level::info; }
     return ret;
 }
 

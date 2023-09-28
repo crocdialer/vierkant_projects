@@ -112,7 +112,7 @@ void PBRViewer::teardown()
     spdlog::debug("joining background tasks ...");
     background_queue().join_all();
     main_queue().poll();
-    vkDeviceWaitIdle(m_device->handle());
+    m_device->wait_idle();
     spdlog::info("ciao {}", name());
 }
 
@@ -137,10 +137,9 @@ void PBRViewer::create_context_and_window()
 
     for(const auto &pd: m_instance.physical_devices())
     {
-        VkPhysicalDeviceProperties device_props = {};
-        vkGetPhysicalDeviceProperties(pd, &device_props);
+        VkPhysicalDeviceProperties2 device_props = vierkant::device_properties(pd);
 
-        if(device_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        if(device_props.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
             physical_device = pd;
             break;
