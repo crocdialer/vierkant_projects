@@ -2,10 +2,10 @@
 #include <crocore/filesystem.hpp>
 #include <netzer/http.hpp>
 
-
-#include <vierkant/PBRDeferred.hpp>
 #include "vierkant/model/gltf.hpp"
+#include <vierkant/PBRDeferred.hpp>
 #include <vierkant/Visitor.hpp>
+#include <vierkant/cubemap_utils.hpp>
 
 #include "spdlog/sinks/base_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -154,6 +154,7 @@ void PBRViewer::create_context_and_window()
     device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
     device_info.debug_labels = true;
+    device_info.direct_function_pointers = true;
     device_info.surface = m_window->surface();
 
     // check raytracing-pipeline support
@@ -190,8 +191,8 @@ void PBRViewer::create_context_and_window()
         device_info.extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
 
-    // test descriptor-buffer extension
-//    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+    // upcoming usage of descriptor-buffer extension
+    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 
     m_device = vierkant::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
@@ -252,6 +253,7 @@ void PBRViewer::create_graphics_pipeline()
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
     pbr_render_info.queue = m_queue_pbr_render;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
+    pbr_render_info.hdr_format = m_hdr_format;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
     pbr_render_info.settings = m_settings.pbr_settings;
     pbr_render_info.settings.use_meshlet_pipeline = m_settings.enable_mesh_shader_device_features;
@@ -265,6 +267,23 @@ void PBRViewer::create_graphics_pipeline()
         pbr_render_info.brdf_lut = prev_images.bsdf_lut;
         pbr_render_info.settings = m_pbr_renderer->settings;
     }
+    const auto &fallback_env = m_textures["environment"];
+
+    if(!pbr_render_info.conv_lambert)
+    {
+        constexpr uint32_t lambert_size = 128;
+        pbr_render_info.conv_lambert = vierkant::create_convolution_lambert(m_device, fallback_env, lambert_size,
+                                                                            m_hdr_format, m_queue_image_loading);
+    }
+    if(!pbr_render_info.conv_ggx)
+    {
+        pbr_render_info.conv_ggx = fallback_env;
+        pbr_render_info.conv_ggx = vierkant::create_convolution_ggx(m_device, fallback_env, fallback_env->width(),
+                                                                    m_hdr_format, m_queue_image_loading);
+    }
+    pbr_render_info.conv_lambert->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_NULL_HANDLE);
+    pbr_render_info.conv_ggx->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_NULL_HANDLE);
+
     m_pbr_renderer = vierkant::PBRDeferred::create(m_device, pbr_render_info);
 
     if(m_settings.enable_raytracing_pipeline_features)
@@ -306,6 +325,9 @@ void PBRViewer::create_texture_image()
     fmt.extent = {img->width(), img->height(), 1};
     fmt.use_mipmap = true;
     m_textures["test"] = vierkant::Image::create(m_device, img->data(), fmt);
+    m_textures["environment"] = vierkant::cubemap_neutral_environment(m_device, 256, m_queue_image_loading, true,
+                                                                      m_hdr_format);
+    m_scene->set_environment(m_textures["environment"]);
 }
 
 void PBRViewer::update(double time_delta)

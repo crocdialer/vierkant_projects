@@ -25,6 +25,7 @@
 #include <vierkant/CameraControl.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
+#include <vierkant/cubemap_utils.hpp>
 #include <vierkant/model/model_loading.hpp>
 
 #include "pbr_thumbnailer.h"
@@ -167,6 +168,7 @@ bool PBRThumbnailer::create_graphics_context()
     device_info.use_validation = m_context.instance.use_validation_layers();
     device_info.instance = m_context.instance.handle();
     device_info.physical_device = physical_device;
+    device_info.direct_function_pointers = true;
 
     // add the raytracing-extensions
     if(m_settings.use_pathtracer)
@@ -195,6 +197,8 @@ bool PBRThumbnailer::create_graphics_context()
     }
     else
     {
+        constexpr auto hdr_format = VK_FORMAT_R16G16B16A16_SFLOAT;// VK_FORMAT_B10G11R11_UFLOAT_PACK32
+
         vierkant::PBRDeferred::create_info_t pbr_render_info = {};
         pbr_render_info.settings.resolution = m_settings.result_image_size;
         pbr_render_info.settings.output_resolution = m_settings.result_image_size;
@@ -202,6 +206,16 @@ bool PBRThumbnailer::create_graphics_context()
         pbr_render_info.settings.indirect_draw = false;
         pbr_render_info.settings.use_taa = false;
         pbr_render_info.settings.use_fxaa = true;
+        pbr_render_info.hdr_format = hdr_format;
+
+        constexpr uint32_t env_size = 256;
+        constexpr uint32_t lambert_size = 64;
+        auto env_img = vierkant::cubemap_neutral_environment(m_context.device, env_size, m_context.device->queue(),
+                                                             true, hdr_format);
+        pbr_render_info.conv_lambert = vierkant::create_convolution_lambert(m_context.device, env_img, lambert_size,
+                                                                            hdr_format, m_context.device->queue());
+        pbr_render_info.conv_ggx = vierkant::create_convolution_ggx(m_context.device, env_img, env_img->width(),
+                                                                    hdr_format, m_context.device->queue());
         m_context.scene_renderer = vierkant::PBRDeferred::create(m_context.device, pbr_render_info);
     }
     vierkant::Rasterizer::create_info_t create_info = {};

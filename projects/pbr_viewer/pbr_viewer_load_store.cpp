@@ -1,9 +1,9 @@
 #include <fstream>
 
+#include "pbr_viewer.hpp"
+#include "ziparchive.h"
 #include <crocore/filesystem.hpp>
 #include <vierkant/cubemap_utils.hpp>
-#include "ziparchive.h"
-#include "pbr_viewer.hpp"
 
 using double_second = std::chrono::duration<double>;
 constexpr char g_zip_path[] = "asset_bundle_cache.zip";
@@ -90,8 +90,8 @@ void PBRViewer::load_environment(const std::string &path)
                 cmd_buf.submit(m_queue_image_loading, true);
 
                 // derive sane resolution for cube from panorama-width
-                float res = static_cast<float>(crocore::next_pow_2(std::max(img->width(), img->height()) / 4));
-                skybox = vierkant::cubemap_from_panorama(m_device, panorama, m_queue_image_loading, {res, res}, true,
+                uint32_t res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
+                skybox = vierkant::cubemap_from_panorama(m_device, panorama, m_queue_image_loading, res, true,
                                                          hdr_format);
             }
 
