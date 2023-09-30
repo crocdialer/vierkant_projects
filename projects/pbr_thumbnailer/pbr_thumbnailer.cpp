@@ -292,10 +292,9 @@ void PBRThumbnailer::create_camera(const vierkant::model::mesh_assets_t &mesh_as
 std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
 {
     PBRThumbnailer::settings_t ret = {};
-    bool success = true;
 
     // available options
-    cxxopts::Options options(argv[0], "3d-model thumbnailer with rasterization and path-tracer backends");
+    cxxopts::Options options(argv[0], "3d-model thumbnailer with rasterization and path-tracer backends\n");
     options.add_options()("help", "produce help message");
     options.add_options()("w,width", "result-image width in px", cxxopts::value<uint32_t>());
     options.add_options()("h,height", "result-image height in px", cxxopts::value<uint32_t>());
@@ -308,7 +307,16 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     options.add_options()("files", "provided input files", cxxopts::value<std::vector<std::string>>());
     options.parse_positional("files");
 
-    auto result = options.parse(argc, argv);
+    cxxopts::ParseResult result;
+
+    try
+    {
+        result = options.parse(argc, argv);
+    } catch(std::exception &e)
+    {
+        spdlog::error(e.what());
+        return {};
+    }
 
     if(result.count("files"))
     {
@@ -328,12 +336,11 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     if(ret.model_path.empty()) { spdlog::error("no valid model-file (.gltf | .glb | .obj)"); }
     if(ret.result_image_path.empty()) { spdlog::error("no valid output-image path (.png | .jpg)"); }
 
-    success = success && !ret.model_path.empty() && !ret.result_image_path.empty();
+    bool success = !ret.model_path.empty() && !ret.result_image_path.empty();
 
     // print usage
     if(!success || result.count("help"))
     {
-        spdlog::info("usage: pbr_thumbnailer [options...] <model_path> <result_image_path>");
         spdlog::set_pattern("%v");
         spdlog::info("\n{}", options.help());
         return {};

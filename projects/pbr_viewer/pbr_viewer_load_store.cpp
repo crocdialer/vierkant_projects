@@ -286,6 +286,7 @@ std::optional<vierkant::model::asset_bundle_t> PBRViewer::load_asset_bundle(cons
     {
         try
         {
+//            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
             vierkant::model::asset_bundle_t ret;
 
