@@ -304,7 +304,7 @@ void PBRViewer::create_graphics_pipeline()
 void PBRViewer::create_texture_image()
 {
     // try to fetch cool image
-    auto http_response = crocore::net::http::get(g_texture_url);
+    auto http_response = netzer::http::get(g_texture_url);
 
     crocore::ImagePtr img;
     vierkant::Image::Format fmt;

@@ -459,16 +459,6 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     {
         spdlog::debug("loading model '{}'", path.string());
 
-        // tinygltf
-        auto scene_assets = vierkant::model::load_model(path, &background_queue());
-        spdlog::debug("loaded model '{}' ({})", path.string(),
-                      vierkant::double_second(std::chrono::steady_clock::now() - start_time));
-
-        if(!scene_assets || scene_assets->entry_create_infos.empty())
-        {
-            spdlog::warn("could not load file: {}", path.string());
-            return {};
-        }
 
         // create hash of filename+params, search existing bundle
         std::optional<vierkant::model::asset_bundle_t> bundle;
@@ -482,6 +472,17 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 
         if(!bundle)
         {
+            // tinygltf
+            auto scene_assets = vierkant::model::load_model(path, &background_queue());
+            spdlog::debug("loaded model '{}' ({})", path.string(),
+                          vierkant::double_second(std::chrono::steady_clock::now() - start_time));
+
+            if(!scene_assets || scene_assets->entry_create_infos.empty())
+            {
+                spdlog::warn("could not load file: {}", path.string());
+                return {};
+            }
+
             spdlog::stopwatch sw;
 
             spdlog::debug("creating asset-bundle '{}' - lod: {} - meshlets: {} - bc7-compression: {}",
@@ -498,6 +499,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
                 vierkant::model::compress_textures(*scene_assets);
                 asset_bundle.textures = scene_assets->textures;
                 asset_bundle.materials = scene_assets->materials;
+                asset_bundle.texture_samplers = scene_assets->texture_samplers;
             }
 
             bundle = std::move(asset_bundle);
@@ -510,7 +512,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.load_queue = m_queue_model_loading;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = buffer_flags;
-        mesh = vierkant::model::load_mesh(load_params, *scene_assets, bundle);
+        mesh = vierkant::model::load_mesh(load_params, {}, bundle);
 
         m_num_loading--;
 

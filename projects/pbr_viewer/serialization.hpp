@@ -325,7 +325,8 @@ void serialize(Archive &archive,
 {
     archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
             cereal::make_nvp("materials", asset_bundle.materials),
-            cereal::make_nvp("textures", asset_bundle.textures));
+            cereal::make_nvp("textures", asset_bundle.textures),
+            cereal::make_nvp("texture_samplers", asset_bundle.texture_samplers));
 }
 
 }// namespace vierkant::model
