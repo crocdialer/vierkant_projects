@@ -306,7 +306,8 @@ void serialize(Archive &archive, vierkant::model::material_t &material)
             cereal::make_nvp("iridescence_ior", material.iridescence_ior),
             cereal::make_nvp("iridescence_thickness_range", material.iridescence_thickness_range),
             cereal::make_nvp("texture_transform", material.texture_transform),
-            cereal::make_nvp("textures", material.textures));
+            cereal::make_nvp("textures", material.textures),
+            cereal::make_nvp("samplers", material.samplers));
 }
 
 template<class Archive>
