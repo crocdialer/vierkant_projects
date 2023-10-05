@@ -497,10 +497,10 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
             if(m_settings.texture_compression && scene_assets)
             {
                 vierkant::model::compress_textures(*scene_assets);
-                asset_bundle.textures = scene_assets->textures;
-                asset_bundle.materials = scene_assets->materials;
-                asset_bundle.texture_samplers = scene_assets->texture_samplers;
             }
+            asset_bundle.textures = std::move(scene_assets->textures);
+            asset_bundle.materials = std::move(scene_assets->materials);
+            asset_bundle.texture_samplers = std::move(scene_assets->texture_samplers);
 
             bundle = std::move(asset_bundle);
             spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
