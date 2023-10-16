@@ -247,8 +247,7 @@ void PBRViewer::load_file(const std::string &path)
     }
 }
 
-void PBRViewer::save_asset_bundle(const vierkant::model::asset_bundle_t &asset_bundle,
-                                  const std::filesystem::path &path)
+void PBRViewer::save_asset_bundle(const vierkant::model::mesh_assets_t &mesh_assets, const std::filesystem::path &path)
 {
     // save data to archive
     try
@@ -259,7 +258,7 @@ void PBRViewer::save_asset_bundle(const vierkant::model::asset_bundle_t &asset_b
             std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
             spdlog::debug("serializing/writing mesh_buffer_bundle: {}", path.string());
             cereal::BinaryOutputArchive archive(ofs);
-            archive(asset_bundle);
+            archive(mesh_assets);
             spdlog::debug("done serializing/writing mesh_buffer_bundle: {} ({})", path.string(), sw.elapsed());
         }
 
@@ -278,7 +277,7 @@ void PBRViewer::save_asset_bundle(const vierkant::model::asset_bundle_t &asset_b
     }
 }
 
-std::optional<vierkant::model::asset_bundle_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
+std::optional<vierkant::model::mesh_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
 {
     vierkant::ziparchive zip(g_zip_path);
 
@@ -286,9 +285,9 @@ std::optional<vierkant::model::asset_bundle_t> PBRViewer::load_asset_bundle(cons
     {
         try
         {
-//            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
+            //            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
-            vierkant::model::asset_bundle_t ret;
+            vierkant::model::mesh_assets_t ret;
 
             std::shared_lock lock(m_bundle_rw_mutex);
             auto zipstream = zip.open_file(path);
@@ -461,23 +460,22 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 
 
         // create hash of filename+params, search existing bundle
-        std::optional<vierkant::model::asset_bundle_t> bundle;
         size_t hash_val = std::hash<std::string>()(path.filename().string());
         vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
         std::filesystem::path bundle_path =
                 fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
         bool bundle_created = false;
-        bundle = load_asset_bundle(bundle_path);
+        auto mesh_assets = load_asset_bundle(bundle_path);
 
-        if(!bundle)
+        if(!mesh_assets)
         {
             // tinygltf
-            auto scene_assets = vierkant::model::load_model(path, &background_queue());
+            mesh_assets = vierkant::model::load_model(path, &background_queue());
             spdlog::debug("loaded model '{}' ({})", path.string(),
                           vierkant::double_second(std::chrono::steady_clock::now() - start_time));
 
-            if(!scene_assets || scene_assets->entry_create_infos.empty())
+            if(!mesh_assets)
             {
                 spdlog::warn("could not load file: {}", path.string());
                 return {};
@@ -489,20 +487,14 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
                           bundle_path.string(), m_settings.mesh_buffer_params.generate_lods,
                           m_settings.mesh_buffer_params.generate_meshlets, m_settings.texture_compression);
 
-            vierkant::model::asset_bundle_t asset_bundle;
-            asset_bundle.mesh_buffer_bundle =
-                    vierkant::create_mesh_buffers(scene_assets->entry_create_infos, m_settings.mesh_buffer_params);
+            // run compression of geometries, creation of meshlets, lods, etc.
+            mesh_assets->geometry_data = vierkant::create_mesh_buffers(
+                    std::get<std::vector<vierkant::Mesh::entry_create_info_t>>(mesh_assets->geometry_data),
+                    m_settings.mesh_buffer_params);
 
             // run in-place compression on all textures, store compressed textures in bundle
-            if(m_settings.texture_compression && scene_assets)
-            {
-                vierkant::model::compress_textures(*scene_assets);
-            }
-            asset_bundle.textures = std::move(scene_assets->textures);
-            asset_bundle.materials = std::move(scene_assets->materials);
-            asset_bundle.texture_samplers = std::move(scene_assets->texture_samplers);
+            if(m_settings.texture_compression) { vierkant::model::compress_textures(*mesh_assets); }
 
-            bundle = std::move(asset_bundle);
             spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
             bundle_created = true;
         }
@@ -512,14 +504,15 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.load_queue = m_queue_model_loading;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = buffer_flags;
-        mesh = vierkant::model::load_mesh(load_params, {}, bundle);
+        mesh = vierkant::model::load_mesh(load_params, *mesh_assets);
 
         m_num_loading--;
 
         if(bundle_created && m_settings.cache_mesh_bundles)
         {
-            background_queue().post(
-                    [this, bundle = std::move(bundle), bundle_path]() { save_asset_bundle(*bundle, bundle_path); });
+            background_queue().post([this, mesh_assets = std::move(mesh_assets), bundle_path]() {
+                save_asset_bundle(*mesh_assets, bundle_path);
+            });
         }
     }
     else

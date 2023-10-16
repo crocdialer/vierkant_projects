@@ -16,6 +16,7 @@
 #include <cereal/archives/json.hpp>
 
 #include "glm_cereal.hpp"
+#include "animation_cereal.hpp"
 
 #include <crocore/set_lru.hpp>
 #include <crocore/NamedId.hpp>
@@ -59,21 +60,26 @@ void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
 namespace vierkant
 {
 
+template<class Archive>
+void serialize(Archive &archive, vierkant::Geometry &g)
+{
+    archive(cereal::make_nvp("topology", g.topology),
+            cereal::make_nvp("positions", g.positions),
+            cereal::make_nvp("colors", g.colors),
+            cereal::make_nvp("tex_coords", g.tex_coords),
+            cereal::make_nvp("normals", g.normals),
+            cereal::make_nvp("tangents", g.tangents),
+            cereal::make_nvp("bone_indices", g.bone_indices),
+            cereal::make_nvp("bone_weights", g.bone_weights),
+            cereal::make_nvp("indices", g.indices));
+}
+
 template<class Archive, class T>
 void serialize(Archive &archive, vierkant::transform_t_<T> &t)
 {
     archive(cereal::make_nvp("translation", t.translation),
             cereal::make_nvp("rotation", t.rotation),
             cereal::make_nvp("scale", t.scale));
-}
-
-template<class Archive, class T>
-void serialize(Archive &archive, vierkant::animation_state_t_<T> &a)
-{
-    archive(cereal::make_nvp("index", a.index),
-            cereal::make_nvp("playing", a.playing),
-            cereal::make_nvp("animation_speed", a.animation_speed),
-            cereal::make_nvp("current_time", a.current_time));
 }
 
 template<class Archive>
@@ -106,6 +112,18 @@ void serialize(Archive &archive, vierkant::vertex_attrib_t &vertex_attrib)
             cereal::make_nvp("stride", vertex_attrib.stride),
             cereal::make_nvp("format", vertex_attrib.format),
             cereal::make_nvp("input_rate", vertex_attrib.input_rate));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::Mesh::entry_create_info_t &entry_info)
+{
+    archive(cereal::make_nvp("name", entry_info.name),
+            cereal::make_nvp("geometry", entry_info.geometry),
+            cereal::make_nvp("transform", entry_info.transform),
+            cereal::make_nvp("node_index", entry_info.node_index),
+            cereal::make_nvp("material_index", entry_info.material_index),
+            cereal::make_nvp("morph_targets", entry_info.morph_targets),
+            cereal::make_nvp("morph_weights", entry_info.morph_weights));
 }
 
 template<class Archive>
@@ -320,14 +338,32 @@ void serialize(Archive &archive, vierkant::model::texture_sampler_t &state)
             cereal::make_nvp("transform", state.transform));
 }
 
+//template<class Archive>
+//void serialize(Archive &archive,
+//               vierkant::model::asset_bundle_t &asset_bundle)
+//{
+//    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
+//            cereal::make_nvp("materials", asset_bundle.materials),
+//            cereal::make_nvp("textures", asset_bundle.textures),
+//            cereal::make_nvp("texture_samplers", asset_bundle.texture_samplers),
+//            cereal::make_nvp("root_node", asset_bundle.root_node),
+//            cereal::make_nvp("root_bone", asset_bundle.root_bone),
+//            cereal::make_nvp("node_animations", asset_bundle.node_animations));
+//}
+
 template<class Archive>
 void serialize(Archive &archive,
-               vierkant::model::asset_bundle_t &asset_bundle)
+               vierkant::model::mesh_assets_t &mesh_assets)
 {
-    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
-            cereal::make_nvp("materials", asset_bundle.materials),
-            cereal::make_nvp("textures", asset_bundle.textures),
-            cereal::make_nvp("texture_samplers", asset_bundle.texture_samplers));
+    archive(cereal::make_nvp("geometry_data", mesh_assets.geometry_data),
+            cereal::make_nvp("materials", mesh_assets.materials),
+            cereal::make_nvp("textures", mesh_assets.textures),
+            cereal::make_nvp("texture_samplers", mesh_assets.texture_samplers),
+//            cereal::make_nvp("lights", mesh_assets.lights),
+//            cereal::make_nvp("cameras", mesh_assets.cameras),
+            cereal::make_nvp("root_node", mesh_assets.root_node),
+            cereal::make_nvp("root_bone", mesh_assets.root_bone),
+            cereal::make_nvp("node_animations", mesh_assets.node_animations));
 }
 
 }// namespace vierkant::model

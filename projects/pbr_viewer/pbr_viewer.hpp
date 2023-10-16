@@ -141,9 +141,9 @@ private:
 
     static settings_t load_settings(const std::filesystem::path &path = "settings.json");
 
-    void save_asset_bundle(const vierkant::model::asset_bundle_t &asset_bundle, const std::filesystem::path &path);
+    void save_asset_bundle(const vierkant::model::mesh_assets_t &mesh_assets, const std::filesystem::path &path);
 
-    std::optional<vierkant::model::asset_bundle_t> load_asset_bundle(const std::filesystem::path &path);
+    std::optional<vierkant::model::mesh_assets_t> load_asset_bundle(const std::filesystem::path &path);
 
     vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
 

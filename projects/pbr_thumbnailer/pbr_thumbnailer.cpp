@@ -120,7 +120,7 @@ std::optional<vierkant::model::mesh_assets_t> PBRThumbnailer::load_model_file(co
         // tinygltf
         auto scene_assets = vierkant::model::load_model(path, &pool);
 
-        if(!scene_assets || scene_assets->entry_create_infos.empty())
+        if(!scene_assets)
         {
             spdlog::error("could not load file: {}", path.string());
             return {};
