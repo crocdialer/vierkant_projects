@@ -68,7 +68,7 @@ void PBRViewer::load_environment(const std::string &path)
                                                               VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
             {
-                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+                auto cmd_buf = vierkant::CommandBuffer({m_device, command_pool.get()});
                 cmd_buf.begin();
 
                 vierkant::Image::Format fmt = {};
@@ -103,7 +103,7 @@ void PBRViewer::load_environment(const std::string &path)
                 conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), hdr_format,
                                                             m_queue_image_loading);
 
-                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
+                auto cmd_buf = vierkant::CommandBuffer({m_device, command_pool.get()});
                 cmd_buf.begin();
 
                 conv_lambert->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
@@ -462,6 +462,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         // create hash of filename+params, search existing bundle
         size_t hash_val = std::hash<std::string>()(path.filename().string());
         vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
+        vierkant::hash_combine(hash_val, m_settings.texture_compression);
         std::filesystem::path bundle_path =
                 fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
