@@ -20,8 +20,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-#ifndef VIERKANT_PROJECTS_PBR_THUMBNAILER_H
-#define VIERKANT_PROJECTS_PBR_THUMBNAILER_H
+#pragma once
 
 #include <crocore/Application.hpp>
 
@@ -60,6 +59,9 @@ public:
 
         //! maximum number of samples-per-pixel (spp), per frame (applies only to path-tracer)
         uint32_t max_samples_per_frame = 32;
+
+        //! maximum path-length (applies only to path-tracer)
+        uint32_t max_path_length = 8;
 
         //! flag to request drawing of used skybox
         bool draw_skybox = false;
@@ -116,5 +118,3 @@ private:
 
     settings_t m_settings;
 };
-
-#endif//VIERKANT_PROJECTS_PBR_THUMBNAILER_H

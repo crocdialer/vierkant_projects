@@ -191,6 +191,7 @@ bool PBRThumbnailer::create_graphics_context()
         path_tracer_info.settings.max_num_batches = m_settings.num_samples / m_settings.max_samples_per_frame;
         path_tracer_info.settings.num_samples = m_settings.max_samples_per_frame;
         path_tracer_info.settings.draw_skybox = m_settings.draw_skybox;
+        path_tracer_info.settings.max_trace_depth = m_settings.max_path_length;
         m_context.scene_renderer = vierkant::PBRPathTracer::create(m_context.device, path_tracer_info);
     }
     else
@@ -298,6 +299,8 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     options.add_options()("help", "produce help message");
     options.add_options()("w,width", "result-image width in px", cxxopts::value<uint32_t>());
     options.add_options()("h,height", "result-image height in px", cxxopts::value<uint32_t>());
+    options.add_options()("num_samples", "number of samples-per-pixel (spp)", cxxopts::value<uint32_t>());
+    options.add_options()("max_path", "maximum path-length", cxxopts::value<uint32_t>());
     options.add_options()("a,angle", "camera rotation-angle in degrees", cxxopts::value<float>());
     options.add_options()("s,skybox", "render skybox");
     options.add_options()("c, camera", "prefer model-camera");
@@ -347,6 +350,8 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     }
     if(result.count("width")) { ret.result_image_size.x = result["width"].as<uint32_t>(); }
     if(result.count("height")) { ret.result_image_size.y = result["height"].as<uint32_t>(); }
+    if(result.count("num_samples")) { ret.num_samples = result["num_samples"].as<uint32_t>(); }
+    if(result.count("max_path")) { ret.max_path_length = result["max_path"].as<uint32_t>(); }
     if(result.count("angle")) { ret.cam_spherical_coords.x = glm::radians(result["angle"].as<float>()); }
     if(result.count("skybox") && result["skybox"].as<bool>()) { ret.draw_skybox = true; }
     if(result.count("camera") && result["camera"].as<bool>()) { ret.use_model_camera = true; }
