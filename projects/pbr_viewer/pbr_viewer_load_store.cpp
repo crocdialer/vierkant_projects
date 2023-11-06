@@ -68,7 +68,7 @@ void PBRViewer::load_environment(const std::string &path)
                                                               VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
             {
-                auto cmd_buf = vierkant::CommandBuffer({m_device, command_pool.get()});
+                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
 
                 vierkant::Image::Format fmt = {};
@@ -103,7 +103,7 @@ void PBRViewer::load_environment(const std::string &path)
                 conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), hdr_format,
                                                             m_queue_image_loading);
 
-                auto cmd_buf = vierkant::CommandBuffer({m_device, command_pool.get()});
+                auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
 
                 conv_lambert->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
