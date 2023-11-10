@@ -375,11 +375,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             {
                 vierkant::nodes::node_animation_t animation = {};
 
-                if(obj->has_component<vierkant::animation_state_t>())
+                if(obj->has_component<vierkant::animation_component_t>())
                 {
-                    const auto &mesh = obj->get_component<vierkant::MeshPtr>();
+                    const auto &mesh = obj->get_component<vierkant::mesh_component_t>().mesh;
 
-                    auto &animation_state = obj->get_component<vierkant::animation_state_t>();
+                    auto &animation_state = obj->get_component<vierkant::animation_component_t>();
                     animation = mesh->node_animations[animation_state.index];
                     auto node = mesh->root_bone ? mesh->root_bone : mesh->root_node;
                     m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,

@@ -90,7 +90,7 @@ public:
         std::optional<std::set<uint32_t>> entry_indices = {};
 
         vierkant::transform_t transform = {};
-        std::optional<vierkant::animation_state_t> animation_state = {};
+        std::optional<vierkant::animation_component_t> animation_state = {};
     };
 
     struct scene_camera_t

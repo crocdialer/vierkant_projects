@@ -357,9 +357,9 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         node.mesh_index = mesh_indices[mesh_component.mesh];
         node.entry_indices = mesh_component.entry_indices;
         node.transform = object->global_transform();
-        if(object->has_component<vierkant::animation_state_t>())
+        if(object->has_component<vierkant::animation_component_t>())
         {
-            node.animation_state = object->get_component<vierkant::animation_state_t>();
+            node.animation_state = object->get_component<vierkant::animation_component_t>();
         }
         data.nodes.push_back(node);
     }
@@ -417,9 +417,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                                                                {meshes[node.mesh_index], node.entry_indices});
                     object->name = node.name;
                     object->transform = node.transform;
-                    if(node.animation_state && object->has_component<vierkant::animation_state_t>())
+                    if(node.animation_state && object->has_component<vierkant::animation_component_t>())
                     {
-                        object->get_component<vierkant::animation_state_t>() = *node.animation_state;
+                        object->get_component<vierkant::animation_component_t>() = *node.animation_state;
                     }
                     m_scene->add_object(object);
                 }

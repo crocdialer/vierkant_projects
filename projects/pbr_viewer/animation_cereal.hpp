@@ -41,7 +41,7 @@ void serialize(Archive &archive, vierkant::animation_t<T> &animation)
 }
 
 template<class Archive, class T>
-void serialize(Archive &archive, vierkant::animation_state_t_<T> &a)
+void serialize(Archive &archive, vierkant::animation_component_t_<T> &a)
 {
     archive(cereal::make_nvp("index", a.index),
             cereal::make_nvp("playing", a.playing),
