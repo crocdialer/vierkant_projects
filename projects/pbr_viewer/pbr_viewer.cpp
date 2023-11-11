@@ -426,12 +426,16 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
 std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
 {
-    vierkant::CommandBuffer copy_object_id_cmd =
-            vierkant::CommandBuffer(m_device, m_device->command_pool_transient());
+    vierkant::CommandBuffer copy_object_id_cmd = vierkant::CommandBuffer(m_device, m_device->command_pool_transient());
     copy_object_id_cmd.begin();
 
+    const auto &id_img = m_pbr_renderer->image_bundle().object_ids;
+    auto img_size = glm::vec2(id_img->width(), id_img->height());
+    glm::vec2 adjusted_pos =            glm::vec2(click_pos) * img_size / glm::vec2(m_window->size());
+    adjusted_pos = glm::clamp(adjusted_pos, glm::vec2(0), img_size - glm::vec2(1));
+
     constexpr VkExtent3D img_extent = {1, 1, 1};
-    VkOffset3D img_offset = {click_pos.x, click_pos.y, 0};
+    VkOffset3D img_offset = {static_cast<int32_t>(adjusted_pos.x), static_cast<int32_t>(adjusted_pos.y), 0};
 
     auto buf = vierkant::Buffer::create(m_device, nullptr, 512, VK_BUFFER_USAGE_2_TRANSFER_DST_BIT_KHR,
                                         VMA_MEMORY_USAGE_CPU_ONLY);
@@ -440,8 +444,7 @@ std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
                                                                  copy_object_id_cmd.handle());
     copy_object_id_cmd.submit(m_queue_pbr_render, true);
     uint16_t val = std::numeric_limits<uint16_t>::max() - *static_cast<uint16_t *>(buf->map());
-    std::optional<uint16_t> picked_id =
-            (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
+    std::optional<uint16_t> picked_id = (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
     return picked_id;
 }
 
