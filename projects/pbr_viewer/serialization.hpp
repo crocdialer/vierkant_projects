@@ -257,7 +257,18 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
 }
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
+void serialize(Archive &archive, vierkant::ortho_camera_component_t &cam)
+{
+    archive(cereal::make_nvp("left", cam.left),
+            cereal::make_nvp("right", cam.right),
+            cereal::make_nvp("bottom", cam.bottom),
+            cereal::make_nvp("top", cam.top),
+            cereal::make_nvp("near", cam.near),
+            cereal::make_nvp("far", cam.far));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::physical_camera_component_t &params)
 {
     archive(cereal::make_nvp("focal_length", params.focal_length),
             cereal::make_nvp("sensor_width", params.sensor_width),

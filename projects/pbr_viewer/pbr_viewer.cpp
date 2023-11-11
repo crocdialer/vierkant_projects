@@ -191,7 +191,7 @@ void PBRViewer::create_context_and_window()
     }
 
     // upcoming usage of descriptor-buffer extension
-//    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+    //    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 
     m_device = vierkant::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
@@ -205,7 +205,7 @@ void PBRViewer::create_context_and_window()
         m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
         m_renderer.sample_count = m_renderer_overlay.sample_count = m_renderer_gui.sample_count =
                 m_window->swapchain().sample_count();
-        m_camera->get_component<vierkant::physical_camera_params_t>().aspect = m_window->aspect_ratio();
+        m_camera->get_component<vierkant::physical_camera_component_t>().aspect = m_window->aspect_ratio();
         m_camera_control.current->screen_size = {w, h};
     };
     window_delegate.close_fn = [this]() { running = false; };
@@ -324,8 +324,8 @@ void PBRViewer::create_texture_image()
     fmt.extent = {img->width(), img->height(), 1};
     fmt.use_mipmap = true;
     m_textures["test"] = vierkant::Image::create(m_device, img->data(), fmt);
-    m_textures["environment"] = vierkant::cubemap_neutral_environment(m_device, 256, m_queue_image_loading, true,
-                                                                      m_hdr_format);
+    m_textures["environment"] =
+            vierkant::cubemap_neutral_environment(m_device, 256, m_queue_image_loading, true, m_hdr_format);
     m_scene->set_environment(m_textures["environment"]);
 }
 
@@ -422,6 +422,27 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     // get semaphore infos
     ret.semaphore_infos = std::move(semaphore_infos);
     return ret;
+}
+
+std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
+{
+    vierkant::CommandBuffer copy_object_id_cmd =
+            vierkant::CommandBuffer(m_device, m_device->command_pool_transient());
+    copy_object_id_cmd.begin();
+
+    constexpr VkExtent3D img_extent = {1, 1, 1};
+    VkOffset3D img_offset = {click_pos.x, click_pos.y, 0};
+
+    auto buf = vierkant::Buffer::create(m_device, nullptr, 512, VK_BUFFER_USAGE_2_TRANSFER_DST_BIT_KHR,
+                                        VMA_MEMORY_USAGE_CPU_ONLY);
+    m_pbr_renderer->image_bundle().object_ids->copy_to(buf, copy_object_id_cmd.handle(), 0, img_offset, img_extent);
+    m_pbr_renderer->image_bundle().object_ids->transition_layout(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                                                 copy_object_id_cmd.handle());
+    copy_object_id_cmd.submit(m_queue_pbr_render, true);
+    uint16_t val = std::numeric_limits<uint16_t>::max() - *static_cast<uint16_t *>(buf->map());
+    std::optional<uint16_t> picked_id =
+            (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
+    return picked_id;
 }
 
 int main(int argc, char *argv[])

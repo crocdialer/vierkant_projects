@@ -97,7 +97,7 @@ public:
     {
         std::string name;
         vierkant::transform_t transform = {};
-        vierkant::physical_camera_params_t params = {};
+        vierkant::physical_camera_component_t params = {};
     };
 
     struct scene_data_t
@@ -152,6 +152,8 @@ private:
     static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = "scene.json");
 
     void build_scene(const std::optional<scene_data_t> &scene_data);
+
+    std::optional<uint16_t> mouse_pick_gpu(const glm::ivec2 &click_pos);
 
     std::atomic<uint32_t> m_num_loading = 0;
 

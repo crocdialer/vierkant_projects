@@ -308,7 +308,7 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     scene_data_t data;
     data.environment_path = m_scene_data.environment_path;
 
-    auto cam_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::physical_camera_params_t>();
+    auto cam_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::physical_camera_component_t>();
 
     for(const auto &[entity, object, cam_params]: cam_view.each())
     {
