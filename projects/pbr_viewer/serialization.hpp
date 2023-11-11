@@ -263,8 +263,8 @@ void serialize(Archive &archive, vierkant::ortho_camera_component_t &cam)
             cereal::make_nvp("right", cam.right),
             cereal::make_nvp("bottom", cam.bottom),
             cereal::make_nvp("top", cam.top),
-            cereal::make_nvp("near", cam.near),
-            cereal::make_nvp("far", cam.far));
+            cereal::make_nvp("near", cam.near_),
+            cereal::make_nvp("far", cam.far_));
 }
 
 template<class Archive>
