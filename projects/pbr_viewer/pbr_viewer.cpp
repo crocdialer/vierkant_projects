@@ -431,7 +431,7 @@ std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
 
     const auto &id_img = m_pbr_renderer->image_bundle().object_ids;
     auto img_size = glm::vec2(id_img->width(), id_img->height());
-    glm::vec2 adjusted_pos =            glm::vec2(click_pos) * img_size / glm::vec2(m_window->size());
+    glm::vec2 adjusted_pos = glm::vec2(click_pos) * img_size / glm::vec2(m_window->size());
     adjusted_pos = glm::clamp(adjusted_pos, glm::vec2(0), img_size - glm::vec2(1));
 
     constexpr VkExtent3D img_extent = {1, 1, 1};

@@ -308,7 +308,25 @@ void PBRViewer::create_ui()
             if(e.is_right()) { m_selected_objects.clear(); }
             else if(e.is_left())
             {
-                auto picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
+                vierkant::Object3DPtr picked_object;
+                //                picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
+
+                // TODO: gpu-based picking query - this is brute-force/blocking atm - only testing
+                spdlog::stopwatch sw;
+                if(auto picked_idx = mouse_pick_gpu(e.position()))
+                {
+                    spdlog::trace("picked_idx: {} -- {}", std::to_string(*picked_idx),
+                                  std::chrono::duration_cast<std::chrono::microseconds>(sw.elapsed()));
+
+                    const auto &cull_result = m_pbr_renderer->cull_result();
+
+                    // picked_idx is an index into an array of drawables
+                    auto drawable_id = cull_result.drawables[*picked_idx].id;
+                    picked_object = cull_result.scene->object_by_id(cull_result.entity_map.at(drawable_id));
+                    spdlog::trace("picked object: {}", picked_object->name);
+
+                    // TODO:
+                }
 
                 if(picked_object)
                 {
@@ -319,10 +337,6 @@ void PBRViewer::create_ui()
                     }
                     else { m_selected_objects = {picked_object}; }
                 }
-                // TODO: gpu-based picking query - this is brute-force/blocking atm - only testing
-                spdlog::stopwatch sw;
-                auto picked_id = mouse_pick_gpu(e.position());
-                spdlog::trace("picked_id: {} -- {}", picked_id ? std::to_string(*picked_id) : "nothing", sw.elapsed());
             }
         }
     };
@@ -391,6 +405,6 @@ void PBRViewer::create_camera_controls()
     // update camera from current
     m_camera->transform = m_camera_control.current->transform();
 
-//    // add/update camera_params
-//    m_camera->get_component<vierkant::physical_camera_component_t>() = m_settings.camera_params;
+    //    // add/update camera_params
+    //    m_camera->get_component<vierkant::physical_camera_component_t>() = m_settings.camera_params;
 }
