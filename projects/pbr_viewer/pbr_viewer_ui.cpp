@@ -208,6 +208,23 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("generate mesh-LODs", &m_settings.mesh_buffer_params.generate_lods);
             ImGui::Checkbox("generate meshlets", &m_settings.mesh_buffer_params.generate_meshlets);
             ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
+
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            bool silhouette = m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette;
+            if(ImGui::RadioButton("mask", !silhouette))
+            {
+                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Mask;
+                silhouette = !silhouette;
+            }
+            ImGui::SameLine();
+
+            if(ImGui::RadioButton("silhoutte", silhouette))
+            {
+                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Silhouette;
+            }
+
             ImGui::Separator();
             ImGui::Spacing();
 
