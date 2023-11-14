@@ -358,36 +358,12 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     // tmp testing of overlay-drizzling
     auto &overlay_assets = m_overlay_assets[image_index];
-    {
-        constexpr uint64_t overlay_semaphore_done = 1;
-        overlay_assets.semaphore.wait(overlay_semaphore_done);
-        overlay_assets.semaphore = vierkant::Semaphore(m_device);
-        overlay_assets.command_buffer.begin();
 
-        vierkant::object_overlay_params_t overlay_params = {};
-        overlay_params.mode = vierkant::ObjectOverlayMode::Silhouette;
-        overlay_params.commandbuffer = overlay_assets.command_buffer.handle();
-        overlay_params.object_id_img = m_pbr_renderer->image_bundle().object_ids;
-        overlay_params.object_ids = m_selected_indices;
-        overlay_assets.overlay = vierkant::object_overlay(overlay_assets.object_overlay_context, overlay_params);
-
-        vierkant::semaphore_submit_info_t overlay_signal_info = {};
-        overlay_signal_info.semaphore = overlay_assets.semaphore.handle();
-        overlay_signal_info.signal_value = overlay_semaphore_done;
-        overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-        overlay_assets.command_buffer.submit(m_queue_pbr_render, false, VK_NULL_HANDLE, {overlay_signal_info});
-
-        vierkant::semaphore_submit_info_t overlay_wait_info = {};
-        overlay_wait_info.semaphore = overlay_assets.semaphore.handle();
-        overlay_wait_info.wait_value = overlay_semaphore_done;
-        overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-        semaphore_infos.push_back(overlay_wait_info);
-    }
-
-    auto render_scene = [this, &framebuffer, &semaphore_infos]() -> VkCommandBuffer {
+    auto render_scene = [this, &framebuffer, &semaphore_infos, &overlay_assets]() -> VkCommandBuffer {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
                                render_result.semaphore_infos.end());
+        semaphore_infos.push_back(generate_overlay(overlay_assets, m_pbr_renderer->image_bundle().object_ids));
         return m_renderer.render(framebuffer);
     };
 
@@ -396,7 +372,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         for(const auto &obj: selected_objects)
         {
             // draw silhouette/mask for selected indices
-            m_draw_context.draw_image(m_renderer_overlay, overlay_assets.overlay, {}, glm::vec4(.8f, .5f, .1f, 1.f));
+            m_draw_context.draw_image(m_renderer_overlay, overlay_assets.overlay, {}, glm::vec4(.8f, .5f, .1f, .7f));
 
             auto modelview = m_camera->view_transform() * obj->transform;
 
@@ -488,6 +464,34 @@ std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
     uint16_t val = std::numeric_limits<uint16_t>::max() - *static_cast<uint16_t *>(buf->map());
     std::optional<uint16_t> picked_id = (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
     return picked_id;
+}
+
+vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay_assets_t &overlay_asset,
+                                                              const vierkant::ImagePtr &id_img)
+{
+    constexpr uint64_t overlay_semaphore_done = 1;
+    overlay_asset.semaphore.wait(overlay_semaphore_done);
+    overlay_asset.semaphore = vierkant::Semaphore(m_device);
+    overlay_asset.command_buffer.begin();
+
+    vierkant::object_overlay_params_t overlay_params = {};
+    overlay_params.mode = vierkant::ObjectOverlayMode::Mask;
+    overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
+    overlay_params.object_id_img = id_img;
+    overlay_params.object_ids = m_selected_indices;
+    overlay_asset.overlay = vierkant::object_overlay(overlay_asset.object_overlay_context, overlay_params);
+
+    vierkant::semaphore_submit_info_t overlay_signal_info = {};
+    overlay_signal_info.semaphore = overlay_asset.semaphore.handle();
+    overlay_signal_info.signal_value = overlay_semaphore_done;
+    overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    overlay_asset.command_buffer.submit(m_queue_pbr_render, false, VK_NULL_HANDLE, {overlay_signal_info});
+
+    vierkant::semaphore_submit_info_t overlay_wait_info = {};
+    overlay_wait_info.semaphore = overlay_asset.semaphore.handle();
+    overlay_wait_info.wait_value = overlay_semaphore_done;
+    overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    return overlay_wait_info;
 }
 
 int main(int argc, char *argv[])

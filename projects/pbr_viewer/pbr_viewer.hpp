@@ -156,6 +156,16 @@ private:
 
     std::optional<uint16_t> mouse_pick_gpu(const glm::ivec2 &click_pos);
 
+    struct overlay_assets_t
+    {
+        vierkant::CommandBuffer command_buffer;
+        vierkant::Semaphore semaphore;
+        vierkant::object_overlay_context_ptr object_overlay_context;
+        vierkant::ImagePtr overlay;
+    };
+
+    vierkant::semaphore_submit_info_t generate_overlay(overlay_assets_t &overlay_asset, const vierkant::ImagePtr &id_img);
+
     std::atomic<uint32_t> m_num_loading = 0;
 
     settings_t m_settings = {};
@@ -202,13 +212,6 @@ private:
 
     vierkant::Rasterizer m_renderer, m_renderer_overlay, m_renderer_gui;
 
-    struct overlay_assets_t
-    {
-        vierkant::CommandBuffer command_buffer;
-        vierkant::Semaphore semaphore;
-        vierkant::object_overlay_context_ptr object_overlay_context;
-        vierkant::ImagePtr overlay;
-    };
     std::vector<overlay_assets_t> m_overlay_assets;
 
     vierkant::gui::Context m_gui_context;
