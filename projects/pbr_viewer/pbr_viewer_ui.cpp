@@ -305,7 +305,11 @@ void PBRViewer::create_ui()
     simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e) {
         if(!(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
         {
-            if(e.is_right()) { m_selected_objects.clear(); }
+            if(e.is_right())
+            {
+                m_selected_objects.clear();
+                m_selected_indices.clear();
+            }
             else if(e.is_left())
             {
                 vierkant::Object3DPtr picked_object;
@@ -325,7 +329,7 @@ void PBRViewer::create_ui()
                     picked_object = cull_result.scene->object_by_id(cull_result.entity_map.at(drawable_id));
                     spdlog::trace("picked object: {}", picked_object->name);
 
-                    // TODO:
+                    m_selected_indices.insert(*picked_idx);
                 }
 
                 if(picked_object)

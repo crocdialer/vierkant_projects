@@ -11,6 +11,7 @@
 #include <crocore/Application.hpp>
 #include <crocore/set_lru.hpp>
 #include <vierkant/PBRPathTracer.hpp>
+#include <vierkant/object_overlay.hpp>
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/vierkant.hpp>
 
@@ -186,6 +187,7 @@ private:
     } m_camera_control;
 
     std::set<vierkant::Object3DPtr> m_selected_objects;
+    std::unordered_set<uint32_t> m_selected_indices;
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
@@ -199,6 +201,15 @@ private:
     vierkant::SceneRendererPtr m_scene_renderer;
 
     vierkant::Rasterizer m_renderer, m_renderer_overlay, m_renderer_gui;
+
+    struct overlay_assets_t
+    {
+        vierkant::CommandBuffer command_buffer;
+        vierkant::Semaphore semaphore;
+        vierkant::object_overlay_context_ptr object_overlay_context;
+        vierkant::ImagePtr overlay;
+    };
+    std::vector<overlay_assets_t> m_overlay_assets;
 
     vierkant::gui::Context m_gui_context;
 
