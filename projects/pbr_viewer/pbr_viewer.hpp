@@ -215,6 +215,7 @@ private:
     vierkant::Rasterizer m_renderer, m_renderer_overlay, m_renderer_gui;
 
     std::vector<overlay_assets_t> m_overlay_assets;
+    vierkant::ImagePtr m_object_id_image;
 
     vierkant::gui::Context m_gui_context;
 

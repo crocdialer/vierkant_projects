@@ -363,7 +363,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
         semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
                                render_result.semaphore_infos.end());
-        semaphore_infos.push_back(generate_overlay(overlay_assets, m_pbr_renderer->image_bundle().object_ids));
+        semaphore_infos.push_back(generate_overlay(overlay_assets, render_result.object_ids));
         return m_renderer.render(framebuffer);
     };
 
@@ -444,11 +444,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
 std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
 {
+    if(!m_object_id_image) { return {}; }
     vierkant::CommandBuffer copy_object_id_cmd = vierkant::CommandBuffer(m_device, m_device->command_pool_transient());
     copy_object_id_cmd.begin();
 
-    const auto &id_img = m_pbr_renderer->image_bundle().object_ids;
-    auto img_size = glm::vec2(id_img->width(), id_img->height());
+    auto img_size = glm::vec2(m_object_id_image->width(), m_object_id_image->height());
     glm::vec2 adjusted_pos = glm::vec2(click_pos) * img_size / glm::vec2(m_window->size());
     adjusted_pos = glm::clamp(adjusted_pos, glm::vec2(0), img_size - glm::vec2(1));
 
@@ -457,9 +457,9 @@ std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
 
     auto buf = vierkant::Buffer::create(m_device, nullptr, 512, VK_BUFFER_USAGE_2_TRANSFER_DST_BIT_KHR,
                                         VMA_MEMORY_USAGE_CPU_ONLY);
-    m_pbr_renderer->image_bundle().object_ids->copy_to(buf, copy_object_id_cmd.handle(), 0, img_offset, img_extent);
-    m_pbr_renderer->image_bundle().object_ids->transition_layout(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-                                                                 copy_object_id_cmd.handle());
+    auto prev_layout = m_object_id_image->image_layout();
+    m_object_id_image->copy_to(buf, copy_object_id_cmd.handle(), 0, img_offset, img_extent);
+    m_object_id_image->transition_layout(prev_layout, copy_object_id_cmd.handle());
     copy_object_id_cmd.submit(m_queue_pbr_render, true);
     uint16_t val = std::numeric_limits<uint16_t>::max() - *static_cast<uint16_t *>(buf->map());
     std::optional<uint16_t> picked_id = (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
@@ -491,6 +491,7 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_wait_info.semaphore = overlay_asset.semaphore.handle();
     overlay_wait_info.wait_value = overlay_semaphore_done;
     overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    m_object_id_image = id_img;
     return overlay_wait_info;
 }
 
