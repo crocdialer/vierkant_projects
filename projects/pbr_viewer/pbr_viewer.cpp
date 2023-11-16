@@ -364,6 +364,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
                                render_result.semaphore_infos.end());
         semaphore_infos.push_back(generate_overlay(overlay_assets, render_result.object_ids));
+        overlay_assets.object_by_index_fn = render_result.object_by_index_fn;
         return m_renderer.render(framebuffer);
     };
 

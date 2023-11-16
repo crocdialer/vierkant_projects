@@ -339,11 +339,11 @@ void PBRViewer::create_ui()
                     spdlog::trace("picked_idx: {} -- {}", std::to_string(*picked_idx),
                                   std::chrono::duration_cast<std::chrono::microseconds>(sw.elapsed()));
 
-                    const auto &cull_result = m_pbr_renderer->cull_result();
-
-                    // picked_idx is an index into an array of drawables
-                    auto drawable_id = cull_result.drawables[*picked_idx].id;
-                    picked_object = cull_result.scene->object_by_id(cull_result.entity_map.at(drawable_id));
+                    const auto &overlay_asset = m_overlay_assets[m_window->swapchain().image_index()];
+                    if(overlay_asset.object_by_index_fn)
+                    {
+                        picked_object = overlay_asset.object_by_index_fn(*picked_idx);
+                    }
                     spdlog::trace("picked object: {}", picked_object->name);
 
                     m_selected_indices.insert(*picked_idx);

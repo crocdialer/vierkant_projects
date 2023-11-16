@@ -244,6 +244,7 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("max num batches", render_settings.max_num_batches),
             cereal::make_nvp("num_samples", render_settings.num_samples),
             cereal::make_nvp("max_trace_depth", render_settings.max_trace_depth),
+            cereal::make_nvp("suspend_trace_when_done", render_settings.suspend_trace_when_done),
             cereal::make_nvp("disable_material", render_settings.disable_material),
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
             cereal::make_nvp("use_denoiser", render_settings.denoising),
