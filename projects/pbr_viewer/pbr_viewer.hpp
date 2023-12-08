@@ -163,7 +163,7 @@ private:
         vierkant::CommandBuffer command_buffer;
         vierkant::Semaphore semaphore;
         vierkant::object_overlay_context_ptr object_overlay_context;
-        vierkant::SceneRenderer::object_by_index_fn_t object_by_index_fn;
+        vierkant::SceneRenderer::object_id_by_index_fn_t object_by_index_fn;
         vierkant::ImagePtr overlay;
     };
 
