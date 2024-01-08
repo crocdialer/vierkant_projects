@@ -212,15 +212,20 @@ void PBRViewer::create_ui()
             ImGui::Separator();
             ImGui::Spacing();
 
-            bool silhouette = m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette;
-            if(ImGui::RadioButton("mask", !silhouette))
+
+            if(ImGui::RadioButton("none", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::None))
             {
-                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Mask;
-                silhouette = !silhouette;
+                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::None;
             }
             ImGui::SameLine();
 
-            if(ImGui::RadioButton("silhoutte", silhouette))
+            if(ImGui::RadioButton("mask", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Mask))
+            {
+                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Mask;
+            }
+            ImGui::SameLine();
+
+            if(ImGui::RadioButton("silhoutte", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
             {
                 m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Silhouette;
             }
