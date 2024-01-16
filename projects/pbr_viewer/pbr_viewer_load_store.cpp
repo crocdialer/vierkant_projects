@@ -8,16 +8,16 @@
 using double_second = std::chrono::duration<double>;
 constexpr char g_zip_path[] = "asset_bundle_cache.zip";
 
-void PBRViewer::load_model(const std::filesystem::path &path)
+void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
 {
     vierkant::MeshPtr mesh;
 
-    auto load_task = [this, path]() {
+    auto load_task = [this, path, clear_scene]() {
         m_num_loading++;
         auto start_time = std::chrono::steady_clock::now();
         auto mesh = load_mesh(path);
 
-        auto done_cb = [this, mesh, /*lights = std::move(scene_assets.lights),*/ start_time, path]() {
+        auto done_cb = [this, mesh, start_time, path, clear_scene]() {
             m_selected_objects.clear();
 
             // tmp test-loop
@@ -33,7 +33,7 @@ void PBRViewer::load_model(const std::filesystem::path &path)
                 auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
                 object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i);
 
-                m_scene->clear();
+                if(clear_scene) { m_scene->clear(); }
                 m_scene->add_object(object);
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
@@ -228,7 +228,7 @@ void PBRViewer::load_file(const std::string &path)
 
         case crocore::filesystem::FileType::MODEL:
             add_to_recent_files(path);
-            load_model(path);
+            load_model(path, false);
             break;
 
         case crocore::filesystem::FileType::OTHER:
@@ -285,7 +285,7 @@ std::optional<vierkant::model::mesh_assets_t> PBRViewer::load_asset_bundle(const
     {
         try
         {
-            //            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
+//            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
             vierkant::model::mesh_assets_t ret;
 

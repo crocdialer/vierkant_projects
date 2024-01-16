@@ -191,8 +191,8 @@ void PBRViewer::create_context_and_window()
     }
 
     // TODO: upcoming extension testing
-//    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-//    device_info.extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
+    //    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+    //    device_info.extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
 
     m_device = vierkant::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
@@ -474,33 +474,28 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     constexpr uint64_t overlay_semaphore_done = 1;
     overlay_asset.semaphore.wait(overlay_semaphore_done);
 
-    if(m_settings.object_overlay_mode != vierkant::ObjectOverlayMode::None)
-    {
+    overlay_asset.semaphore = vierkant::Semaphore(m_device);
+    overlay_asset.command_buffer.begin();
 
-        overlay_asset.semaphore = vierkant::Semaphore(m_device);
-        overlay_asset.command_buffer.begin();
+    vierkant::object_overlay_params_t overlay_params = {};
+    overlay_params.mode = m_settings.object_overlay_mode;
+    overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
+    overlay_params.object_id_img = id_img;
+    overlay_params.object_ids = m_selected_indices;
+    overlay_asset.overlay = vierkant::object_overlay(overlay_asset.object_overlay_context, overlay_params);
 
-        vierkant::object_overlay_params_t overlay_params = {};
-        overlay_params.mode = m_settings.object_overlay_mode;
-        overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
-        overlay_params.object_id_img = id_img;
-        overlay_params.object_ids = m_selected_indices;
-        overlay_asset.overlay = vierkant::object_overlay(overlay_asset.object_overlay_context, overlay_params);
+    vierkant::semaphore_submit_info_t overlay_signal_info = {};
+    overlay_signal_info.semaphore = overlay_asset.semaphore.handle();
+    overlay_signal_info.signal_value = overlay_semaphore_done;
+    overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    overlay_asset.command_buffer.submit(m_queue_pbr_render, false, VK_NULL_HANDLE, {overlay_signal_info});
 
-        vierkant::semaphore_submit_info_t overlay_signal_info = {};
-        overlay_signal_info.semaphore = overlay_asset.semaphore.handle();
-        overlay_signal_info.signal_value = overlay_semaphore_done;
-        overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-        overlay_asset.command_buffer.submit(m_queue_pbr_render, false, VK_NULL_HANDLE, {overlay_signal_info});
-
-        vierkant::semaphore_submit_info_t overlay_wait_info = {};
-        overlay_wait_info.semaphore = overlay_asset.semaphore.handle();
-        overlay_wait_info.wait_value = overlay_semaphore_done;
-        overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-        m_object_id_image = id_img;
-        return overlay_wait_info;
-    }
-    return {};
+    vierkant::semaphore_submit_info_t overlay_wait_info = {};
+    overlay_wait_info.semaphore = overlay_asset.semaphore.handle();
+    overlay_wait_info.wait_value = overlay_semaphore_done;
+    overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    m_object_id_image = id_img;
+    return overlay_wait_info;
 }
 
 int main(int argc, char *argv[])

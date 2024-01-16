@@ -136,7 +136,7 @@ private:
 
     void create_texture_image();
 
-    void load_model(const std::filesystem::path &path = {});
+    void load_model(const std::filesystem::path &path = {}, bool clear_scene = true);
 
     void load_environment(const std::string &path);
 
