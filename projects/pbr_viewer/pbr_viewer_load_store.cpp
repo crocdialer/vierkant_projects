@@ -285,7 +285,7 @@ std::optional<vierkant::model::mesh_assets_t> PBRViewer::load_asset_bundle(const
     {
         try
         {
-//            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
+            //            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
             vierkant::model::mesh_assets_t ret;
 
@@ -361,6 +361,8 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         {
             node.animation_state = object->get_component<vierkant::animation_component_t>();
         }
+
+        for(const auto &mat: mesh_component.mesh->materials) { data.materials[mat->m.id] = mat->m; }
         data.nodes.push_back(node);
     }
 
@@ -392,7 +394,22 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
 
         if(scene_data)
         {
-            for(const auto &p: scene_data->model_paths) { meshes.push_back(load_mesh(p)); }
+            for(const auto &p: scene_data->model_paths)
+            {
+                auto mesh = load_mesh(p);
+
+                // optional material override(s)
+                for(auto &mat: mesh->materials)
+                {
+                    auto it = scene_data->materials.find(mat->m.id);
+                    if(it != scene_data->materials.end())
+                    {
+                        mat->m = it->second;
+                        spdlog::trace("overriding material: {}", mat->m.name);
+                    }
+                }
+                meshes.push_back(mesh);
+            }
             nodes = scene_data->nodes;
             cameras = scene_data->cameras;
         }
@@ -403,8 +420,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             nodes.push_back(n);
         }
 
-        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)
-                        /*lights = std::move(scene_assets.lights),*/]() {
+        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)]() {
             if(!nodes.empty())
             {
                 m_scene->clear();
@@ -417,10 +433,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                                                                {meshes[node.mesh_index], node.entry_indices});
                     object->name = node.name;
                     object->transform = node.transform;
-                    if(node.animation_state && object->has_component<vierkant::animation_component_t>())
-                    {
-                        object->get_component<vierkant::animation_component_t>() = *node.animation_state;
-                    }
+                    if(node.animation_state) { object->add_component(*node.animation_state); }
                     m_scene->add_object(object);
                 }
 
@@ -528,7 +541,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         auto mat = vierkant::Material::create();
 
         auto it = m_textures.find("test");
-        if(it != m_textures.end()) { mat->textures[vierkant::Material::Color] = it->second; }
+        if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
         mesh->materials = {mat};
     }
 

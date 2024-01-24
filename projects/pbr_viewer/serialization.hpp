@@ -104,6 +104,52 @@ void serialize(Archive &archive, vierkant::Cone &cone)
 }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::material_t &material)
+{
+    archive(cereal::make_nvp("id", material.id),
+            cereal::make_nvp("name", material.name),
+            cereal::make_nvp("base_color", material.base_color),
+            cereal::make_nvp("emission", material.emission),
+            cereal::make_nvp("emissive_strength", material.emissive_strength),
+            cereal::make_nvp("roughness", material.roughness),
+            cereal::make_nvp("metalness", material.metalness),
+            cereal::make_nvp("occlusion", material.occlusion),
+            cereal::make_nvp("null_surface", material.null_surface),
+            cereal::make_nvp("twosided", material.twosided),
+            cereal::make_nvp("ior", material.ior),
+            cereal::make_nvp("attenuation_color", material.attenuation_color),
+            cereal::make_nvp("transmission", material.transmission),
+            cereal::make_nvp("attenuation_distance", material.attenuation_distance),
+            cereal::make_nvp("phase_asymmetry_g", material.phase_asymmetry_g),
+            cereal::make_nvp("scattering_ratio", material.scattering_ratio),
+            cereal::make_nvp("thickness", material.thickness),
+            cereal::make_nvp("blend_mode", material.blend_mode),
+            cereal::make_nvp("alpha_cutoff", material.alpha_cutoff),
+            cereal::make_nvp("specular_factor", material.specular_factor),
+            cereal::make_nvp("specular_color", material.specular_color),
+            cereal::make_nvp("clearcoat_factor", material.clearcoat_factor),
+            cereal::make_nvp("clearcoat_roughness_factor", material.clearcoat_roughness_factor),
+            cereal::make_nvp("sheen_color", material.sheen_color),
+            cereal::make_nvp("sheen_roughness", material.sheen_roughness),
+            cereal::make_nvp("iridescence_factor", material.iridescence_factor),
+            cereal::make_nvp("iridescence_ior", material.iridescence_ior),
+            cereal::make_nvp("iridescence_thickness_range", material.iridescence_thickness_range),
+            cereal::make_nvp("texture_transform", material.texture_transform),
+            cereal::make_nvp("textures", material.textures),
+            cereal::make_nvp("samplers", material.samplers));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::texture_sampler_t &state)
+{
+    archive(cereal::make_nvp("min_filter", state.min_filter),
+            cereal::make_nvp("mag_filter", state.mag_filter),
+            cereal::make_nvp("address_mode_u", state.address_mode_u),
+            cereal::make_nvp("address_mode_v", state.address_mode_v),
+            cereal::make_nvp("transform", state.transform));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::vertex_attrib_t &vertex_attrib)
 {
     archive(cereal::make_nvp("buffer_offset", vertex_attrib.buffer_offset),
@@ -309,60 +355,6 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 
 namespace vierkant::model
 {
-
-template<class Archive>
-void serialize(Archive &archive, vierkant::model::material_t &material)
-{
-    archive(cereal::make_nvp("name", material.name),
-            cereal::make_nvp("base_color", material.base_color),
-            cereal::make_nvp("emission", material.emission),
-            cereal::make_nvp("emissive_strength", material.emissive_strength),
-            cereal::make_nvp("roughness", material.roughness),
-            cereal::make_nvp("metalness", material.metalness),
-            cereal::make_nvp("ior", material.ior),
-            cereal::make_nvp("attenuation_color", material.attenuation_color),
-            cereal::make_nvp("transmission", material.transmission),
-            cereal::make_nvp("attenuation_distance", material.attenuation_distance),
-            cereal::make_nvp("thickness", material.thickness),
-            cereal::make_nvp("blend_mode", material.blend_mode),
-            cereal::make_nvp("alpha_cutoff", material.alpha_cutoff),
-            cereal::make_nvp("twosided", material.twosided),
-            cereal::make_nvp("specular_factor", material.specular_factor),
-            cereal::make_nvp("specular_color", material.specular_color),
-            cereal::make_nvp("clearcoat_factor", material.clearcoat_factor),
-            cereal::make_nvp("clearcoat_roughness_factor", material.clearcoat_roughness_factor),
-            cereal::make_nvp("sheen_color", material.sheen_color),
-            cereal::make_nvp("sheen_roughness", material.sheen_roughness),
-            cereal::make_nvp("iridescence_factor", material.iridescence_factor),
-            cereal::make_nvp("iridescence_ior", material.iridescence_ior),
-            cereal::make_nvp("iridescence_thickness_range", material.iridescence_thickness_range),
-            cereal::make_nvp("texture_transform", material.texture_transform),
-            cereal::make_nvp("textures", material.textures),
-            cereal::make_nvp("samplers", material.samplers));
-}
-
-template<class Archive>
-void serialize(Archive &archive, vierkant::model::texture_sampler_t &state)
-{
-    archive(cereal::make_nvp("min_filter", state.min_filter),
-            cereal::make_nvp("mag_filter", state.mag_filter),
-            cereal::make_nvp("address_mode_u", state.address_mode_u),
-            cereal::make_nvp("address_mode_v", state.address_mode_v),
-            cereal::make_nvp("transform", state.transform));
-}
-
-//template<class Archive>
-//void serialize(Archive &archive,
-//               vierkant::model::asset_bundle_t &asset_bundle)
-//{
-//    archive(cereal::make_nvp("mesh_buffer_bundle", asset_bundle.mesh_buffer_bundle),
-//            cereal::make_nvp("materials", asset_bundle.materials),
-//            cereal::make_nvp("textures", asset_bundle.textures),
-//            cereal::make_nvp("texture_samplers", asset_bundle.texture_samplers),
-//            cereal::make_nvp("root_node", asset_bundle.root_node),
-//            cereal::make_nvp("root_bone", asset_bundle.root_bone),
-//            cereal::make_nvp("node_animations", asset_bundle.node_animations));
-//}
 
 template<class Archive>
 void serialize(Archive &archive,

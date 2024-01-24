@@ -11,8 +11,8 @@
 #include <crocore/Application.hpp>
 #include <crocore/set_lru.hpp>
 #include <vierkant/PBRPathTracer.hpp>
-#include <vierkant/object_overlay.hpp>
 #include <vierkant/imgui/imgui_util.h>
+#include <vierkant/object_overlay.hpp>
 #include <vierkant/vierkant.hpp>
 
 
@@ -109,6 +109,7 @@ public:
         std::string environment_path;
         std::vector<scene_node_t> nodes;
         std::vector<scene_camera_t> cameras;
+        std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
     };
 
     explicit PBRViewer(const crocore::Application::create_info_t &create_info);
@@ -167,7 +168,8 @@ private:
         vierkant::ImagePtr overlay;
     };
 
-    vierkant::semaphore_submit_info_t generate_overlay(overlay_assets_t &overlay_asset, const vierkant::ImagePtr &id_img);
+    vierkant::semaphore_submit_info_t generate_overlay(overlay_assets_t &overlay_asset,
+                                                       const vierkant::ImagePtr &id_img);
 
     std::atomic<uint32_t> m_num_loading = 0;
 
@@ -276,5 +278,5 @@ void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
 {
     ar(cereal::make_nvp("environment_path", scene_data.environment_path),
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
-       cereal::make_nvp("cameras", scene_data.cameras));
+       cereal::make_nvp("cameras", scene_data.cameras), cereal::make_nvp("materials", scene_data.materials));
 }
