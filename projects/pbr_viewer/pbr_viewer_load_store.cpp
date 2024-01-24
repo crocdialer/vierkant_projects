@@ -362,7 +362,11 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
             node.animation_state = object->get_component<vierkant::animation_component_t>();
         }
 
-        for(const auto &mat: mesh_component.mesh->materials) { data.materials[mat->m.id] = mat->m; }
+        // store materials with dirty hashes
+        for(const auto &mat: mesh_component.mesh->materials)
+        {
+            if(mat->hash != std::hash<vierkant::material_t>()(mat->m)) { data.materials[mat->m.id] = mat->m; }
+        }
         data.nodes.push_back(node);
     }
 
