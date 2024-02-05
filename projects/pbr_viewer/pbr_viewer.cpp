@@ -379,6 +379,13 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene_overlays = [this, &framebuffer, selected_objects = m_selected_objects,
                                   &overlay_assets]() -> VkCommandBuffer {
+        if(m_settings.draw_physics)
+        {
+            auto line_mesh = m_scene->context().debug_render();
+            m_draw_context.draw_lines(m_renderer_overlay, line_mesh->positions, glm::vec4(1, 0, 0, 1),
+                                      m_camera->view_transform(), m_camera->projection_matrix());
+        }
+
         for(const auto &obj: selected_objects)
         {
             // draw silhouette/mask for selected indices
