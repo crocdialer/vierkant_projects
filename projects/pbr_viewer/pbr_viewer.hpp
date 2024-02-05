@@ -187,6 +187,8 @@ private:
     // B10G11R11 saves 50% memory but now seeing more&more cases with strong banding-issues
     VkFormat m_hdr_format = VK_FORMAT_R16G16B16A16_SFLOAT;//VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 
+    VkBufferUsageFlags m_mesh_buffer_flags = 0;
+
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
 

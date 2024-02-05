@@ -225,7 +225,8 @@ void PBRViewer::create_ui()
             }
             ImGui::SameLine();
 
-            if(ImGui::RadioButton("silhoutte", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
+            if(ImGui::RadioButton("silhoutte",
+                                  m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
             {
                 m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Silhouette;
             }
@@ -252,6 +253,21 @@ void PBRViewer::create_ui()
             {
                 m_camera->transform = m_camera_control.current->transform();
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+            }
+
+            ImGui::Separator();
+            ImGui::Spacing();
+            if(ImGui::Button("add object"))
+            {
+                auto geom = vierkant::Geometry::Box(glm::vec3(.5f));
+                geom->colors.clear();
+
+                vierkant::Mesh::create_info_t mesh_create_info = {};
+                mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
+                mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+                auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+
+                m_scene->add_object(vierkant::create_mesh_object(m_scene->registry(), {mesh}));
             }
 
             ImGui::Separator();
