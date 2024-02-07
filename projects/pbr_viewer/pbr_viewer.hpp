@@ -13,7 +13,8 @@
 #include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/object_overlay.hpp>
-#include <vierkant/vierkant.hpp>
+#include <vierkant/physics_context.hpp>
+//#include <vierkant/vierkant.hpp>
 
 
 constexpr char g_texture_url[] =
@@ -57,6 +58,8 @@ public:
         bool draw_grid = true;
 
         bool draw_aabbs = false;
+
+        bool draw_physics = false;
 
         bool draw_node_hierarchy = false;
 
@@ -187,6 +190,8 @@ private:
     // B10G11R11 saves 50% memory but now seeing more&more cases with strong banding-issues
     VkFormat m_hdr_format = VK_FORMAT_R16G16B16A16_SFLOAT;//VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 
+    VkBufferUsageFlags m_mesh_buffer_flags = 0;
+
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
 
@@ -206,7 +211,7 @@ private:
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
-    vierkant::ScenePtr m_scene = vierkant::Scene::create();
+    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create();
 
     // selection of scene-renderers
     vierkant::PBRDeferredPtr m_pbr_renderer;
@@ -243,6 +248,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_ui", settings.draw_ui), cereal::make_nvp("ui_scale", settings.ui_scale),
        cereal::make_nvp("draw_grid", settings.draw_grid), cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
+       cereal::make_nvp("draw_physics", settings.draw_physics),
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),

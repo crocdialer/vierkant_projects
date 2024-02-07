@@ -309,6 +309,14 @@ void PBRViewer::create_graphics_pipeline()
         overlay_asset.object_overlay_context =
                 vierkant::create_object_overlay_context(m_device, glm::vec2(pbr_render_info.settings.resolution) / 2.f);
     }
+
+    // buffer-flags for mesh-buffers
+    m_mesh_buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    if(m_settings.enable_raytracing_pipeline_features)
+    {
+        m_mesh_buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    }
 }
 
 void PBRViewer::create_texture_image()
@@ -371,6 +379,13 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene_overlays = [this, &framebuffer, selected_objects = m_selected_objects,
                                   &overlay_assets]() -> VkCommandBuffer {
+        if(m_settings.draw_physics)
+        {
+            const auto &geom = m_scene->context().debug_render();
+            m_draw_context.draw_lines(m_renderer_overlay, geom->positions, geom->colors, m_camera->view_transform(),
+                                      m_camera->projection_matrix());
+        }
+
         for(const auto &obj: selected_objects)
         {
             // draw silhouette/mask for selected indices

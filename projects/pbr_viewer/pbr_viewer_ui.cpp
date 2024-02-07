@@ -201,6 +201,7 @@ void PBRViewer::create_ui()
 
             ImGui::Checkbox("draw grid", &m_settings.draw_grid);
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
+            ImGui::Checkbox("physics debug-draw", &m_settings.draw_physics);
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("use bc7 compression", &m_settings.texture_compression);
             ImGui::Checkbox("remap indices", &m_settings.mesh_buffer_params.remap_indices);
@@ -225,7 +226,8 @@ void PBRViewer::create_ui()
             }
             ImGui::SameLine();
 
-            if(ImGui::RadioButton("silhoutte", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
+            if(ImGui::RadioButton("silhoutte",
+                                  m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
             {
                 m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Silhouette;
             }
@@ -252,6 +254,28 @@ void PBRViewer::create_ui()
             {
                 m_camera->transform = m_camera_control.current->transform();
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+            }
+
+            ImGui::Separator();
+            ImGui::Spacing();
+            if(ImGui::Button("add object"))
+            {
+                auto box_half_extents = glm::vec3(.5f);
+                auto geom = vierkant::Geometry::Box(box_half_extents);
+                geom->colors.clear();
+
+                vierkant::Mesh::create_info_t mesh_create_info = {};
+                mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
+                mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+                auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+
+                auto new_obj = vierkant::create_mesh_object(m_scene->registry(), {mesh});
+                new_obj->transform.translation.y = 10.f;
+
+                vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
+                cmp.shape_id = m_scene->context().create_box_shape(box_half_extents);
+                cmp.mass = 1.f;
+                m_scene->add_object(new_obj);
             }
 
             ImGui::Separator();
@@ -348,7 +372,7 @@ void PBRViewer::create_ui()
                     if(overlay_asset.object_by_index_fn)
                     {
                         auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(*picked_idx);
-                        picked_object = m_scene->object_by_id(object_id);
+                        picked_object = m_scene->object_by_id(object_id)->shared_from_this();
                     }
                     spdlog::trace("picked object: {}", picked_object->name);
                     m_selected_indices.insert(*picked_idx);

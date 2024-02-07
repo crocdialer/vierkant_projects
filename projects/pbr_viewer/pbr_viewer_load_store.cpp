@@ -428,6 +428,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             if(!nodes.empty())
             {
                 m_scene->clear();
+
                 for(const auto &node: nodes)
                 {
                     assert(node.mesh_index < meshes.size());
@@ -452,6 +453,19 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 }
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
+            {
+                auto ground = vierkant::Object3D::create(m_scene->registry());
+                ground->name = "ground";
+                vierkant::object_component auto &cmp = ground->add_component<vierkant::physics_component_t>();
+                cmp.shape_id = m_scene->context().create_plane_shape({});
+                cmp.callbacks.contact_begin = [this](uint32_t obj_id) {
+                  if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
+                };
+                cmp.callbacks.contact_end = [this](uint32_t obj_id) {
+                  if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} bounced", obj->name); }
+                };
+                m_scene->add_object(ground);
+            }
         };
         main_queue().post(done_cb);
     };
@@ -460,13 +474,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
 
 vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 {
-    // additionally required buffer-flags for raytracing/compute/mesh-shading
-    VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-    if(m_settings.enable_raytracing_pipeline_features)
-    {
-        buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    }
     m_num_loading++;
     auto start_time = std::chrono::steady_clock::now();
     vierkant::MeshPtr mesh;
@@ -521,7 +528,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.device = m_device;
         load_params.load_queue = m_queue_model_loading;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
-        load_params.buffer_flags = buffer_flags;
+        load_params.buffer_flags = m_mesh_buffer_flags;
         mesh = vierkant::model::load_mesh(load_params, *mesh_assets);
 
         m_num_loading--;
@@ -540,7 +547,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 
         vierkant::Mesh::create_info_t mesh_create_info = {};
         mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
-        mesh_create_info.buffer_usage_flags = buffer_flags;
+        mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
         mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
         auto mat = vierkant::Material::create();
 
