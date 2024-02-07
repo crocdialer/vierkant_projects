@@ -372,7 +372,7 @@ void PBRViewer::create_ui()
                     if(overlay_asset.object_by_index_fn)
                     {
                         auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(*picked_idx);
-                        picked_object = m_scene->object_by_id(object_id);
+                        picked_object = m_scene->object_by_id(object_id)->shared_from_this();
                     }
                     spdlog::trace("picked object: {}", picked_object->name);
                     m_selected_indices.insert(*picked_idx);
