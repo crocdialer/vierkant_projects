@@ -97,6 +97,7 @@ public:
 
         vierkant::transform_t transform = {};
         std::optional<vierkant::animation_component_t> animation_state = {};
+        std::optional<vierkant::physics_component_t> physics_state = {};
     };
 
     struct scene_camera_t
@@ -192,6 +193,9 @@ private:
 
     VkBufferUsageFlags m_mesh_buffer_flags = 0;
 
+    vierkant::MeshPtr m_box_mesh;
+    vierkant::CollisionShapeId m_box_shape_id = vierkant::CollisionShapeId::nil();
+
     // window handle
     std::shared_ptr<vierkant::Window> m_window;
 
@@ -269,7 +273,8 @@ void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_nvp("mesh_index", scene_node.mesh_index),
        cereal::make_nvp("entry_indices", scene_node.entry_indices), cereal::make_nvp("transform", scene_node.transform),
-       cereal::make_nvp("animation_state", scene_node.animation_state));
+       cereal::make_nvp("animation_state", scene_node.animation_state),
+       cereal::make_nvp("physics_state", scene_node.physics_state));
 }
 
 template<class Archive>

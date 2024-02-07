@@ -29,6 +29,7 @@
 #include <vierkant/Window.hpp>
 #include <vierkant/bc7.hpp>
 #include <vierkant/transform.hpp>
+#include <vierkant/physics_context.hpp>
 
 namespace crocore
 {
@@ -349,6 +350,19 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
             cereal::make_nvp("spherical_coords", orbit_camera.spherical_coords),
             cereal::make_nvp("distance", orbit_camera.distance),
             cereal::make_nvp("look_at", orbit_camera.look_at));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::physics_component_t &c)
+{
+    archive(/*cereal::make_nvp("shape_id", c.shape_id),*/
+            cereal::make_nvp("mass", c.mass),
+            cereal::make_nvp("friction", c.friction),
+            cereal::make_nvp("rolling_friction", c.rolling_friction),
+            cereal::make_nvp("spinning_friction", c.spinning_friction),
+            cereal::make_nvp("restitution", c.restitution),
+            cereal::make_nvp("kinematic", c.kinematic),
+            cereal::make_nvp("sensor", c.sensor));
 }
 
 }// namespace vierkant

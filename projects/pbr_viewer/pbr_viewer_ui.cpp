@@ -66,6 +66,17 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_S: save_settings(m_settings); break;
 
+                case vierkant::Key::_A:
+                {
+                    // select all
+                    auto obj_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::mesh_component_t>();
+                    for(const auto &[entity, obj, mesh_cmp]: obj_view.each())
+                    {
+                        m_selected_objects.insert(obj->shared_from_this());
+                    }
+                }
+                break;
+
                 case vierkant::Key::_DELETE:
                 case vierkant::Key::_BACKSPACE:
                     for(const auto &obj: m_selected_objects) { m_scene->remove_object(obj); }
@@ -260,20 +271,12 @@ void PBRViewer::create_ui()
             ImGui::Spacing();
             if(ImGui::Button("add object"))
             {
-                auto box_half_extents = glm::vec3(.5f);
-                auto geom = vierkant::Geometry::Box(box_half_extents);
-                geom->colors.clear();
-
-                vierkant::Mesh::create_info_t mesh_create_info = {};
-                mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
-                mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
-                auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-
-                auto new_obj = vierkant::create_mesh_object(m_scene->registry(), {mesh});
+                auto new_obj = vierkant::create_mesh_object(m_scene->registry(), {m_box_mesh});
                 new_obj->transform.translation.y = 10.f;
 
                 vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
-                cmp.shape_id = m_scene->context().create_box_shape(box_half_extents);
+                cmp.shape_id =
+                        m_scene->context().create_box_shape(m_box_mesh->entries.front().bounding_box.half_extents());
                 cmp.mass = 1.f;
                 m_scene->add_object(new_obj);
             }

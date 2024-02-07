@@ -224,6 +224,10 @@ void PBRViewer::create_context_and_window()
     m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
     m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
     m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+
+    // buffer-flags for mesh-buffers
+    m_mesh_buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                          VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 }
 
 void PBRViewer::create_graphics_pipeline()
@@ -345,6 +349,19 @@ void PBRViewer::create_texture_image()
     m_textures["environment"] =
             vierkant::cubemap_neutral_environment(m_device, 256, m_queue_image_loading, true, m_hdr_format);
     m_scene->set_environment(m_textures["environment"]);
+
+    auto box_half_extents = glm::vec3(.5f);
+    auto geom = vierkant::Geometry::Box(box_half_extents);
+    geom->colors.clear();
+
+    vierkant::Mesh::create_info_t mesh_create_info = {};
+    mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
+    mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+    m_box_mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+    auto mat = vierkant::Material::create();
+    auto it = m_textures.find("test");
+    if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
+    m_box_mesh->materials = {mat};
 }
 
 void PBRViewer::update(double time_delta)

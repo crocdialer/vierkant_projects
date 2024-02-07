@@ -362,6 +362,10 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
             node.animation_state = object->get_component<vierkant::animation_component_t>();
         }
 
+        if(object->has_component<vierkant::physics_component_t>())
+        {
+            node.physics_state = object->get_component<vierkant::physics_component_t>();
+        }
         // store materials with dirty hashes
         for(const auto &mat: mesh_component.mesh->materials)
         {
@@ -431,14 +435,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
 
                 for(const auto &node: nodes)
                 {
-                    assert(node.mesh_index < meshes.size());
-
-                    vierkant::mesh_component_t mesh_component = {meshes[node.mesh_index], node.entry_indices};
-                    auto object = vierkant::create_mesh_object(m_scene->registry(),
-                                                               {meshes[node.mesh_index], node.entry_indices});
+                    auto mesh = node.mesh_index < meshes.size() ? meshes[node.mesh_index] : m_box_mesh;
+                    auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh, node.entry_indices});
                     object->name = node.name;
                     object->transform = node.transform;
                     if(node.animation_state) { object->add_component(*node.animation_state); }
+                    if(node.physics_state) { object->add_component(*node.physics_state); }
                     m_scene->add_object(object);
                 }
 
@@ -459,10 +461,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 vierkant::object_component auto &cmp = ground->add_component<vierkant::physics_component_t>();
                 cmp.shape_id = m_scene->context().create_plane_shape({});
                 cmp.callbacks.contact_begin = [this](uint32_t obj_id) {
-                  if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
+                    if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
                 };
                 cmp.callbacks.contact_end = [this](uint32_t obj_id) {
-                  if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} bounced", obj->name); }
+                    if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} bounced", obj->name); }
                 };
                 m_scene->add_object(ground);
             }
@@ -540,21 +542,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
             });
         }
     }
-    else
-    {
-        auto geom = vierkant::Geometry::Box(glm::vec3(.5f));
-        geom->colors.clear();
-
-        vierkant::Mesh::create_info_t mesh_create_info = {};
-        mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
-        mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
-        mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-        auto mat = vierkant::Material::create();
-
-        auto it = m_textures.find("test");
-        if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
-        mesh->materials = {mat};
-    }
+    else { mesh = m_box_mesh; }
 
     // store mesh/path
     m_model_paths[mesh] = path;
