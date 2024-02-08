@@ -459,7 +459,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 auto ground = vierkant::Object3D::create(m_scene->registry());
                 ground->name = "ground";
                 vierkant::object_component auto &cmp = ground->add_component<vierkant::physics_component_t>();
-                cmp.shape_id = m_scene->context().create_plane_shape({});
+                cmp.shape = vierkant::collision::plane_t{};
                 cmp.callbacks.contact_begin = [this](uint32_t obj_id) {
                     if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
                 };

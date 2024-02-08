@@ -275,8 +275,8 @@ void PBRViewer::create_ui()
                 new_obj->transform.translation.y = 10.f;
 
                 vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
-                cmp.shape_id =
-                        m_scene->context().create_box_shape(m_box_mesh->entries.front().bounding_box.half_extents());
+                vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
+                cmp.shape = box;
                 cmp.mass = 1.f;
                 m_scene->add_object(new_obj);
             }
