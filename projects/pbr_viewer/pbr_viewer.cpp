@@ -206,8 +206,10 @@ void PBRViewer::create_context_and_window()
         m_renderer.viewport = m_renderer_overlay.viewport = m_renderer_gui.viewport = viewport;
         m_renderer.sample_count = m_renderer_overlay.sample_count = m_renderer_gui.sample_count =
                 m_window->swapchain().sample_count();
-        m_camera->get_component<vierkant::physical_camera_component_t>().aspect = m_window->aspect_ratio();
         m_camera_control.current->screen_size = {w, h};
+
+        auto perspective_cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera);
+        perspective_cam->params.aspect = m_window->aspect_ratio();
     };
     window_delegate.close_fn = [this]() { running = false; };
     m_window->window_delegates[name()] = window_delegate;

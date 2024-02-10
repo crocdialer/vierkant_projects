@@ -3,6 +3,7 @@
 #include "pbr_viewer.hpp"
 #include "ziparchive.h"
 #include <crocore/filesystem.hpp>
+#include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
 
 using double_second = std::chrono::duration<double>;
@@ -308,14 +309,15 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     scene_data_t data;
     data.environment_path = m_scene_data.environment_path;
 
-    auto cam_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::physical_camera_component_t>();
+    vierkant::SelectVisitor<vierkant::PerspectiveCamera> camera_filter;
+    m_scene->root()->accept(camera_filter);
 
-    for(const auto &[entity, object, cam_params]: cam_view.each())
+    for(const auto &cam: camera_filter.objects)
     {
         scene_camera_t scene_camera = {};
-        scene_camera.name = object->name;
-        scene_camera.transform = object->transform;
-        scene_camera.params = cam_params;
+        scene_camera.name = cam->name;
+        scene_camera.transform = cam->transform;
+        scene_camera.params = cam->params;
         data.cameras.push_back(scene_camera);
     }
 
