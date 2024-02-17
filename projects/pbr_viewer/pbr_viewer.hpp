@@ -14,7 +14,6 @@
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/object_overlay.hpp>
 #include <vierkant/physics_context.hpp>
-//#include <vierkant/vierkant.hpp>
 
 
 constexpr char g_texture_url[] =

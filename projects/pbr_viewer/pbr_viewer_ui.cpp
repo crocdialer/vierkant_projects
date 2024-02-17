@@ -66,6 +66,21 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_S: save_settings(m_settings); break;
 
+                case vierkant::Key::_PERIOD:
+                {
+                    vierkant::AABB aabb;
+                    for(const auto &obj: m_selected_objects)
+                    {
+                        aabb += obj->aabb().transform(vierkant::mat4_cast(obj->transform));
+                    }
+                    m_camera_control.orbit->look_at = aabb.center();
+                    if(m_camera_control.orbit->transform_cb)
+                    {
+                        m_camera_control.orbit->transform_cb(m_camera_control.orbit->transform());
+                    }
+                    break;
+                }
+
                 case vierkant::Key::_A:
                 {
                     // select all
