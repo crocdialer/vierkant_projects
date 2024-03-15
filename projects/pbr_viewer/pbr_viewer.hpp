@@ -68,6 +68,8 @@ public:
 
         bool cache_mesh_bundles = false;
 
+        bool cache_zip_archive = false;
+
         bool enable_raytracing_pipeline_features = true;
 
         bool enable_ray_query_features = true;
@@ -257,6 +259,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("texture_compression", settings.texture_compression),
        cereal::make_nvp("mesh_buffer_params", settings.mesh_buffer_params),
        cereal::make_nvp("cache_mesh_bundles", settings.cache_mesh_bundles),
+       cereal::make_nvp("cache_zip_archive", settings.cache_zip_archive),
        cereal::make_nvp("enable_raytracing_pipeline_features", settings.enable_raytracing_pipeline_features),
        cereal::make_nvp("enable_ray_query_features", settings.enable_ray_query_features),
        cereal::make_nvp("enable_mesh_shader_device_features", settings.enable_mesh_shader_device_features),

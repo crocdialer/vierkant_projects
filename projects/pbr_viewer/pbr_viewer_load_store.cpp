@@ -7,7 +7,8 @@
 #include <vierkant/cubemap_utils.hpp>
 
 using double_second = std::chrono::duration<double>;
-constexpr char g_zip_path[] = "asset_bundle_cache.zip";
+constexpr char g_cache_path[] = "cache";
+constexpr char g_zip_path[] = "cache.zip";
 
 void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
 {
@@ -240,61 +241,6 @@ void PBRViewer::load_file(const std::string &path)
     }
 }
 
-void PBRViewer::save_asset_bundle(const vierkant::model::mesh_assets_t &mesh_assets, const std::filesystem::path &path)
-{
-    // save data to archive
-    try
-    {
-        {
-            spdlog::stopwatch sw;
-            // create and open a character archive for output
-            std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
-            spdlog::debug("serializing/writing mesh_buffer_bundle: {}", path.string());
-            cereal::BinaryOutputArchive archive(ofs);
-            archive(mesh_assets);
-            spdlog::debug("done serializing/writing mesh_buffer_bundle: {} ({})", path.string(), sw.elapsed());
-        }
-
-        spdlog::stopwatch sw;
-        {
-            std::unique_lock lock(m_bundle_rw_mutex);
-            spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
-            vierkant::ziparchive zipstream(g_zip_path);
-            zipstream.add_file(path);
-        }
-        spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
-        std::filesystem::remove(path);
-    } catch(std::exception &e)
-    {
-        spdlog::error(e.what());
-    }
-}
-
-std::optional<vierkant::model::mesh_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
-{
-    vierkant::ziparchive zip(g_zip_path);
-
-    if(zip.has_file(path))
-    {
-        try
-        {
-            //            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
-            spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
-            vierkant::model::mesh_assets_t ret;
-
-            std::shared_lock lock(m_bundle_rw_mutex);
-            auto zipstream = zip.open_file(path);
-            cereal::BinaryInputArchive archive(zipstream);
-            archive(ret);
-            return ret;
-        } catch(std::exception &e)
-        {
-            spdlog::error(e.what());
-        }
-    }
-    return {};
-}
-
 void PBRViewer::save_scene(const std::filesystem::path &path) const
 {
     // scene traversal
@@ -478,12 +424,11 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     {
         spdlog::debug("loading model '{}'", path.string());
 
-
         // create hash of filename+params, search existing bundle
         size_t hash_val = std::hash<std::string>()(path.filename().string());
         vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
         vierkant::hash_combine(hash_val, m_settings.texture_compression);
-        std::filesystem::path bundle_path =
+        std::filesystem::path bundle_path = std::filesystem::path(g_cache_path) /
                 fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
         bool bundle_created = false;
@@ -562,6 +507,89 @@ std::optional<PBRViewer::scene_data_t> PBRViewer::load_scene_data(const std::fil
         } catch(std::exception &e)
         {
             spdlog::warn(e.what());
+        }
+    }
+    return {};
+}
+
+void PBRViewer::save_asset_bundle(const vierkant::model::mesh_assets_t &mesh_assets, const std::filesystem::path &path)
+{
+    // save data to archive
+    try
+    {
+        {
+            spdlog::stopwatch sw;
+
+            // create directory, if necessary
+            std::filesystem::create_directories(crocore::filesystem::get_directory_part(path));
+
+            // create and open a character archive for output
+            std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
+            spdlog::debug("serializing/writing mesh_buffer_bundle: {}", path.string());
+            cereal::BinaryOutputArchive archive(ofs);
+            archive(mesh_assets);
+            spdlog::debug("done serializing/writing mesh_buffer_bundle: {} ({})", path.string(), sw.elapsed());
+        }
+
+        if(m_settings.cache_zip_archive)
+        {
+            spdlog::stopwatch sw;
+            {
+                std::unique_lock lock(m_bundle_rw_mutex);
+                spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
+                vierkant::ziparchive zipstream(g_zip_path);
+                zipstream.add_file(path);
+            }
+            spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
+            std::filesystem::remove(path);
+        }
+    } catch(std::exception &e)
+    {
+        spdlog::error(e.what());
+    }
+}
+
+std::optional<vierkant::model::mesh_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
+{
+    {
+        std::ifstream cache_file(path);
+
+        if(cache_file.is_open())
+        {
+            try
+            {
+                spdlog::debug("loading bundle '{}'", path.string());
+                vierkant::model::mesh_assets_t ret;
+
+                std::shared_lock lock(m_bundle_rw_mutex);
+                cereal::BinaryInputArchive archive(cache_file);
+                archive(ret);
+                return ret;
+            } catch(std::exception &e)
+            {
+                spdlog::error(e.what());
+            }
+        }
+    }
+
+    vierkant::ziparchive zip(g_zip_path);
+
+    if(zip.has_file(path))
+    {
+        try
+        {
+            //            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
+            spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
+            vierkant::model::mesh_assets_t ret;
+
+            std::shared_lock lock(m_bundle_rw_mutex);
+            auto zipstream = zip.open_file(path);
+            cereal::BinaryInputArchive archive(zipstream);
+            archive(ret);
+            return ret;
+        } catch(std::exception &e)
+        {
+            spdlog::error(e.what());
         }
     }
     return {};

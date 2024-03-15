@@ -242,6 +242,7 @@ void PBRViewer::create_ui()
             ImGui::Checkbox("generate mesh-LODs", &m_settings.mesh_buffer_params.generate_lods);
             ImGui::Checkbox("generate meshlets", &m_settings.mesh_buffer_params.generate_meshlets);
             ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
+            ImGui::Checkbox("zip-compress bundles", &m_settings.cache_zip_archive);
 
             ImGui::Separator();
             ImGui::Spacing();
