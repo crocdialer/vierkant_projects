@@ -131,7 +131,6 @@ void PBRViewer::load_environment(const std::string &path)
     background_queue().post(load_task);
 }
 
-
 void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesystem::path &path) const
 {
     // window settings
@@ -177,18 +176,10 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     }
 
     spdlog::debug("save settings: {}", path.string());
-
-    save_scene();
 }
 
-PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path)
+std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesystem::path &path)
 {
-    PBRViewer::settings_t settings = {};
-
-    // initial pos
-    settings.orbit_camera->spherical_coords = {1.1f, -0.5f};
-    settings.orbit_camera->distance = 4.f;
-
     // create and open a character archive for input
     std::ifstream file_stream(path.string());
 
@@ -200,7 +191,9 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
             cereal::JSONInputArchive archive(file_stream);
 
             // read class instance from archive
+            PBRViewer::settings_t settings = {};
             archive(settings);
+            return settings;
         } catch(std::exception &e)
         {
             spdlog::error(e.what());
@@ -208,7 +201,7 @@ PBRViewer::settings_t PBRViewer::load_settings(const std::filesystem::path &path
 
         spdlog::debug("loading settings: {}", path.string());
     }
-    return settings;
+    return {};
 }
 
 void PBRViewer::load_file(const std::string &path)
@@ -235,8 +228,7 @@ void PBRViewer::load_file(const std::string &path)
         case crocore::filesystem::FileType::OTHER:
             if(std::filesystem::path(path).extension() == ".json")
             {
-                auto loaded_scene = load_scene_data(path);
-                if(loaded_scene)
+                if(auto loaded_scene = load_scene_data(path))
                 {
                     m_scene->clear();
                     add_to_recent_files(path);

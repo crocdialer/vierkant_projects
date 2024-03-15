@@ -64,7 +64,10 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_M: m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe; break;
 
-                case vierkant::Key::_S: save_settings(m_settings); break;
+                case vierkant::Key::_S:
+                    save_settings(m_settings);
+                    save_scene();
+                    break;
 
                 case vierkant::Key::_PERIOD:
                 {
@@ -194,14 +197,18 @@ void PBRViewer::create_ui()
             ImGui::Separator();
             ImGui::Spacing();
 
-            if(ImGui::MenuItem("save")) { save_settings(m_settings); }
+            if(ImGui::MenuItem("save"))
+            {
+                save_settings(m_settings);
+                save_scene();
+            }
 
             ImGui::Separator();
             ImGui::Spacing();
             if(ImGui::MenuItem("reload"))
             {
                 spdlog::warn("menu: reload");
-                m_settings = load_settings();
+                if(auto settings = load_settings()){ m_settings = std::move(*settings); }
                 create_camera_controls();
                 if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
                 else { m_scene_renderer = m_pbr_renderer; }
