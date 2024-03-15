@@ -69,8 +69,13 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     for(auto &[name, logger]: _loggers) { logger->sinks().push_back(scroll_log_sink); }
 
     // try to read settings
-    m_settings = load_settings();
-
+    if(auto settings = load_settings()) { m_settings = std::move(*settings); }
+    else
+    {
+        // initial pos
+        m_settings.orbit_camera->spherical_coords = {1.1f, -0.5f};
+        m_settings.orbit_camera->distance = 4.f;
+    }
     spdlog::set_level(m_settings.log_level);
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
