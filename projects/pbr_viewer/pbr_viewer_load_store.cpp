@@ -346,17 +346,20 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             {
                 auto mesh = load_mesh(p);
 
-                // optional material override(s)
-                for(auto &mat: mesh->materials)
+                if(mesh)
                 {
-                    auto it = scene_data->materials.find(mat->m.id);
-                    if(it != scene_data->materials.end())
+                    // optional material override(s)
+                    for(auto &mat: mesh->materials)
                     {
-                        mat->m = it->second;
-                        spdlog::trace("overriding material: {}", mat->m.name);
+                        auto it = scene_data->materials.find(mat->m.id);
+                        if(it != scene_data->materials.end())
+                        {
+                            mat->m = it->second;
+                            spdlog::trace("overriding material: {}", mat->m.name);
+                        }
                     }
+                    meshes.push_back(mesh);
                 }
-                meshes.push_back(mesh);
             }
             nodes = scene_data->nodes;
             cameras = scene_data->cameras;
