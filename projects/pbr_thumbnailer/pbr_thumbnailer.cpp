@@ -260,7 +260,7 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_asse
         object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
 
         // center aabb
-        auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
+        auto aabb = object->aabb().transform(object->transform);
         object->transform.translation = -aabb.center();
 
         m_scene->add_object(object);

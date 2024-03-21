@@ -74,7 +74,7 @@ void PBRViewer::create_ui()
                     vierkant::AABB aabb;
                     for(const auto &obj: m_selected_objects)
                     {
-                        aabb += obj->aabb().transform(vierkant::mat4_cast(obj->transform));
+                        aabb += obj->aabb().transform(obj->transform);
                     }
                     m_camera_control.orbit->look_at = aabb.center();
                     if(m_camera_control.orbit->transform_cb)

@@ -32,7 +32,7 @@ void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
                 object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
 
                 // center aabb
-                auto aabb = object->aabb().transform(vierkant::mat4_cast(object->transform));
+                auto aabb = object->aabb().transform(object->transform);
                 object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i);
 
                 if(clear_scene) { m_scene->clear(); }
