@@ -16,6 +16,21 @@ void PBRViewer::create_ui()
     key_delegate.key_press = [this](const vierkant::KeyEvent &e) {
         if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureKeyboard))
         {
+            if(e.is_control_down())
+            {
+                switch(e.code())
+                {
+                    case vierkant::Key::_C: m_copy_objects = m_selected_objects; break;
+                    case vierkant::Key::_V:
+                    {
+                        for(const auto &obj: m_copy_objects) { m_scene->add_object(obj->clone()); }
+                        break;
+                    }
+                    default: break;
+                }
+                return;
+            }
+
             switch(e.code())
             {
                 case vierkant::Key::_Q: m_settings.current_guizmo = vierkant::gui::GuizmoType::INACTIVE; break;
@@ -72,10 +87,7 @@ void PBRViewer::create_ui()
                 case vierkant::Key::_PERIOD:
                 {
                     vierkant::AABB aabb;
-                    for(const auto &obj: m_selected_objects)
-                    {
-                        aabb += obj->aabb().transform(obj->transform);
-                    }
+                    for(const auto &obj: m_selected_objects) { aabb += obj->aabb().transform(obj->transform); }
                     m_camera_control.orbit->look_at = aabb.center();
                     if(m_camera_control.orbit->transform_cb)
                     {
@@ -208,7 +220,7 @@ void PBRViewer::create_ui()
             if(ImGui::MenuItem("reload"))
             {
                 spdlog::warn("menu: reload");
-                if(auto settings = load_settings()){ m_settings = std::move(*settings); }
+                if(auto settings = load_settings()) { m_settings = std::move(*settings); }
                 create_camera_controls();
                 if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
                 else { m_scene_renderer = m_pbr_renderer; }

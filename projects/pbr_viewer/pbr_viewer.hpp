@@ -212,6 +212,7 @@ private:
     } m_camera_control;
 
     std::set<vierkant::Object3DPtr> m_selected_objects;
+    std::set<vierkant::Object3DPtr> m_copy_objects;
     std::unordered_set<uint32_t> m_selected_indices;
 
     vierkant::PipelineCachePtr m_pipeline_cache;
