@@ -415,7 +415,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             // draw silhouette/mask for selected indices
             m_draw_context.draw_image(m_renderer_overlay, overlay_assets.overlay, {}, glm::vec4(.8f, .5f, .1f, .7f));
 
-            auto modelview = m_camera->view_transform() * obj->transform;
+            auto modelview = m_camera->view_transform() * obj->global_transform();
 
             if(m_settings.draw_aabbs)
             {

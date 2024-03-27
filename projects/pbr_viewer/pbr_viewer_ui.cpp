@@ -20,10 +20,22 @@ void PBRViewer::create_ui()
             {
                 switch(e.code())
                 {
+                    // copy
                     case vierkant::Key::_C: m_copy_objects = m_selected_objects; break;
+
+                    // paste
                     case vierkant::Key::_V:
                     {
                         for(const auto &obj: m_copy_objects) { m_scene->add_object(obj->clone()); }
+                        break;
+                    }
+
+                    // group
+                    case vierkant::Key::_G:
+                    {
+                        auto group = vierkant::Object3D::create(m_scene->registry(), "group");
+                        m_scene->add_object(group);
+                        for(const auto &sel_obj: m_selected_objects) { group->add_child(sel_obj); }
                         break;
                     }
                     default: break;

@@ -93,6 +93,9 @@ public:
         std::string name;
         size_t mesh_index = std::numeric_limits<size_t>::max();
 
+        //! indices into scene_data_t::nodes
+        std::vector<uint32_t> children = {};
+
         //! optional set of enabled entries.
         std::optional<std::set<uint32_t>> entry_indices = {};
 
@@ -277,7 +280,8 @@ void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_nvp("mesh_index", scene_node.mesh_index),
        cereal::make_nvp("entry_indices", scene_node.entry_indices), cereal::make_nvp("transform", scene_node.transform),
        cereal::make_nvp("animation_state", scene_node.animation_state),
-       cereal::make_nvp("physics_state", scene_node.physics_state));
+       cereal::make_nvp("physics_state", scene_node.physics_state),
+       cereal::make_nvp("children", scene_node.children));
 }
 
 template<class Archive>
