@@ -91,7 +91,7 @@ public:
     struct scene_node_t
     {
         std::string name;
-        size_t mesh_index = std::numeric_limits<size_t>::max();
+        std::optional<size_t> mesh_index;
 
         //! indices into scene_data_t::nodes
         std::vector<uint32_t> children = {};
@@ -116,6 +116,10 @@ public:
         std::vector<std::string> model_paths;
         std::string environment_path;
         std::vector<scene_node_t> nodes;
+
+        //! indices into scene_data_t::nodes
+        std::vector<uint32_t> scene_roots;
+
         std::vector<scene_camera_t> cameras;
         std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
     };
@@ -295,6 +299,8 @@ template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
 {
     ar(cereal::make_nvp("environment_path", scene_data.environment_path),
-       cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
+       cereal::make_nvp("model_paths", scene_data.model_paths),
+       cereal::make_nvp("nodes", scene_data.nodes),
+       cereal::make_nvp("scene_roots", scene_data.scene_roots),
        cereal::make_nvp("cameras", scene_data.cameras), cereal::make_nvp("materials", scene_data.materials));
 }

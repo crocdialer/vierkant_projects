@@ -261,58 +261,79 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 
     // set of meshes -> indices / paths !?
     std::map<vierkant::MeshConstPtr, size_t> mesh_indices;
+    std::map<vierkant::Object3D *, size_t> obj_to_node_index;
     std::map<std::filesystem::path, size_t> path_map;
 
-    auto view = m_scene->registry()->view<vierkant::Object3D *, vierkant::mesh_component_t>();
+    vierkant::LambdaVisitor visitor;
+    visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
+        if(&obj == m_scene->root().get()) { return true; }
 
-    for(const auto &[entity, object, mesh_component]: view.each())
-    {
-        const auto &mesh = mesh_component.mesh;
+        scene_node_t node = {};
+        node.name = obj.name;
+        node.transform = obj.transform;
 
-        if(!mesh_indices.contains(mesh))
+        if(obj.has_component<vierkant::animation_component_t>())
         {
-            auto path_it = m_model_paths.find(mesh);
-            if(path_it != m_model_paths.end())
-            {
-                size_t index;
+            node.animation_state = obj.get_component<vierkant::animation_component_t>();
+        }
 
-                if(!path_map.contains(path_it->second))
+        if(obj.has_component<vierkant::physics_component_t>())
+        {
+            node.physics_state = obj.get_component<vierkant::physics_component_t>();
+        }
+
+        obj_to_node_index[&obj] = data.nodes.size();
+        data.nodes.push_back(node);
+
+        if(obj.has_component<vierkant::mesh_component_t>())
+        {
+            auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
+            const auto &mesh = mesh_component.mesh;
+
+            if(!mesh_indices.contains(mesh))
+            {
+                auto path_it = m_model_paths.find(mesh);
+                if(path_it != m_model_paths.end())
                 {
-                    path_map[path_it->second] = data.model_paths.size();
-                    index = data.model_paths.size();
-                    data.model_paths.push_back(path_it->second.string());
+                    size_t index;
+
+                    if(!path_map.contains(path_it->second))
+                    {
+                        path_map[path_it->second] = data.model_paths.size();
+                        index = data.model_paths.size();
+                        data.model_paths.push_back(path_it->second.string());
+                    }
+                    else { index = path_map.at(path_it->second); }
+                    mesh_indices[mesh] = index;
                 }
-                else { index = path_map.at(path_it->second); }
-                mesh_indices[mesh] = index;
             }
         }
-    }
+        return true;
+    });
 
-    for(const auto &[entity, object, mesh_component]: view.each())
-    {
-        scene_node_t node = {};
+    // add top-lvl scenegraph-nodes
+    for(const auto &child: m_scene->root()->children) { data.scene_roots.push_back(obj_to_node_index[child.get()]); }
 
-        // transforms / mesh/index
-        node.name = object->name;
-        node.mesh_index = mesh_indices[mesh_component.mesh];
-        node.entry_indices = mesh_component.entry_indices;
-        node.transform = object->global_transform();
-        if(object->has_component<vierkant::animation_component_t>())
-        {
-            node.animation_state = object->get_component<vierkant::animation_component_t>();
-        }
+    //    for(const auto &[entity, object, mesh_component]: view.each())
+    visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
+        if(!obj_to_node_index.contains(&obj)) { return true; }
+        auto &node = data.nodes[obj_to_node_index[&obj]];
+        for(const auto &child: obj.children) { node.children.push_back(obj_to_node_index[child.get()]); }
 
-        if(object->has_component<vierkant::physics_component_t>())
+        if(obj.has_component<vierkant::mesh_component_t>())
         {
-            node.physics_state = object->get_component<vierkant::physics_component_t>();
+            auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
+            node.mesh_index = mesh_indices[mesh_component.mesh];
+            node.entry_indices = mesh_component.entry_indices;
+
+            // store materials with dirty hashes
+            for(const auto &mat: mesh_component.mesh->materials)
+            {
+                if(mat->hash != std::hash<vierkant::material_t>()(mat->m)) { data.materials[mat->m.id] = mat->m; }
+            }
         }
-        // store materials with dirty hashes
-        for(const auto &mat: mesh_component.mesh->materials)
-        {
-            if(mat->hash != std::hash<vierkant::material_t>()(mat->m)) { data.materials[mat->m.id] = mat->m; }
-        }
-        data.nodes.push_back(node);
-    }
+        return true;
+    });
 
     // save scene_data
     std::ofstream ofs(path.string());
@@ -371,21 +392,41 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             nodes.push_back(n);
         }
 
-        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras)]() {
+        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras),
+                        scene_roots = scene_data->scene_roots]() {
             if(!nodes.empty())
             {
                 m_scene->clear();
 
+                std::vector<vierkant::Object3DPtr> objects;
+
+                // create objects for all nodes
                 for(const auto &node: nodes)
                 {
-                    auto mesh = node.mesh_index < meshes.size() ? meshes[node.mesh_index] : m_box_mesh;
-                    auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh, node.entry_indices});
-                    object->name = node.name;
-                    object->transform = node.transform;
-                    if(node.animation_state) { object->add_component(*node.animation_state); }
-                    if(node.physics_state) { object->add_component(*node.physics_state); }
-                    m_scene->add_object(object);
+                    vierkant::Object3DPtr obj;
+
+                    if(node.mesh_index && *node.mesh_index < meshes.size())
+                    {
+                        const auto &mesh = meshes[*node.mesh_index];
+                        obj = vierkant::create_mesh_object(m_scene->registry(), {mesh, node.entry_indices});
+                    }
+                    else { obj = vierkant::Object3D::create(m_scene->registry()); }
+                    obj->name = node.name;
+                    obj->transform = node.transform;
+                    if(node.animation_state) { obj->add_component(*node.animation_state); }
+                    if(node.physics_state) { obj->add_component(*node.physics_state); }
+
+                    objects.push_back(obj);
                 }
+
+                // recreate node-hierarchy
+                for(uint32_t i = 0; i < nodes.size(); ++i)
+                {
+                    for(auto child_index: nodes[i].children) { objects[i]->add_child(objects[child_index]); }
+                }
+
+                // add scene-roots
+                for(auto idx: scene_roots) { m_scene->add_object(objects[idx]); }
 
                 for(const auto &cam: cameras)
                 {
@@ -431,7 +472,8 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         size_t hash_val = std::hash<std::string>()(path.filename().string());
         vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
         vierkant::hash_combine(hash_val, m_settings.texture_compression);
-        std::filesystem::path bundle_path = std::filesystem::path(g_cache_path) /
+        std::filesystem::path bundle_path =
+                std::filesystem::path(g_cache_path) /
                 fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
         bool bundle_created = false;
