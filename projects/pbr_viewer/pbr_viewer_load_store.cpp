@@ -359,6 +359,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
         // TODO: use threadpool
         std::vector<vierkant::MeshPtr> meshes;
         std::vector<scene_node_t> nodes;
+        std::vector<uint32_t> scene_roots;
         std::vector<scene_camera_t> cameras;
 
         if(scene_data)
@@ -384,16 +385,17 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             }
             nodes = scene_data->nodes;
             cameras = scene_data->cameras;
+            scene_roots = scene_data->scene_roots;
         }
         else
         {
             meshes.push_back(load_mesh(""));
-            scene_node_t n = {"hasslecube", 0};
-            nodes.push_back(n);
+            nodes = {{"hasslecube", 0}};
+            scene_roots = {0};
         }
 
         auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras),
-                        scene_roots = scene_data->scene_roots]() {
+                        scene_roots = std::move(scene_roots)]() {
             if(!nodes.empty())
             {
                 m_scene->clear();
