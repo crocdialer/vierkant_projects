@@ -441,19 +441,26 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 }
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
+
+            vierkant::Object3DPtr ground;
+            auto results = m_scene->objects_by_name("ground");
+            if(results.empty())
             {
-                auto ground = vierkant::Object3D::create(m_scene->registry());
+                ground = vierkant::Object3D::create(m_scene->registry());
                 ground->name = "ground";
-                vierkant::object_component auto &cmp = ground->add_component<vierkant::physics_component_t>();
+                auto &cmp = ground->add_component<vierkant::physics_component_t>();
                 cmp.shape = vierkant::collision::plane_t{};
-                cmp.callbacks.contact_begin = [this](uint32_t obj_id) {
-                    if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
-                };
-                cmp.callbacks.contact_end = [this](uint32_t obj_id) {
-                    if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} bounced", obj->name); }
-                };
                 m_scene->add_object(ground);
             }
+            else { ground = results.front()->shared_from_this(); }
+            auto &cmp = ground->get_component<vierkant::physics_component_t>();
+
+            cmp.callbacks.contact_begin = [this](uint32_t obj_id) {
+                if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
+            };
+            cmp.callbacks.contact_end = [this](uint32_t obj_id) {
+                if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} bounced", obj->name); }
+            };
         };
         main_queue().post(done_cb);
     };
