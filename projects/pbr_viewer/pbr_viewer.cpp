@@ -89,7 +89,10 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
             case crocore::filesystem::FileType::MODEL:
             {
                 m_scene_data.model_paths = {path};
-                m_scene_data.nodes = {{std::filesystem::path(path).filename().string(), 0}};
+                scene_node_t node = {};
+                node.name = std::filesystem::path(path).filename().string();
+                node.mesh_index = 0;
+                m_scene_data.nodes = {node};
                 break;
             }
 

@@ -390,7 +390,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
         else
         {
             meshes.push_back(load_mesh(""));
-            nodes = {{"hasslecube", 0}};
+            scene_node_t node = {};
+            node.name = "hasslecube";
+            node.mesh_index = 0;
+            nodes = {node};
             scene_roots = {0};
         }
 
