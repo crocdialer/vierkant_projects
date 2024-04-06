@@ -7,7 +7,7 @@ include_directories(${vierkant_INCLUDE_DIRS})
 #add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
 
 #shaders
-set(GLSLANG_VALIDATOR "glslangValidator")
+set(SHADER_COMPILER "glslang")
 
 set(LIBS ${LIBS})
 
@@ -34,7 +34,7 @@ FOREACH(folderItem ${FOLDER_CONTENT})
                 if(IS_DIRECTORY "${folderItem}/shaders")
                     set(SHADERS TRUE)
                     FILE(GLOB SHADER_DIR "${folderItem}/shaders")
-                    stringify_shaders(${SHADER_DIR} ${SHADER_TARGET} ${GLSLANG_VALIDATOR})
+                    stringify_shaders(${SHADER_DIR} ${SHADER_TARGET} ${SHADER_COMPILER})
                     include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
                 endif()
 
