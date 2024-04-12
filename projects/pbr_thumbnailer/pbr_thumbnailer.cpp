@@ -296,7 +296,8 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
 
     // available options
     cxxopts::Options options(argv[0], "3d-model thumbnailer with rasterization and path-tracer backends\n");
-    options.add_options()("help", "produce help message");
+    options.positional_help("<model-file> [<hdr-image>] <output-image-path>");
+    options.add_options()("help", "print this help message");
     options.add_options()("w,width", "result-image width in px", cxxopts::value<uint32_t>());
     options.add_options()("h,height", "result-image height in px", cxxopts::value<uint32_t>());
     options.add_options()("num_samples", "number of samples-per-pixel (spp)", cxxopts::value<uint32_t>());
