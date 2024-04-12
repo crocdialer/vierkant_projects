@@ -114,7 +114,7 @@ public:
     {
         std::string name;
         vierkant::transform_t transform = {};
-        vierkant::physical_camera_params_t params = {};
+        vierkant::camera_params_variant_t params = {};
     };
 
     struct scene_data_t
