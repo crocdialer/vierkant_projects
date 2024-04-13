@@ -9,13 +9,6 @@ namespace vierkant::collision
 {
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::collision::plane_t &s)
-{
-    archive(cereal::make_nvp("normal", s.normal),
-            cereal::make_nvp("d", s.d));
-}
-
-template<class Archive>
 void serialize(Archive &archive, vierkant::collision::box_t &s)
 {
     archive(cereal::make_nvp("half_extents", s.half_extents));
@@ -30,14 +23,13 @@ void serialize(Archive &archive, vierkant::collision::sphere_t &s)
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::cylinder_t &s)
 {
-    archive(cereal::make_nvp("half_extents", s.half_extents));
+    archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::capsule_t &s)
 {
-    archive(cereal::make_nvp("radius", s.radius),
-            cereal::make_nvp("height", s.height));
+    archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height));
 }
 
 }// namespace vierkant::collision
@@ -47,13 +39,10 @@ namespace vierkant
 template<class Archive>
 void serialize(Archive &archive, vierkant::physics_component_t &c)
 {
-    archive(cereal::make_nvp("shape", c.shape),
-            cereal::make_nvp("mass", c.mass),
-            cereal::make_nvp("friction", c.friction),
-            cereal::make_nvp("rolling_friction", c.rolling_friction),
-            cereal::make_nvp("spinning_friction", c.spinning_friction),
-            cereal::make_nvp("restitution", c.restitution),
-            cereal::make_nvp("kinematic", c.kinematic),
+    archive(cereal::make_nvp("shape", c.shape), cereal::make_nvp("mass", c.mass),
+            cereal::make_nvp("friction", c.friction), cereal::make_nvp("restitution", c.restitution),
+            cereal::make_nvp("linear_damping", c.linear_damping),
+            cereal::make_nvp("angular_damping", c.angular_damping), cereal::make_nvp("kinematic", c.kinematic),
             cereal::make_nvp("sensor", c.sensor));
 }
-}
+}// namespace vierkant

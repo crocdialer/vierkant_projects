@@ -408,9 +408,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                                   &overlay_assets]() -> VkCommandBuffer {
         if(m_settings.draw_physics)
         {
-            const auto &geom = m_scene->context().debug_render();
-            m_draw_context.draw_lines(m_renderer_overlay, geom->positions, geom->colors, m_camera->view_transform(),
-                                      m_camera->projection_matrix());
+            if(auto geom = m_scene->context().debug_render())
+            {
+                m_draw_context.draw_lines(m_renderer_overlay, geom->positions, geom->colors, m_camera->view_transform(),
+                                          m_camera->projection_matrix());
+            }
         }
 
         for(const auto &obj: selected_objects)

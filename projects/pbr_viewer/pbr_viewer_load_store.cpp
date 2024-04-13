@@ -470,17 +470,17 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 ground = vierkant::Object3D::create(m_scene->registry());
                 ground->name = "ground";
                 auto &cmp = ground->add_component<vierkant::physics_component_t>();
-                cmp.shape = vierkant::collision::plane_t{};
+                cmp.shape = vierkant::collision::box_t{.half_extents = {20.f, .2f, 20.f}};
                 m_scene->add_object(ground);
             }
             else { ground = results.front()->shared_from_this(); }
             auto &cmp = ground->get_component<vierkant::physics_component_t>();
 
-            cmp.callbacks.contact_begin = [this](uint32_t obj_id) {
-                if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} hit the ground", obj->name); }
+            cmp.callbacks.contact_begin = [this](uint32_t /*obj1*/, uint32_t obj2) {
+                if(auto obj = m_scene->object_by_id(obj2)) { spdlog::debug("{} hit the ground", obj->name); }
             };
-            cmp.callbacks.contact_end = [this](uint32_t obj_id) {
-                if(auto obj = m_scene->object_by_id(obj_id)) { spdlog::debug("{} bounced", obj->name); }
+            cmp.callbacks.contact_end = [this](uint32_t /*obj1*/, uint32_t obj2) {
+                if(auto obj = m_scene->object_by_id(obj2)) { spdlog::debug("{} bounced", obj->name); }
             };
         };
         main_queue().post(done_cb);
