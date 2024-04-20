@@ -404,6 +404,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             if(!nodes.empty())
             {
                 m_scene->clear();
+                m_scene->context().set_threadpool(background_queue());
 
                 std::vector<vierkant::Object3DPtr> objects;
 
