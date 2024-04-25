@@ -99,8 +99,6 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
             default: break;
         }
     }
-    // physics-updates on application-threadpool
-    m_scene->context().set_threadpool(background_queue());
 }
 
 void PBRViewer::setup()

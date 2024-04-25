@@ -230,7 +230,8 @@ private:
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
-    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create();
+    // init a scene with physics-support on application-threadpool
+    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(&background_queue());
 
     // selection of scene-renderers
     vierkant::PBRDeferredPtr m_pbr_renderer;
