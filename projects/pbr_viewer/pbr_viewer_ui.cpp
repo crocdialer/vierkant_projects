@@ -318,7 +318,7 @@ void PBRViewer::create_ui()
             ImGui::Spacing();
             if(ImGui::Button("add object"))
             {
-                auto new_obj = vierkant::create_mesh_object(m_scene->registry(), {m_box_mesh});
+                auto new_obj = m_scene->create_mesh_object({m_box_mesh});
                 new_obj->transform.translation.y = 10.f;
 
                 vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();

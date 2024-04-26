@@ -93,7 +93,7 @@ private:
         vierkant::SceneRendererPtr scene_renderer = nullptr;
     };
 
-    static std::optional<vierkant::model::mesh_assets_t> load_model_file(const std::filesystem::path &path,
+    static std::optional<vierkant::model::model_assets_t> load_model_file(const std::filesystem::path &path,
                                                                          crocore::ThreadPool &pool);
 
     void setup() override;
@@ -106,9 +106,9 @@ private:
 
     bool create_graphics_context();
 
-    bool create_mesh(const vierkant::model::mesh_assets_t &mesh_assets);
+    bool create_mesh(const vierkant::model::model_assets_t &mesh_assets);
 
-    void create_camera(const vierkant::model::mesh_assets_t &mesh_assets);
+    void create_camera(const vierkant::model::model_assets_t &mesh_assets);
 
     graphics_context_t m_context;
 

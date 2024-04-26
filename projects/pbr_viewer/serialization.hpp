@@ -359,7 +359,7 @@ namespace vierkant::model
 
 template<class Archive>
 void serialize(Archive &archive,
-               vierkant::model::mesh_assets_t &mesh_assets)
+               vierkant::model::model_assets_t &mesh_assets)
 {
     archive(cereal::make_nvp("geometry_data", mesh_assets.geometry_data),
             cereal::make_nvp("materials", mesh_assets.materials),

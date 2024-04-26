@@ -108,7 +108,7 @@ void PBRThumbnailer::teardown()
     spdlog::info("total: {}s", application_time());
 }
 
-std::optional<vierkant::model::mesh_assets_t> PBRThumbnailer::load_model_file(const std::filesystem::path &path,
+std::optional<vierkant::model::model_assets_t> PBRThumbnailer::load_model_file(const std::filesystem::path &path,
                                                                               crocore::ThreadPool &pool)
 {
     if(exists(path))
@@ -235,7 +235,7 @@ bool PBRThumbnailer::create_graphics_context()
     return true;
 }
 
-bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_assets)
+bool PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_assets)
 {
     // additionally required buffer-flags for raytracing/compute/mesh-shading
     VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -254,7 +254,7 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_asse
 
     // attach mesh to an object, insert into scene
     {
-        auto object = vierkant::create_mesh_object(m_scene->registry(), {mesh});
+        auto object = m_scene->create_mesh_object({mesh});
 
         // scale
         object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
@@ -267,7 +267,7 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::mesh_assets_t &mesh_asse
     }
     return true;
 }
-void PBRThumbnailer::create_camera(const vierkant::model::mesh_assets_t &mesh_assets)
+void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_assets)
 {
     vierkant::model::camera_t model_camera = {};
 
