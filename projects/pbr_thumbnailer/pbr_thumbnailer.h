@@ -94,7 +94,7 @@ private:
     };
 
     static std::optional<vierkant::model::model_assets_t> load_model_file(const std::filesystem::path &path,
-                                                                         crocore::ThreadPool &pool);
+                                                                         crocore::ThreadPoolClassic &pool);
 
     void setup() override;
 

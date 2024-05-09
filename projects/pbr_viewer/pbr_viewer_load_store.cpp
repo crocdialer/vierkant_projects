@@ -541,7 +541,10 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
                     m_settings.mesh_buffer_params);
 
             // run in-place compression on all textures, store compressed textures in bundle
-            if(m_settings.texture_compression) { vierkant::model::compress_textures(*model_assets); }
+            if(m_settings.texture_compression)
+            {
+                vierkant::model::compress_textures(*model_assets, &background_queue());
+            }
 
             spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
             bundle_created = true;

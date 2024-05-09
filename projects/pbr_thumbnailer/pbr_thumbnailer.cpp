@@ -109,7 +109,7 @@ void PBRThumbnailer::teardown()
 }
 
 std::optional<vierkant::model::model_assets_t> PBRThumbnailer::load_model_file(const std::filesystem::path &path,
-                                                                              crocore::ThreadPool &pool)
+                                                                              crocore::ThreadPoolClassic &pool)
 {
     if(exists(path))
     {

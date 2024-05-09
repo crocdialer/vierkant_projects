@@ -61,7 +61,9 @@ void ziparchive::add_file(const std::filesystem::path &file_path)
 {
     std::unique_ptr<zip_source_t, std::function<void(zip_source_t *)>> source;
     source = {zip_source_file(m_archive.get(), file_path.string().c_str(), 0, -1), zip_source_close};
-    zip_file_add(m_archive.get(), file_path.string().c_str(), source.get(), 0);
+    auto file_index = zip_file_add(m_archive.get(), file_path.string().c_str(), source.get(), 0);
+    constexpr uint32_t zstd_lvl = 10; // 1-22
+    zip_set_file_compression(m_archive.get(), file_index, ZIP_CM_ZSTD, zstd_lvl);
 }
 
 bool ziparchive::has_file(const std::filesystem::path &file_path) const
