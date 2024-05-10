@@ -93,6 +93,7 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
                 node.name = std::filesystem::path(path).filename().string();
                 node.mesh_index = 0;
                 m_scene_data.nodes = {node};
+                m_scene_data.scene_roots = {0};
                 break;
             }
 
