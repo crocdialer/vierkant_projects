@@ -471,9 +471,12 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     // submit and wait for all command-creation tasks to complete
     std::vector<std::future<VkCommandBuffer>> cmd_futures;
-    cmd_futures.push_back(background_queue().post(render_scene));
-    cmd_futures.push_back(background_queue().post(render_scene_overlays));
-    if(m_settings.draw_ui) { cmd_futures.push_back(background_queue().post(render_gui)); }
+    cmd_futures.push_back(background_queue().post<crocore::ThreadPoolClassic::Priority::High>(render_scene));
+    cmd_futures.push_back(background_queue().post<crocore::ThreadPoolClassic::Priority::High>(render_scene_overlays));
+    if(m_settings.draw_ui)
+    {
+        cmd_futures.push_back(background_queue().post<crocore::ThreadPoolClassic::Priority::High>(render_gui));
+    }
     crocore::wait_all(cmd_futures);
 
     // get values from completed futures
