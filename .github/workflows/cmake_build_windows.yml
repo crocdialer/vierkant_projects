@@ -22,13 +22,13 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: vcpkg build
-        uses: johnwason/vcpkg-action@v4
-        id: vcpkg
-        with:
-          pkgs: curl boost-asio
-          triplet: x64-windows-release
-          token: ${{ github.token }}
+#      - name: vcpkg build
+#        uses: johnwason/vcpkg-action@v4
+#        id: vcpkg
+#        with:
+#          pkgs: curl boost-asio
+#          triplet: x64-windows-release
+#          token: ${{ github.token }}
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
