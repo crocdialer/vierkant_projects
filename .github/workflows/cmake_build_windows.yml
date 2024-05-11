@@ -22,13 +22,13 @@ jobs:
         with:
           submodules: 'recursive'
 
-#      - name: vcpkg build
-#        uses: johnwason/vcpkg-action@v4
-#        id: vcpkg
-#        with:
-#          pkgs: curl boost-asio
-#          triplet: x64-windows-release
-#          token: ${{ github.token }}
+      - name: vcpkg build
+        uses: johnwason/vcpkg-action@v4
+        id: vcpkg
+        with:
+          pkgs: zlib zstd #curl boost-asio
+          triplet: x64-windows-release
+          token: ${{ github.token }}
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
@@ -40,8 +40,7 @@ jobs:
 
 
       - name: Configure CMake
-#        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_MANIFEST_MODE=OFF
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_MANIFEST_MODE=OFF
 
       - name: Build
         # Build your program with the given configuration
