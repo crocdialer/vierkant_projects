@@ -1,6 +1,6 @@
 #include <crocore/Image.hpp>
 #include <crocore/filesystem.hpp>
-#include <netzer/http.hpp>
+//#include <netzer/http.hpp>
 
 #include "vierkant/model/gltf.hpp"
 #include <vierkant/PBRDeferred.hpp>
@@ -336,15 +336,15 @@ void PBRViewer::create_graphics_pipeline()
 
 void PBRViewer::create_texture_image()
 {
-    // try to fetch cool image
-    auto http_response = netzer::http::get(g_texture_url);
+//    // try to fetch cool image
+//    auto http_response = netzer::http::get(g_texture_url);
 
     crocore::ImagePtr img;
     vierkant::Image::Format fmt;
 
-    // create from downloaded data
-    if(!http_response.data.empty()) { img = crocore::create_image_from_data(http_response.data, 4); }
-    else
+//    // create from downloaded data
+//    if(!http_response.data.empty()) { img = crocore::create_image_from_data(http_response.data, 4); }
+//    else
     {
         // create 4x4 black/white checkerboard image
         uint32_t v[] = {0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,

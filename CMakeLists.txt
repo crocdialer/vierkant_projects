@@ -27,10 +27,10 @@ option(BUILD_TESTS "Build Tests" OFF)
 add_subdirectory("submodules/vierkant")
 set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 
-# netzer
-add_subdirectory("submodules/netzer")
-set(LIBS ${LIBS} ${netzer_LIBRARIES})
-include_directories(${netzer_INCLUDE_DIRS})
+## netzer
+#add_subdirectory("submodules/netzer")
+#set(LIBS ${LIBS} ${netzer_LIBRARIES})
+#include_directories(${netzer_INCLUDE_DIRS})
 
 # cereal
 include_directories("submodules/cereal/include")

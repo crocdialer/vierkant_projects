@@ -16,10 +16,10 @@
 #include <vierkant/physics_context.hpp>
 
 
-constexpr char g_texture_url[] =
-        "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32b33240f_-_hasselhoff_kr_pr_nbc-lg.jpg";
-
-constexpr char g_font_url[] = "https://fonts.gstatic.com/s/courierprime/v5/u-4k0q2lgwslOqpF_6gQ8kELY7pMf-c.ttf";
+//constexpr char g_texture_url[] =
+//        "http://roa.h-cdn.co/assets/cm/14/47/1024x576/546b32b33240f_-_hasselhoff_kr_pr_nbc-lg.jpg";
+//
+//constexpr char g_font_url[] = "https://fonts.gstatic.com/s/courierprime/v5/u-4k0q2lgwslOqpF_6gQ8kELY7pMf-c.ttf";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
