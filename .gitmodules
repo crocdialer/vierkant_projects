@@ -11,10 +11,7 @@
 	path = submodules/libzip
 	url = git@github.com:nih-at/libzip.git
   shallow = true
-[submodule "submodules/netzer"]
-	path = submodules/netzer
-	url = git@github.com:crocdialer/netzer.git
-  shallow = true
+
 [submodule "submodules/cxxopts"]
 	path = submodules/cxxopts
 	url = git@github.com:jarro2783/cxxopts.git
