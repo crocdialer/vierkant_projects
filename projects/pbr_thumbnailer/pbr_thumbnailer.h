@@ -63,6 +63,9 @@ public:
         //! maximum path-length (applies only to path-tracer)
         uint32_t max_path_length = 8;
 
+        //! random-seed to initialize path-tracer RNG
+        uint32_t random_seed = 0;
+
         //! flag to request drawing of used skybox
         bool draw_skybox = false;
 
