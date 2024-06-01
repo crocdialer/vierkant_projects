@@ -183,14 +183,14 @@ void PBRViewer::create_ui()
     m_window->joystick_delegates[name()] = joystick_delegate;
 
     // try to fetch a font-file via http
-//    auto http_response = netzer::http::get(g_font_url);
-//    if(http_response.status_code != 200) { spdlog::warn("failed fetching a font from: {}", g_font_url); }
+    //    auto http_response = netzer::http::get(g_font_url);
+    //    if(http_response.status_code != 200) { spdlog::warn("failed fetching a font from: {}", g_font_url); }
 
     // create a gui and add a draw-delegate
     vierkant::gui::Context::create_info_t gui_create_info = {};
     gui_create_info.ui_scale = m_settings.ui_scale;
-//    gui_create_info.font_data = http_response.data;
-    gui_create_info.font_size = 23.f;
+    //    gui_create_info.font_data = http_response.data;
+    gui_create_info.font_size = m_settings.ui_font_scale;
     m_gui_context = vierkant::gui::Context(m_device, gui_create_info);
 
     float bg_alpha = .3f, bg_alpha_active = .9f;

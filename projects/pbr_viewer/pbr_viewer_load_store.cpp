@@ -22,22 +22,18 @@ void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
         auto done_cb = [this, mesh, start_time, path, clear_scene]() {
             m_selected_objects.clear();
 
-            // tmp test-loop
-            for(uint32_t i = 0; i < 1; ++i)
-            {
-                auto object = m_scene->create_mesh_object({mesh});
-                object->name = std::filesystem::path(path).filename().string();
+            auto object = m_scene->create_mesh_object({mesh});
+            object->name = std::filesystem::path(path).filename().string();
 
-                // scale
-                object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
+            // scale
+            object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
 
-                // center aabb
-                auto aabb = object->aabb().transform(object->transform);
-                object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f * (float) i);
+            // center aabb
+            auto aabb = object->aabb().transform(object->transform);
+            object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f);
 
-                if(clear_scene) { m_scene->clear(); }
-                m_scene->add_object(object);
-            }
+            if(clear_scene) { m_scene->clear(); }
+            m_scene->add_object(object);
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
@@ -513,6 +509,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
                 std::filesystem::path(g_cache_path) /
                 fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
 
+        auto mesh_id = vierkant::MeshId::from_name(bundle_path.string());
         bool bundle_created = false;
         auto model_assets = load_asset_bundle(bundle_path);
 
@@ -558,6 +555,10 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         mesh = vierkant::model::load_mesh(load_params, *model_assets);
 
         m_num_loading--;
+
+        // store in application mesh-lut
+        m_mesh_map[mesh_id] = {.mesh = mesh,
+                               .bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)};
 
         if(bundle_created && m_settings.cache_mesh_bundles)
         {

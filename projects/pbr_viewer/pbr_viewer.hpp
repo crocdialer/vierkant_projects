@@ -54,6 +54,8 @@ public:
 
         float ui_scale = 1.f;
 
+        float ui_font_scale = 30.f;
+
         bool draw_grid = true;
 
         bool draw_aabbs = false;
@@ -207,11 +209,12 @@ private:
 
     VkBufferUsageFlags m_mesh_buffer_flags = 0;
 
+    vierkant::mesh_map_t m_mesh_map;
     vierkant::MeshPtr m_box_mesh;
     vierkant::CollisionShapeId m_box_shape_id = vierkant::CollisionShapeId::nil();
 
     // window handle
-    std::shared_ptr<vierkant::Window> m_window;
+    vierkant::WindowPtr m_window;
 
     std::map<std::string, vierkant::ImagePtr> m_textures;
 
@@ -267,8 +270,8 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("window", settings.window_info), cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_ui", settings.draw_ui), cereal::make_nvp("ui_scale", settings.ui_scale),
-       cereal::make_nvp("draw_grid", settings.draw_grid), cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
-       cereal::make_nvp("draw_physics", settings.draw_physics),
+       cereal::make_nvp("ui_font_scale", settings.ui_font_scale), cereal::make_nvp("draw_grid", settings.draw_grid),
+       cereal::make_nvp("draw_aabbs", settings.draw_aabbs), cereal::make_nvp("draw_physics", settings.draw_physics),
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
