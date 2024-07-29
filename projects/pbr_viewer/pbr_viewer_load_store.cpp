@@ -413,7 +413,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                         const auto &mesh = meshes[*node.mesh_index];
                         obj = m_scene->create_mesh_object({mesh, node.entry_indices});
                     }
-                    else { obj = vierkant::Object3D::create(m_scene->registry()); }
+                    else
+                    {
+                        obj = vierkant::Object3D::create(m_scene->registry());
+                    }
                     obj->name = node.name;
                     obj->transform = node.transform;
                     if(node.animation_state) { obj->add_component(*node.animation_state); }
