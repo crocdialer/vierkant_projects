@@ -175,6 +175,11 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     spdlog::debug("save settings: {}", path.string());
 }
 
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=109561 -> hitting a GCC 12 bug
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesystem::path &path)
 {
     // create and open a character archive for input
@@ -200,6 +205,9 @@ std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesys
     }
     return {};
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 void PBRViewer::load_file(const std::string &path)
 {
