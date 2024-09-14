@@ -320,6 +320,7 @@ void PBRViewer::create_graphics_pipeline()
     m_overlay_assets.resize(framebuffers.size());
     for(auto &overlay_asset: m_overlay_assets)
     {
+        overlay_asset.semaphore = vierkant::Semaphore(m_device);
         overlay_asset.command_buffer = vierkant::CommandBuffer(m_device, m_device->command_pool_transient());
         overlay_asset.object_overlay_context =
                 vierkant::create_object_overlay_context(m_device, glm::vec2(pbr_render_info.settings.resolution) / 2.f);
@@ -520,10 +521,10 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
                                                               const vierkant::ImagePtr &id_img)
 {
     constexpr uint64_t overlay_semaphore_done = 1;
-    overlay_asset.semaphore.wait(overlay_semaphore_done);
+    overlay_asset.semaphore.wait(overlay_asset.semaphore_value);
+    overlay_asset.semaphore_value += overlay_semaphore_done;
 
-    overlay_asset.semaphore = vierkant::Semaphore(m_device);
-    overlay_asset.command_buffer.begin();
+    overlay_asset.command_buffer.begin(0);
 
     vierkant::object_overlay_params_t overlay_params = {};
     overlay_params.mode = m_settings.object_overlay_mode;
@@ -534,13 +535,13 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
 
     vierkant::semaphore_submit_info_t overlay_signal_info = {};
     overlay_signal_info.semaphore = overlay_asset.semaphore.handle();
-    overlay_signal_info.signal_value = overlay_semaphore_done;
+    overlay_signal_info.signal_value = overlay_asset.semaphore_value + overlay_semaphore_done;
     overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     overlay_asset.command_buffer.submit(m_queue_pbr_render, false, VK_NULL_HANDLE, {overlay_signal_info});
 
     vierkant::semaphore_submit_info_t overlay_wait_info = {};
     overlay_wait_info.semaphore = overlay_asset.semaphore.handle();
-    overlay_wait_info.wait_value = overlay_semaphore_done;
+    overlay_wait_info.wait_value = overlay_asset.semaphore_value + overlay_semaphore_done;
     overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     m_object_id_image = id_img;
     return overlay_wait_info;
