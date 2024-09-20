@@ -378,6 +378,7 @@ void PBRViewer::create_texture_image()
 
 void PBRViewer::update(double time_delta)
 {
+    m_gui_context.update(time_delta, m_window->size());
     m_camera_control.current->update(time_delta);
 
     // update animated objects in the scene
