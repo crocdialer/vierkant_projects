@@ -30,6 +30,7 @@ public:
     struct settings_t
     {
         spdlog::level::level_enum log_level = spdlog::level::info;
+        bool use_validation = false;
         crocore::set_lru<std::string> recent_files;
 
         vierkant::Window::create_info_t window_info = {.instance = VK_NULL_HANDLE,
@@ -135,6 +136,8 @@ public:
     explicit PBRViewer(const crocore::Application::create_info_t &create_info);
 
     void load_file(const std::string &path);
+
+    void parse_override_settings(int argc, char *argv[]);
 
 private:
     void setup() override;
@@ -267,8 +270,9 @@ private:
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
 {
-    ar(cereal::make_nvp("log_level", settings.log_level), cereal::make_nvp("recent_files", settings.recent_files),
-       cereal::make_nvp("window", settings.window_info), cereal::make_nvp("pbr_settings", settings.pbr_settings),
+    ar(cereal::make_nvp("use_validation", settings.use_validation), cereal::make_nvp("log_level", settings.log_level),
+       cereal::make_nvp("recent_files", settings.recent_files), cereal::make_nvp("window", settings.window_info),
+       cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
        cereal::make_nvp("draw_ui", settings.draw_ui), cereal::make_nvp("ui_scale", settings.ui_scale),
        cereal::make_nvp("ui_font_scale", settings.ui_font_scale), cereal::make_nvp("draw_grid", settings.draw_grid),

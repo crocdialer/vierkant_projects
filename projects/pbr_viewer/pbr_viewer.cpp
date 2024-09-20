@@ -14,12 +14,6 @@
 
 ////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
 
-#ifdef NDEBUG
-const bool g_enable_validation_layers = false;
-#else
-const bool g_enable_validation_layers = true;
-#endif
-
 using log_delegate_fn_t = std::function<void(const std::string &msg, spdlog::level::level_enum log_level,
                                              const std::string &logger_name)>;
 
@@ -80,26 +74,9 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
-    for(const auto &path: create_info.arguments)
-    {
-        switch(crocore::filesystem::get_file_type(path))
-        {
-            case crocore::filesystem::FileType::IMAGE: m_scene_data.environment_path = path; break;
-
-            case crocore::filesystem::FileType::MODEL:
-            {
-                m_scene_data.model_paths = {path};
-                scene_node_t node = {};
-                node.name = std::filesystem::path(path).filename().string();
-                node.mesh_index = 0;
-                m_scene_data.nodes = {node};
-                m_scene_data.scene_roots = {0};
-                break;
-            }
-
-            default: break;
-        }
-    }
+#ifndef NDEBUG
+    m_settings.use_validation = true;
+#endif
 }
 
 void PBRViewer::setup()
@@ -134,8 +111,8 @@ void PBRViewer::create_context_and_window()
 {
     vierkant::Instance::create_info_t instance_info = {};
     instance_info.extensions = vierkant::Window::required_extensions();
-    instance_info.use_validation_layers = g_enable_validation_layers;
-    instance_info.use_debug_labels = g_enable_validation_layers;
+    instance_info.use_validation_layers = m_settings.use_validation;
+    instance_info.use_debug_labels = m_settings.use_validation;
     m_instance = vierkant::Instance(instance_info);
 
     m_settings.window_info.title = name();
@@ -337,15 +314,15 @@ void PBRViewer::create_graphics_pipeline()
 
 void PBRViewer::create_texture_image()
 {
-//    // try to fetch cool image
-//    auto http_response = netzer::http::get(g_texture_url);
+    //    // try to fetch cool image
+    //    auto http_response = netzer::http::get(g_texture_url);
 
     crocore::ImagePtr img;
     vierkant::Image::Format fmt;
 
-//    // create from downloaded data
-//    if(!http_response.data.empty()) { img = crocore::create_image_from_data(http_response.data, 4); }
-//    else
+    //    // create from downloaded data
+    //    if(!http_response.data.empty()) { img = crocore::create_image_from_data(http_response.data, 4); }
+    //    else
     {
         // create 4x4 black/white checkerboard image
         uint32_t v[] = {0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
@@ -359,7 +336,7 @@ void PBRViewer::create_texture_image()
     fmt.use_mipmap = true;
     m_textures["test"] = vierkant::Image::create(m_device, img->data(), fmt);
     m_textures["environment"] =
-            vierkant::cubemap_neutral_environment(m_device, 256, m_queue_image_loading, true, m_hdr_format);
+            vierkant::cubemap_neutral_environment(m_device, 256, m_device->queue(), true, m_hdr_format);
     m_scene->set_environment(m_textures["environment"]);
 
     auto box_half_extents = glm::vec3(.5f);
@@ -512,7 +489,7 @@ std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
     auto prev_layout = m_object_id_image->image_layout();
     m_object_id_image->copy_to(buf, copy_object_id_cmd.handle(), 0, img_offset, img_extent);
     m_object_id_image->transition_layout(prev_layout, copy_object_id_cmd.handle());
-    copy_object_id_cmd.submit(m_queue_pbr_render, true);
+    copy_object_id_cmd.submit(m_device->queue(), true);
     uint16_t val = std::numeric_limits<uint16_t>::max() - *static_cast<uint16_t *>(buf->map());
     std::optional<uint16_t> picked_id = (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
     return picked_id;
@@ -555,5 +532,6 @@ int main(int argc, char *argv[])
     create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
 
     auto app = std::make_shared<PBRViewer>(create_info);
+    app->parse_override_settings(argc, argv);
     return app->run();
 }

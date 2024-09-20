@@ -1,8 +1,8 @@
-#include <fstream>
-
 #include "pbr_viewer.hpp"
 #include "ziparchive.h"
 #include <crocore/filesystem.hpp>
+#include <cxxopts.hpp>
+#include <fstream>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
 
@@ -687,4 +687,67 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
         }
     }
     return {};
+}
+
+void PBRViewer::parse_override_settings(int argc, char *argv[])
+{
+    // available options
+    cxxopts::Options options(argv[0], "3d-model viewer with rasterization and path-tracer backends\n");
+    options.positional_help("<model-file> [<hdr-image>] <output-image-path>");
+    options.add_options()("help", "print this help message");
+    options.add_options()("w,width", "result-image width in px", cxxopts::value<uint32_t>());
+    options.add_options()("h,height", "result-image height in px", cxxopts::value<uint32_t>());
+    options.add_options()("v,verbose", "verbose printing");
+    options.add_options()("validation", "enable vulkan validation");
+    options.add_options()("files", "provided input files", cxxopts::value<std::vector<std::string>>());
+    options.parse_positional("files");
+
+    cxxopts::ParseResult result;
+
+    try
+    {
+        result = options.parse(argc, argv);
+    } catch(std::exception &e)
+    {
+        spdlog::error(e.what());
+        return;
+    }
+
+    if(result.count("files"))
+    {
+        const auto &files = result["files"].as<std::vector<std::string>>();
+
+        for(const auto &f: files)
+        {
+            switch(crocore::filesystem::get_file_type(f))
+            {
+                case crocore::filesystem::FileType::IMAGE: m_scene_data.environment_path = f; break;
+
+                case crocore::filesystem::FileType::MODEL:
+                {
+                    m_scene_data.model_paths = {f};
+                    scene_node_t node = {};
+                    node.name = std::filesystem::path(f).filename().string();
+                    node.mesh_index = 0;
+                    m_scene_data.nodes = {node};
+                    m_scene_data.scene_roots = {0};
+                    break;
+                }
+
+                default: break;
+            }
+        }
+    }
+
+    // print usage
+    if(result.count("help"))
+    {
+        spdlog::set_pattern("%v");
+        spdlog::info("\n{}", options.help());
+        return;
+    }
+    if(result.count("width")) { m_settings.window_info.size.x = (int) result["width"].as<uint32_t>(); }
+    if(result.count("height")) { m_settings.window_info.size.y = (int) result["height"].as<uint32_t>(); }
+    if(result.count("validation") && result["validation"].as<bool>()) { m_settings.use_validation = true; }
+    if(result.count("verbose") && result["verbose"].as<bool>()) { m_settings.log_level = spdlog::level::debug; }
 }
