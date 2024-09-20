@@ -698,6 +698,7 @@ void PBRViewer::parse_override_settings(int argc, char *argv[])
     options.add_options()("w,width", "result-image width in px", cxxopts::value<uint32_t>());
     options.add_options()("h,height", "result-image height in px", cxxopts::value<uint32_t>());
     options.add_options()("v,verbose", "verbose printing");
+    options.add_options()("f,fullscreen", "enable fullscreen");
     options.add_options()("validation", "enable vulkan validation");
     options.add_options()("files", "provided input files", cxxopts::value<std::vector<std::string>>());
     options.parse_positional("files");
@@ -748,6 +749,7 @@ void PBRViewer::parse_override_settings(int argc, char *argv[])
     }
     if(result.count("width")) { m_settings.window_info.size.x = (int) result["width"].as<uint32_t>(); }
     if(result.count("height")) { m_settings.window_info.size.y = (int) result["height"].as<uint32_t>(); }
+    if(result.count("fullscreen") && result["fullscreen"].as<bool>()) { m_settings.window_info.fullscreen = true; }
     if(result.count("validation") && result["validation"].as<bool>()) { m_settings.use_validation = true; }
     if(result.count("verbose") && result["verbose"].as<bool>()) { m_settings.log_level = spdlog::level::debug; }
 }
