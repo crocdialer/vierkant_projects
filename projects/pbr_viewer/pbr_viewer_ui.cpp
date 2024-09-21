@@ -3,6 +3,7 @@
 //
 
 //#include <netzer/http.hpp>
+#include <crocore/filesystem.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
 #include "pbr_viewer.hpp"
@@ -189,7 +190,16 @@ void PBRViewer::create_ui()
     // create a gui and add a draw-delegate
     vierkant::gui::Context::create_info_t gui_create_info = {};
     gui_create_info.ui_scale = m_settings.ui_scale;
-    //    gui_create_info.font_data = http_response.data;
+    if(!m_settings.font_url.empty())
+    {
+        try
+        {
+            gui_create_info.font_data = crocore::filesystem::read_binary_file(m_settings.font_url);
+        } catch(std::exception &e)
+        {
+            spdlog::warn(e.what());
+        }
+    }
     gui_create_info.font_size = m_settings.ui_font_scale;
     m_gui_context = vierkant::gui::Context(m_device, gui_create_info);
 

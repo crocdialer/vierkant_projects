@@ -532,6 +532,6 @@ int main(int argc, char *argv[])
     create_info.num_background_threads = std::max<uint32_t>(1, std::thread::hardware_concurrency() - 1);
 
     auto app = std::make_shared<PBRViewer>(create_info);
-    app->parse_override_settings(argc, argv);
-    return app->run();
+    if(app->parse_override_settings(argc, argv)) { return app->run(); }
+    return EXIT_FAILURE;
 }
