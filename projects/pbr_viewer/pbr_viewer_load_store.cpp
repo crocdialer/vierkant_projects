@@ -766,11 +766,15 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     if(result.count("labels")) { m_settings.use_debug_labels = true; }
     if(result.count("no-labels")) { m_settings.use_debug_labels = false; }
     if(result.count("verbose")) { m_settings.log_level = spdlog::level::debug; }
-    if(result.count("quiet")) { m_settings.log_level = spdlog::level::info; }
+    if(result.count("quiet"))
+    {
+        m_settings.log_level = spdlog::level::info;
+    }
     if(result.count("no-raytracing"))
     {
         m_settings.enable_ray_query_features = false;
         m_settings.enable_raytracing_pipeline_features = false;
     }
+    spdlog::set_level(m_settings.log_level);
     return true;
 }
