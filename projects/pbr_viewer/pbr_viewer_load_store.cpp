@@ -57,8 +57,6 @@ void PBRViewer::load_environment(const std::string &path)
 
         if(img)
         {
-            constexpr VkFormat hdr_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
-
             bool use_float = (img->num_bytes() / (img->width() * img->height() * img->num_components())) > 1;
 
             // command pool for background transfer
@@ -90,15 +88,15 @@ void PBRViewer::load_environment(const std::string &path)
                 // derive sane resolution for cube from panorama-width
                 uint32_t res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
                 skybox = vierkant::cubemap_from_panorama(m_device, panorama, m_queue_image_loading, res, true,
-                                                         hdr_format);
+                                                         m_hdr_format);
             }
 
             if(skybox)
             {
                 constexpr uint32_t lambert_size = 128;
-                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, hdr_format,
+                conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, m_hdr_format,
                                                                     m_queue_image_loading);
-                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), hdr_format,
+                conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), m_hdr_format,
                                                             m_queue_image_loading);
 
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
