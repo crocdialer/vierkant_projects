@@ -409,7 +409,7 @@ void PBRViewer::create_ui()
 
     vierkant::mouse_delegate_t simple_mouse = {};
     simple_mouse.mouse_press = [this](const vierkant::MouseEvent &e) {
-        if(!(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
+        if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
         {
             if(e.is_right())
             {
