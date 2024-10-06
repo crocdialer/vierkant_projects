@@ -423,19 +423,21 @@ void PBRViewer::create_ui()
 
                 // TODO: gpu-based picking query - this is brute-force/blocking atm - only testing
                 spdlog::stopwatch sw;
-                if(auto picked_idx = mouse_pick_gpu(e.position()))
+                auto picked_ids = m_scene_renderer->pick(glm::vec2(e.position()) / glm::vec2(m_window->size()), {});
+
+                for(auto obj_id: picked_ids)
                 {
-                    spdlog::trace("picked_idx: {} -- {}", std::to_string(*picked_idx),
+                    spdlog::trace("obj_id: {} -- {}", std::to_string(obj_id),
                                   std::chrono::duration_cast<std::chrono::microseconds>(sw.elapsed()));
 
                     const auto &overlay_asset = m_overlay_assets[m_window->swapchain().image_index()];
                     if(overlay_asset.object_by_index_fn)
                     {
-                        auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(*picked_idx);
+                        auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(obj_id);
                         picked_object = m_scene->object_by_id(object_id)->shared_from_this();
                     }
                     spdlog::trace("picked object: {}", picked_object->name);
-                    m_selected_indices.insert(*picked_idx);
+                    m_selected_indices.insert(obj_id);
                 }
 
                 if(picked_object)

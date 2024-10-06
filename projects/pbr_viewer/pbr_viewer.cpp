@@ -386,6 +386,9 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene_overlays = [this, &framebuffer, selected_objects = m_selected_objects,
                                   &overlay_assets]() -> VkCommandBuffer {
+        // draw silhouette/mask for selected indices
+        m_draw_context.draw_image(m_renderer_overlay, overlay_assets.overlay, {}, glm::vec4(.8f, .5f, .1f, .7f));
+
         if(m_settings.draw_physics)
         {
             if(auto geom = m_scene->physics_context().debug_render())
@@ -397,9 +400,6 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         for(const auto &obj: selected_objects)
         {
-            // draw silhouette/mask for selected indices
-            m_draw_context.draw_image(m_renderer_overlay, overlay_assets.overlay, {}, glm::vec4(.8f, .5f, .1f, .7f));
-
             auto modelview = m_camera->view_transform() * obj->global_transform();
 
             if(m_settings.draw_aabbs)
@@ -469,30 +469,6 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     // get semaphore infos
     ret.semaphore_infos = std::move(semaphore_infos);
     return ret;
-}
-
-std::optional<uint16_t> PBRViewer::mouse_pick_gpu(const glm::ivec2 &click_pos)
-{
-    if(!m_object_id_image) { return {}; }
-    vierkant::CommandBuffer copy_object_id_cmd = vierkant::CommandBuffer(m_device, m_device->command_pool_transient());
-    copy_object_id_cmd.begin();
-
-    auto img_size = glm::vec2(m_object_id_image->width(), m_object_id_image->height());
-    glm::vec2 adjusted_pos = glm::vec2(click_pos) * img_size / glm::vec2(m_window->size());
-    adjusted_pos = glm::clamp(adjusted_pos, glm::vec2(0), img_size - glm::vec2(1));
-
-    constexpr VkExtent3D img_extent = {1, 1, 1};
-    VkOffset3D img_offset = {static_cast<int32_t>(adjusted_pos.x), static_cast<int32_t>(adjusted_pos.y), 0};
-
-    auto buf = vierkant::Buffer::create(m_device, nullptr, 512, VK_BUFFER_USAGE_2_TRANSFER_DST_BIT_KHR,
-                                        VMA_MEMORY_USAGE_CPU_ONLY);
-    auto prev_layout = m_object_id_image->image_layout();
-    m_object_id_image->copy_to(buf, copy_object_id_cmd.handle(), 0, img_offset, img_extent);
-    m_object_id_image->transition_layout(prev_layout, copy_object_id_cmd.handle());
-    copy_object_id_cmd.submit(m_device->queue(), true);
-    uint16_t val = std::numeric_limits<uint16_t>::max() - *static_cast<uint16_t *>(buf->map());
-    std::optional<uint16_t> picked_id = (val == std::numeric_limits<uint16_t>::max()) ? std::optional<uint16_t>() : val;
-    return picked_id;
 }
 
 vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay_assets_t &overlay_asset,

@@ -175,8 +175,6 @@ private:
 
     void build_scene(const std::optional<scene_data_t> &scene_data);
 
-    std::optional<uint16_t> mouse_pick_gpu(const glm::ivec2 &click_pos);
-
     struct overlay_assets_t
     {
         vierkant::CommandBuffer command_buffer;
