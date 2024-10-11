@@ -198,8 +198,8 @@ private:
     // device
     vierkant::DevicePtr m_device;
 
-    VkQueue m_queue_model_loading = VK_NULL_HANDLE, m_queue_image_loading = VK_NULL_HANDLE,
-            m_queue_pbr_render = VK_NULL_HANDLE, m_queue_path_tracer = VK_NULL_HANDLE;
+    const vierkant::Device::queue_asset_t *m_queue_model_loading = nullptr, *m_queue_image_loading = nullptr,
+                                          *m_queue_render = nullptr;
 
     // B10G11R11 saves 50% memory but now seeing more&more cases with strong banding-issues
     VkFormat m_hdr_format = VK_FORMAT_R16G16B16A16_SFLOAT;//VK_FORMAT_B10G11R11_UFLOAT_PACK32;

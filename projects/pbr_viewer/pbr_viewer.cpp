@@ -142,6 +142,9 @@ void PBRViewer::create_context_and_window()
     device_info.direct_function_pointers = true;
     device_info.surface = m_window->surface();
 
+    // limit number of queues
+    device_info.max_num_queues = 4;
+
     // check raytracing-pipeline support
     m_settings.enable_raytracing_pipeline_features =
             m_settings.enable_raytracing_pipeline_features &&
@@ -208,10 +211,9 @@ void PBRViewer::create_context_and_window()
     // set some separate queues for background stuff
     uint32_t i = 1;
     auto num_queues = m_device->queues(vierkant::Device::Queue::GRAPHICS).size();
-    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
-    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
-    m_queue_pbr_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
-    m_queue_path_tracer = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_model_loading = &m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_image_loading = &m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_render = &m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
 
     // buffer-flags for mesh-buffers
     m_mesh_buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -243,7 +245,7 @@ void PBRViewer::create_graphics_pipeline()
     m_renderer_gui.debug_label = {.text = "imgui"};
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
-    pbr_render_info.queue = m_queue_pbr_render;
+    pbr_render_info.queue = m_queue_render->queue;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.hdr_format = m_hdr_format;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
@@ -264,13 +266,13 @@ void PBRViewer::create_graphics_pipeline()
     {
         constexpr uint32_t lambert_size = 128;
         pbr_render_info.conv_lambert = vierkant::create_convolution_lambert(m_device, fallback_env, lambert_size,
-                                                                            m_hdr_format, m_queue_image_loading);
+                                                                            m_hdr_format, m_queue_image_loading->queue);
     }
     if(!pbr_render_info.conv_ggx)
     {
         pbr_render_info.conv_ggx = fallback_env;
         pbr_render_info.conv_ggx = vierkant::create_convolution_ggx(m_device, fallback_env, fallback_env->width(),
-                                                                    m_hdr_format, m_queue_image_loading);
+                                                                    m_hdr_format, m_queue_image_loading->queue);
     }
     pbr_render_info.conv_lambert->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_NULL_HANDLE);
     pbr_render_info.conv_ggx->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_NULL_HANDLE);
@@ -284,7 +286,7 @@ void PBRViewer::create_graphics_pipeline()
         path_tracer_info.pipeline_cache = m_pipeline_cache;
 
         path_tracer_info.settings = m_path_tracer ? m_path_tracer->settings : m_settings.path_tracer_settings;
-        path_tracer_info.queue = m_queue_path_tracer;
+        path_tracer_info.queue = m_queue_render->queue;
 
         m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
     }
@@ -369,6 +371,8 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
 
+    // acquire rendering-lock
+    auto lock = std::unique_lock(*m_queue_render->mutex);
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
 
     // tmp testing of overlay-drizzling
@@ -490,7 +494,7 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_signal_info.semaphore = overlay_asset.semaphore.handle();
     overlay_signal_info.signal_value = overlay_asset.semaphore_value + overlay_semaphore_done;
     overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    overlay_asset.command_buffer.submit(m_queue_pbr_render, false, VK_NULL_HANDLE, {overlay_signal_info});
+    overlay_asset.command_buffer.submit(m_queue_render->queue, false, VK_NULL_HANDLE, {overlay_signal_info});
 
     vierkant::semaphore_submit_info_t overlay_wait_info = {};
     overlay_wait_info.semaphore = overlay_asset.semaphore.handle();

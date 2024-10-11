@@ -57,6 +57,9 @@ void PBRViewer::load_environment(const std::string &path)
 
         if(img)
         {
+            // acquire lock for image-queue // TODO: a bit more fine-grained!?
+            auto lock = std::unique_lock(*m_queue_image_loading->mutex);
+
             bool use_float = (img->num_bytes() / (img->width() * img->height() * img->num_components())) > 1;
 
             // command pool for background transfer
@@ -83,21 +86,23 @@ void PBRViewer::load_environment(const std::string &path)
                 panorama->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(m_queue_image_loading);
+                {
+                    cmd_buf.submit(m_queue_image_loading->queue);
 
-                // derive sane resolution for cube from panorama-width
-                uint32_t res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
-                skybox = vierkant::cubemap_from_panorama(m_device, panorama, m_queue_image_loading, res, true,
-                                                         m_hdr_format);
+                    // derive sane resolution for cube from panorama-width
+                    uint32_t res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
+                    skybox = vierkant::cubemap_from_panorama(m_device, panorama, m_queue_image_loading->queue, res,
+                                                             true, m_hdr_format);
+                }
             }
 
             if(skybox)
             {
                 constexpr uint32_t lambert_size = 128;
                 conv_lambert = vierkant::create_convolution_lambert(m_device, skybox, lambert_size, m_hdr_format,
-                                                                    m_queue_image_loading);
+                                                                    m_queue_image_loading->queue);
                 conv_ggx = vierkant::create_convolution_ggx(m_device, skybox, skybox->width(), m_hdr_format,
-                                                            m_queue_image_loading);
+                                                            m_queue_image_loading->queue);
 
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
@@ -106,7 +111,7 @@ void PBRViewer::load_environment(const std::string &path)
                 conv_ggx->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(m_queue_image_loading, true);
+                cmd_buf.submit(m_queue_image_loading->queue, true);
             }
         }
 
@@ -555,10 +560,13 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
 
         vierkant::model::load_mesh_params_t load_params = {};
         load_params.device = m_device;
-        load_params.load_queue = m_queue_model_loading;
+        load_params.load_queue = m_queue_model_loading->queue;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = m_mesh_buffer_flags;
-        mesh = vierkant::model::load_mesh(load_params, *model_assets);
+        {
+            auto lock = std::unique_lock(*m_queue_model_loading->mutex);
+            mesh = vierkant::model::load_mesh(load_params, *model_assets);
+        }
 
         m_num_loading--;
 
@@ -764,10 +772,7 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     if(result.count("labels")) { m_settings.use_debug_labels = true; }
     if(result.count("no-labels")) { m_settings.use_debug_labels = false; }
     if(result.count("verbose")) { m_settings.log_level = spdlog::level::debug; }
-    if(result.count("quiet"))
-    {
-        m_settings.log_level = spdlog::level::info;
-    }
+    if(result.count("quiet")) { m_settings.log_level = spdlog::level::info; }
     if(result.count("no-raytracing"))
     {
         m_settings.enable_ray_query_features = false;
