@@ -83,7 +83,7 @@ void PBRViewer::load_environment(const std::string &path)
                 panorama->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, cmd_buf.handle());
 
                 // submit and sync
-                cmd_buf.submit(m_queue_image_loading, true);
+                cmd_buf.submit(m_queue_image_loading);
 
                 // derive sane resolution for cube from panorama-width
                 uint32_t res = crocore::next_pow_2(std::max(img->width(), img->height()) / 4);
