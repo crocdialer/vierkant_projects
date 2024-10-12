@@ -707,6 +707,8 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     options.add_options()("q,quiet", "minimal printing");
     options.add_options()("f,fullscreen", "enable fullscreen");
     options.add_options()("no-fullscreen", "disable fullscreen");
+    options.add_options()("vsync", "enable vsync");
+    options.add_options()("no-vsync", "disable vsync");
     options.add_options()("font", "provide a font-file (.ttf | .otf)", cxxopts::value<std::string>());
     options.add_options()("font-size", "provide a font-size", cxxopts::value<float>());
     options.add_options()("validation", "enable vulkan validation");
@@ -766,6 +768,8 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     if(result.count("height")) { m_settings.window_info.size.y = (int) result["height"].as<uint32_t>(); }
     if(result.count("fullscreen")) { m_settings.window_info.fullscreen = true; }
     if(result.count("no-fullscreen")) { m_settings.window_info.fullscreen = false; }
+    if(result.count("vsync")) { m_settings.window_info.vsync = true; }
+    if(result.count("no-vsync")) { m_settings.window_info.vsync = false; }
     if(result.count("font")) { m_settings.font_url = result["font"].as<std::string>(); }
     if(result.count("font-size")) { m_settings.ui_font_scale = result["font-size"].as<float>(); }
     if(result.count("validation")) { m_settings.use_validation = true; }
