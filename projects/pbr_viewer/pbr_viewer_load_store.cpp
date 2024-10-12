@@ -713,7 +713,8 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     options.add_options()("no-validation", "disable vulkan validation");
     options.add_options()("l,labels", "enable vulkan debug-labels");
     options.add_options()("no-labels", "disable vulkan debug-labels");
-    options.add_options()("no-raytracing", "disable vulkan raytracing-extensions");
+    options.add_options()("no-raytracing", "disable vulkan raytracing extensions");
+    options.add_options()("no-mesh-shader", "disable vulkan mesh-shader extensions");
     options.add_options()("files", "provided input files", cxxopts::value<std::vector<std::string>>());
     options.parse_positional("files");
 
@@ -778,6 +779,7 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
         m_settings.enable_ray_query_features = false;
         m_settings.enable_raytracing_pipeline_features = false;
     }
+    if(result.count("no-mesh-shader")) { m_settings.enable_mesh_shader_device_features = false; }
     spdlog::set_level(m_settings.log_level);
     return true;
 }
