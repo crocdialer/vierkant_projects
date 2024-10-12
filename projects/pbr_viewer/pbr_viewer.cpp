@@ -138,7 +138,6 @@ void PBRViewer::create_context_and_window()
     device_info.instance = m_instance.handle();
     device_info.physical_device = physical_device;
     device_info.use_validation = m_instance.use_validation_layers();
-    device_info.debug_labels = true;
     device_info.direct_function_pointers = true;
     device_info.surface = m_window->surface();
 
