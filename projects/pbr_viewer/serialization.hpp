@@ -217,6 +217,7 @@ void serialize(Archive &archive, vierkant::mesh_buffer_params_t &params)
             cereal::make_nvp("optimize_vertex_cache", params.optimize_vertex_cache),
             cereal::make_nvp("generate_lods", params.generate_lods),
             cereal::make_nvp("max_num_lods", params.max_num_lods),
+            cereal::make_nvp("lod_shrink_factor", params.lod_shrink_factor),
             cereal::make_nvp("generate_meshlets", params.generate_meshlets),
             cereal::make_nvp("use_vertex_colors", params.use_vertex_colors),
             cereal::make_nvp("pack_vertices", params.pack_vertices),
