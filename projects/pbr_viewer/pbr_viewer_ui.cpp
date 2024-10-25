@@ -21,6 +21,12 @@ void PBRViewer::create_ui()
             {
                 switch(e.code())
                 {
+                    // save settings and scene
+                    case vierkant::Key::_S:
+                        save_settings(m_settings);
+                        save_scene();
+                        break;
+
                     // copy
                     case vierkant::Key::_C: m_copy_objects = m_selected_objects; break;
 
@@ -37,6 +43,17 @@ void PBRViewer::create_ui()
                         auto group = vierkant::Object3D::create(m_scene->registry(), "group");
                         m_scene->add_object(group);
                         for(const auto &sel_obj: m_selected_objects) { group->add_child(sel_obj); }
+                        break;
+                    }
+
+                    case vierkant::Key::_A:
+                    {
+                        // select all
+                        auto obj_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::mesh_component_t>();
+                        for(const auto &[entity, obj, mesh_cmp]: obj_view.each())
+                        {
+                            m_selected_objects.insert(obj->shared_from_this());
+                        }
                         break;
                     }
                     default: break;
@@ -90,11 +107,8 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_N: m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy; break;
 
-                case vierkant::Key::_M: m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe; break;
-
-                case vierkant::Key::_S:
-                    save_settings(m_settings);
-                    save_scene();
+                case vierkant::Key::_M:
+                    m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
                     break;
 
                 case vierkant::Key::_PERIOD:
@@ -108,17 +122,6 @@ void PBRViewer::create_ui()
                     }
                     break;
                 }
-
-                case vierkant::Key::_A:
-                {
-                    // select all
-                    auto obj_view = m_scene->registry()->view<vierkant::Object3D *, vierkant::mesh_component_t>();
-                    for(const auto &[entity, obj, mesh_cmp]: obj_view.each())
-                    {
-                        m_selected_objects.insert(obj->shared_from_this());
-                    }
-                }
-                break;
 
                 case vierkant::Key::_DELETE:
                 case vierkant::Key::_BACKSPACE:
@@ -162,7 +165,8 @@ void PBRViewer::create_ui()
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_B:
-                            m_pbr_renderer->settings.wireframe = !m_pbr_renderer->settings.wireframe;
+                            m_pbr_renderer->settings.use_meshlet_pipeline =
+                                    !m_pbr_renderer->settings.use_meshlet_pipeline;
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_BACK:
