@@ -28,7 +28,7 @@
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/Window.hpp>
-#include <vierkant/bc7.hpp>
+#include <vierkant/texture_block_compression.hpp>
 #include <vierkant/transform.hpp>
 
 namespace crocore
@@ -380,16 +380,17 @@ namespace cereal
 {
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::bc7::block_t &block)
+void serialize(Archive &archive, vierkant::bcn::block_t &block)
 {
     archive(cereal::make_nvp("value", block.value));
 }
 
 template<class Archive>
 void serialize(Archive &archive,
-               vierkant::bc7::compress_result_t &compress_result)
+               vierkant::bcn::compress_result_t &compress_result)
 {
-    archive(cereal::make_nvp("base_width", compress_result.base_width),
+    archive(cereal::make_nvp("mode", compress_result.mode),
+            cereal::make_nvp("base_width", compress_result.base_width),
             cereal::make_nvp("base_height", compress_result.base_height),
             cereal::make_nvp("levels", compress_result.levels));
 }
