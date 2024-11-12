@@ -6,6 +6,7 @@
 #include <crocore/filesystem.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
+#include <glm/gtc/random.hpp>
 #include "pbr_viewer.hpp"
 
 bool DEMO_GUI = false;
@@ -330,16 +331,19 @@ void PBRViewer::create_ui()
 
             ImGui::Separator();
             ImGui::Spacing();
-            if(ImGui::Button("add object"))
+            if(ImGui::Button("add boxes (25)"))
             {
-                auto new_obj = m_scene->create_mesh_object({m_box_mesh});
-                new_obj->transform.translation.y = 10.f;
-
-                vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
-                vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
-                cmp.shape = box;
-                cmp.mass = 1.f;
-                m_scene->add_object(new_obj);
+                for(uint32_t i = 0; i < 25; ++i)
+                {
+                    auto new_obj = m_scene->create_mesh_object({m_box_mesh});
+                    new_obj->transform.translation.y = 10.f;
+                    new_obj->transform.translation += glm::ballRand(1.f);
+                    vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
+                    vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
+                    cmp.shape = box;
+                    cmp.mass = 1.f;
+                    m_scene->add_object(new_obj);
+                }
             }
 
             ImGui::Separator();

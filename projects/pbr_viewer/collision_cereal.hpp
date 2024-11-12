@@ -32,6 +32,12 @@ void serialize(Archive &archive, vierkant::collision::capsule_t &s)
     archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height));
 }
 
+template<class Archive>
+void serialize(Archive &archive, vierkant::collision::mesh_t &s)
+{
+    archive(cereal::make_nvp("mesh_id", s.mesh_id), cereal::make_nvp("convex_hull", s.convex_hull));
+}
+
 }// namespace vierkant::collision
 
 namespace vierkant

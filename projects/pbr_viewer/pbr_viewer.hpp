@@ -99,7 +99,7 @@ public:
 
         //! optional mesh-index and set of enabled entries.
         std::optional<size_t> mesh_index;
-        std::optional<std::set<uint32_t>> entry_indices = {};
+        std::optional<std::unordered_set<uint32_t>> entry_indices = {};
 
         //! optional animation-state
         std::optional<vierkant::animation_component_t> animation_state = {};
@@ -232,6 +232,7 @@ private:
 
     // init a scene with physics-support on application-threadpool
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create();
+    std::unordered_map<vierkant::GeometryConstPtr, vierkant::MeshPtr> m_physics_meshes;
 
     // selection of scene-renderers
     vierkant::PBRDeferredPtr m_pbr_renderer;

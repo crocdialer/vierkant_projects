@@ -74,6 +74,9 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
+    m_scene->physics_context().mesh_provider = [&mesh_map = m_mesh_map](const auto &mesh_id) {
+        return mesh_map[mesh_id];
+    };
 #ifndef NDEBUG
     m_settings.use_validation = true;
 #endif
@@ -393,10 +396,35 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_physics)
         {
-            if(auto geom = m_scene->physics_context().debug_render())
+            auto physics_debug_result = m_scene->physics_context().debug_render();
+
+            if(physics_debug_result.lines)
             {
-                m_draw_context.draw_lines(m_renderer_overlay, geom->positions, geom->colors, m_camera->view_transform(),
+                m_draw_context.draw_lines(m_renderer_overlay, physics_debug_result.lines->positions,
+                                          physics_debug_result.lines->colors, m_camera->view_transform(),
                                           m_camera->projection_matrix());
+            }
+
+            for(uint32_t i = 0; i < physics_debug_result.aabbs.size(); ++i)
+            {
+                const auto &aabb = physics_debug_result.aabbs[i];
+                m_draw_context.draw_boundingbox(m_renderer_overlay, aabb, m_camera->view_transform(),
+                                                m_camera->projection_matrix());
+
+                const auto &[transform, geom] = physics_debug_result.triangle_meshes[i];
+                auto &mesh = m_physics_meshes[geom];
+                if(!mesh)
+                {
+                    vierkant::Mesh::create_info_t mesh_create_info = {};
+                    mesh_create_info.mesh_buffer_params.use_vertex_colors = true;
+                    mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+                    mesh->materials.front()->m.blend_mode = vierkant::BlendMode::Blend;
+                }
+                auto color = physics_debug_result.colors[i];
+                color.w = 0.6f;
+                m_draw_context.draw_mesh(m_renderer_overlay, mesh, m_camera->view_transform() * transform,
+                                         m_camera->projection_matrix(), vierkant::ShaderType::UNLIT_COLOR, color, false,
+                                         false);
             }
         }
 

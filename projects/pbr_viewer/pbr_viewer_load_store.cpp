@@ -566,6 +566,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         {
             auto lock = std::unique_lock(*m_queue_model_loading->mutex);
             mesh = vierkant::model::load_mesh(load_params, *model_assets);
+            mesh->id = mesh_id;
         }
 
         m_num_loading--;
