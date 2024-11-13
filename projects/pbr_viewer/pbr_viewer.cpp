@@ -213,9 +213,9 @@ void PBRViewer::create_context_and_window()
     // set some separate queues for background stuff
     uint32_t i = 1;
     auto num_queues = m_device->queues(vierkant::Device::Queue::GRAPHICS).size();
-    m_queue_model_loading = &m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
-    m_queue_image_loading = &m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
-    m_queue_render = &m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues];
+    m_queue_model_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues].queue;
+    m_queue_image_loading = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues].queue;
+    m_queue_render = m_device->queues(vierkant::Device::Queue::GRAPHICS)[i++ % num_queues].queue;
 
     // buffer-flags for mesh-buffers
     m_mesh_buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -247,7 +247,7 @@ void PBRViewer::create_graphics_pipeline()
     m_renderer_gui.debug_label = {.text = "imgui"};
 
     vierkant::PBRDeferred::create_info_t pbr_render_info = {};
-    pbr_render_info.queue = m_queue_render->queue;
+    pbr_render_info.queue = m_queue_render;
     pbr_render_info.num_frames_in_flight = framebuffers.size();
     pbr_render_info.hdr_format = m_hdr_format;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
@@ -268,13 +268,13 @@ void PBRViewer::create_graphics_pipeline()
     {
         constexpr uint32_t lambert_size = 128;
         pbr_render_info.conv_lambert = vierkant::create_convolution_lambert(m_device, fallback_env, lambert_size,
-                                                                            m_hdr_format, m_queue_image_loading->queue);
+                                                                            m_hdr_format, m_queue_image_loading);
     }
     if(!pbr_render_info.conv_ggx)
     {
         pbr_render_info.conv_ggx = fallback_env;
         pbr_render_info.conv_ggx = vierkant::create_convolution_ggx(m_device, fallback_env, fallback_env->width(),
-                                                                    m_hdr_format, m_queue_image_loading->queue);
+                                                                    m_hdr_format, m_queue_image_loading);
     }
     pbr_render_info.conv_lambert->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_NULL_HANDLE);
     pbr_render_info.conv_ggx->transition_layout(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_NULL_HANDLE);
@@ -288,7 +288,7 @@ void PBRViewer::create_graphics_pipeline()
         path_tracer_info.pipeline_cache = m_pipeline_cache;
 
         path_tracer_info.settings = m_path_tracer ? m_path_tracer->settings : m_settings.path_tracer_settings;
-        path_tracer_info.queue = m_queue_render->queue;
+        path_tracer_info.queue = m_queue_render;
 
         m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
     }
@@ -313,6 +313,14 @@ void PBRViewer::create_graphics_pipeline()
     {
         m_mesh_buffer_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
+
+    // physics debug-drawing
+    vierkant::PhysicsDebugRenderer::create_info_t physics_debug_info = {};
+    physics_debug_info.device = m_device;
+    physics_debug_info.queue = m_queue_render;
+    physics_debug_info.num_frames_in_flight = framebuffers.size();
+    physics_debug_info.pipeline_cache = m_pipeline_cache;
+    m_physics_debug = vierkant::PhysicsDebugRenderer::create(physics_debug_info);
 }
 
 void PBRViewer::create_texture_image()
@@ -354,6 +362,8 @@ void PBRViewer::create_texture_image()
     auto it = m_textures.find("test");
     if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
     m_box_mesh->materials = {mat};
+
+    m_model_paths[m_box_mesh] = "cube";
 }
 
 void PBRViewer::update(double time_delta)
@@ -372,9 +382,6 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 {
     auto image_index = w->swapchain().image_index();
     const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
-
-    // acquire rendering-lock
-    auto lock = std::unique_lock(*m_queue_render->mutex);
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
 
     // tmp testing of overlay-drizzling
@@ -382,50 +389,29 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
     auto render_scene = [this, &framebuffer, &semaphore_infos, &overlay_assets]() -> VkCommandBuffer {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
-        semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
-                               render_result.semaphore_infos.end());
-        semaphore_infos.push_back(generate_overlay(overlay_assets, render_result.object_ids));
+        auto overlay_submit_info = generate_overlay(overlay_assets, render_result.object_ids);
+        {
+            std::unique_lock lock(m_mutex_semaphore_submit);
+            semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
+                                   render_result.semaphore_infos.end());
+            semaphore_infos.push_back(overlay_submit_info);
+        }
         overlay_assets.object_by_index_fn = render_result.object_by_index_fn;
         return m_renderer.render(framebuffer);
     };
 
-    auto render_scene_overlays = [this, &framebuffer, selected_objects = m_selected_objects,
+    auto render_scene_overlays = [this, &framebuffer, &semaphore_infos, selected_objects = m_selected_objects,
                                   &overlay_assets]() -> VkCommandBuffer {
         // draw silhouette/mask for selected indices
         m_draw_context.draw_image(m_renderer_overlay, overlay_assets.overlay, {}, glm::vec4(.8f, .5f, .1f, .7f));
 
+        // physics debug overlay
         if(m_settings.draw_physics)
         {
-            auto physics_debug_result = m_scene->physics_context().debug_render();
-
-            if(physics_debug_result.lines)
-            {
-                m_draw_context.draw_lines(m_renderer_overlay, physics_debug_result.lines->positions,
-                                          physics_debug_result.lines->colors, m_camera->view_transform(),
-                                          m_camera->projection_matrix());
-            }
-
-            for(uint32_t i = 0; i < physics_debug_result.aabbs.size(); ++i)
-            {
-                const auto &aabb = physics_debug_result.aabbs[i];
-                m_draw_context.draw_boundingbox(m_renderer_overlay, aabb, m_camera->view_transform(),
-                                                m_camera->projection_matrix());
-
-                const auto &[transform, geom] = physics_debug_result.triangle_meshes[i];
-                auto &mesh = m_physics_meshes[geom];
-                if(!mesh)
-                {
-                    vierkant::Mesh::create_info_t mesh_create_info = {};
-                    mesh_create_info.mesh_buffer_params.use_vertex_colors = true;
-                    mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-                    mesh->materials.front()->m.blend_mode = vierkant::BlendMode::Blend;
-                }
-                auto color = physics_debug_result.colors[i];
-                color.w = 0.6f;
-                m_draw_context.draw_mesh(m_renderer_overlay, mesh, m_camera->view_transform() * transform,
-                                         m_camera->projection_matrix(), vierkant::ShaderType::UNLIT_COLOR, color, false,
-                                         false);
-            }
+            auto render_result = m_physics_debug->render_scene(m_renderer_overlay, m_scene, m_camera, {});
+            std::unique_lock lock(m_mutex_semaphore_submit);
+            semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
+                                   render_result.semaphore_infos.end());
         }
 
         for(const auto &obj: selected_objects)
@@ -521,7 +507,7 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_signal_info.semaphore = overlay_asset.semaphore.handle();
     overlay_signal_info.signal_value = overlay_asset.semaphore_value + overlay_semaphore_done;
     overlay_signal_info.signal_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    overlay_asset.command_buffer.submit(m_queue_render->queue, false, VK_NULL_HANDLE, {overlay_signal_info});
+    overlay_asset.command_buffer.submit(m_queue_render, false, VK_NULL_HANDLE, {overlay_signal_info});
 
     vierkant::semaphore_submit_info_t overlay_wait_info = {};
     overlay_wait_info.semaphore = overlay_asset.semaphore.handle();

@@ -14,6 +14,7 @@
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/object_overlay.hpp>
 #include <vierkant/physics_context.hpp>
+#include <vierkant/physics_debug_draw.hpp>
 
 class PBRViewer : public crocore::Application
 {
@@ -198,8 +199,8 @@ private:
     // device
     vierkant::DevicePtr m_device;
 
-    const vierkant::Device::queue_asset_t *m_queue_model_loading = nullptr, *m_queue_image_loading = nullptr,
-                                          *m_queue_render = nullptr;
+    VkQueue m_queue_model_loading = VK_NULL_HANDLE, m_queue_image_loading = VK_NULL_HANDLE,
+            m_queue_render = VK_NULL_HANDLE;
 
     // B10G11R11 saves 50% memory but now seeing more&more cases with strong banding-issues
     VkFormat m_hdr_format = VK_FORMAT_R16G16B16A16_SFLOAT;//VK_FORMAT_B10G11R11_UFLOAT_PACK32;
@@ -232,7 +233,7 @@ private:
 
     // init a scene with physics-support on application-threadpool
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create();
-    std::unordered_map<vierkant::GeometryConstPtr, vierkant::MeshPtr> m_physics_meshes;
+    vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
     // selection of scene-renderers
     vierkant::PBRDeferredPtr m_pbr_renderer;
@@ -252,7 +253,7 @@ private:
 
     size_t m_max_log_queue_size = 100;
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
-    std::shared_mutex m_log_queue_mutex, m_bundle_rw_mutex;
+    std::shared_mutex m_log_queue_mutex, m_bundle_rw_mutex, m_mutex_semaphore_submit;
     std::map<std::string, std::shared_ptr<spdlog::logger>> _loggers;
 
     scene_data_t m_scene_data;

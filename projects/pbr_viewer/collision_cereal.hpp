@@ -45,9 +45,9 @@ namespace vierkant
 template<class Archive>
 void serialize(Archive &archive, vierkant::physics_component_t &c)
 {
-    archive(cereal::make_nvp("shape", c.shape), cereal::make_nvp("mass", c.mass),
-            cereal::make_nvp("friction", c.friction), cereal::make_nvp("restitution", c.restitution),
-            cereal::make_nvp("linear_damping", c.linear_damping),
+    archive(cereal::make_nvp("shape", c.shape), cereal::make_nvp("shape_transform", c.shape_transform),
+            cereal::make_nvp("mass", c.mass), cereal::make_nvp("friction", c.friction),
+            cereal::make_nvp("restitution", c.restitution), cereal::make_nvp("linear_damping", c.linear_damping),
             cereal::make_nvp("angular_damping", c.angular_damping), cereal::make_nvp("kinematic", c.kinematic),
             cereal::make_nvp("sensor", c.sensor));
 }

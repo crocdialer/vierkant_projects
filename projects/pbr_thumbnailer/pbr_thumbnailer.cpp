@@ -230,7 +230,7 @@ bool PBRThumbnailer::create_graphics_context()
     m_context.framebuffer = vierkant::Framebuffer(m_context.device, framebuffer_info);
 
     // clear with transparent alpha, if requested
-    if(!m_settings.draw_skybox) { m_context.framebuffer.clear_color = {{0.f, 0.f, 0.f, 0.f}}; }
+    if(!m_settings.draw_skybox) { m_context.framebuffer.clear_color = glm::vec4(0.f); }
 
     spdlog::debug("graphics-context initialized: {}", sw.elapsed());
     return true;
