@@ -359,6 +359,7 @@ void PBRViewer::create_texture_image()
     mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
     m_box_mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
     auto mat = vierkant::Material::create();
+    mat->m.id = vierkant::MaterialId ::from_name("cube");
     auto it = m_textures.find("test");
     if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
     m_box_mesh->materials = {mat};
