@@ -470,32 +470,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 }
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
-
-            //            vierkant::Object3DPtr ground;
-            //            auto results = m_scene->objects_by_name("ground");
-            //            if(results.empty())
-            //            {
-            //                ground = vierkant::Object3D::create(m_scene->registry());
-            //                ground->name = "ground";
-            //                ground->transform.translation.y = -.2f;
-            //                auto &cmp = ground->add_component<vierkant::physics_component_t>();
-            //                cmp.shape = vierkant::collision::box_t{.half_extents = {20.f, .2f, 20.f}};
-            //            }
-            //            else { ground = results.front()->shared_from_this(); }
-            //            m_scene->remove_object(ground);
-            //            m_scene->add_object(ground);
-            //            vierkant::PhysicsContext::callbacks_t callbacks;
-            //            callbacks.contact_begin = [this](uint32_t /*obj1*/, uint32_t obj2) {
-            //                if(auto obj = m_scene->object_by_id(obj2))
-            //                {
-            //                    spdlog::debug("{} hit the ground (thread: {:02X})", obj->name,
-            //                                  std::hash<std::thread::id>()(std::this_thread::get_id()));
-            //                }
-            //            };
-            //            callbacks.contact_end = [this](uint32_t /*obj1*/, uint32_t obj2) {
-            //                if(auto obj = m_scene->object_by_id(obj2)) { spdlog::debug("{} bounced", obj->name); }
-            //            };
-            //            m_scene->physics_context().set_callbacks(ground->id(), callbacks);
         };
         main_queue().post(done_cb);
     };
