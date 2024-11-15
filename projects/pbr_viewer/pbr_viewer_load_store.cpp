@@ -57,6 +57,9 @@ void PBRViewer::load_environment(const std::string &path)
 
         if(img)
         {
+            // acquire lock for image-queue // TODO: a bit more fine-grained!?
+            auto lock = std::lock_guard(*m_device->queue_asset(m_queue_image_loading)->mutex);
+
             bool use_float = (img->num_bytes() / (img->width() * img->height() * img->num_components())) > 1;
 
             // command pool for background transfer
