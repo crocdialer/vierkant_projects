@@ -360,6 +360,7 @@ void PBRViewer::create_ui()
 
                     // add to group
                     cubes->add_child(new_obj);
+                    cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
                 }
             }
 
