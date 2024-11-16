@@ -8,6 +8,7 @@
 #include <vierkant/cubemap_utils.hpp>
 
 #include "spdlog/sinks/base_sink.h"
+#include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 #include "pbr_viewer.hpp"
@@ -48,20 +49,6 @@ protected:
 
 PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : crocore::Application(create_info)
 {
-    // create logger for renderers
-    constexpr char pbr_logger_name[] = "pbr_deferred";
-    _loggers[pbr_logger_name] = spdlog::stdout_color_mt(pbr_logger_name);
-    _loggers[spdlog::default_logger()->name()] = spdlog::default_logger();
-
-    auto scroll_log_sink = std::make_shared<delegate_sink_t>();
-    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level,
-                                                    const std::string & /*logger_name*/) {
-        std::unique_lock lock(m_log_queue_mutex);
-        m_log_queue.emplace_back(msg, log_level);
-        while(m_log_queue.size() > m_max_log_queue_size) { m_log_queue.pop_front(); }
-    };
-    for(auto &[name, logger]: _loggers) { logger->sinks().push_back(scroll_log_sink); }
-
     // try to read settings
     if(auto settings = load_settings()) { m_settings = std::move(*settings); }
     else
@@ -70,7 +57,6 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
         m_settings.orbit_camera->spherical_coords = {1.1f, -0.5f};
         m_settings.orbit_camera->distance = 4.f;
     }
-    spdlog::set_level(m_settings.log_level);
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
@@ -84,6 +70,8 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
 
 void PBRViewer::setup()
 {
+    init_logger();
+
     create_context_and_window();
 
     // create ui and inputs
@@ -516,6 +504,36 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_wait_info.wait_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     m_object_id_image = id_img;
     return overlay_wait_info;
+}
+
+void PBRViewer::init_logger()
+{
+    spdlog::set_level(m_settings.log_level);
+
+    // create logger for renderers
+    constexpr char pbr_logger_name[] = "pbr_deferred";
+    _loggers[pbr_logger_name] = spdlog::stdout_color_mt(pbr_logger_name);
+    _loggers[spdlog::default_logger()->name()] = spdlog::default_logger();
+
+    std::shared_ptr<spdlog::sinks::basic_file_sink_mt> file_sink;
+    try
+    {
+        file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(m_settings.log_file);
+    } catch(spdlog::spdlog_ex &e)
+    {}
+
+    auto scroll_log_sink = std::make_shared<delegate_sink_t>();
+    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level,
+                                                    const std::string & /*logger_name*/) {
+        std::unique_lock lock(m_log_queue_mutex);
+        m_log_queue.emplace_back(msg, log_level);
+        while(m_log_queue.size() > m_max_log_queue_size) { m_log_queue.pop_front(); }
+    };
+    for(auto &[name, logger]: _loggers)
+    {
+        logger->sinks().push_back(scroll_log_sink);
+        if(file_sink) { logger->sinks().push_back(file_sink); }
+    }
 }
 
 int main(int argc, char *argv[])
