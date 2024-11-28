@@ -13,6 +13,12 @@ void serialize(Archive &, vierkant::collision::none_t &)
 {}
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::collision::plane_t &s)
+{
+    archive(cereal::make_nvp("coefficients", s.coefficients), cereal::make_nvp("half_extents", s.half_extent));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::collision::box_t &s)
 {
     archive(cereal::make_nvp("half_extents", s.half_extents));

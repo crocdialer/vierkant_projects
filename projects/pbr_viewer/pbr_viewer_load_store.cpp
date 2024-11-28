@@ -678,7 +678,7 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     options.add_options()("h,height", "window height in px", cxxopts::value<uint32_t>());
     options.add_options()("v,verbose", "verbose printing");
     options.add_options()("q,quiet", "minimal printing");
-    options.add_options()("log", "log to a file-path", cxxopts::value<std::string>());
+    options.add_options()("log-file", "enable logging to a file", cxxopts::value<std::string>());
     options.add_options()("f,fullscreen", "enable fullscreen");
     options.add_options()("no-fullscreen", "disable fullscreen");
     options.add_options()("vsync", "enable vsync");
@@ -746,7 +746,7 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     }
     if(result.count("width")) { m_settings.window_info.size.x = (int) result["width"].as<uint32_t>(); }
     if(result.count("height")) { m_settings.window_info.size.y = (int) result["height"].as<uint32_t>(); }
-    if(result.count("log")) { m_settings.log_file = result["log"].as<std::string>(); }
+    if(result.count("log-file")) { m_settings.log_file = result["log-file"].as<std::string>(); }
     if(result.count("fullscreen")) { m_settings.window_info.fullscreen = true; }
     if(result.count("no-fullscreen")) { m_settings.window_info.fullscreen = false; }
     if(result.count("vsync")) { m_settings.window_info.vsync = true; }
