@@ -283,7 +283,8 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
             cereal::make_nvp("bloom", render_settings.bloom),
             cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
-            cereal::make_nvp("depth_of_field", render_settings.depth_of_field)
+            cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
+            cereal::make_nvp("use_dof_focus_overlay", render_settings.use_dof_focus_overlay)
     );
 }
 
