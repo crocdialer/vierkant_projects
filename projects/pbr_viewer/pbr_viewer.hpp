@@ -93,6 +93,9 @@ public:
         //! a descriptive name
         std::string name;
 
+        //! indicicating if this node is enabeld
+        bool enabled;
+
         //! rigid transformation
         vierkant::transform_t transform = {};
 
@@ -297,8 +300,9 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
-    ar(cereal::make_nvp("name", scene_node.name), cereal::make_nvp("transform", scene_node.transform),
-       cereal::make_nvp("children", scene_node.children), cereal::make_nvp("mesh_index", scene_node.mesh_index),
+    ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled),
+       cereal::make_nvp("transform", scene_node.transform), cereal::make_nvp("children", scene_node.children),
+       cereal::make_nvp("mesh_index", scene_node.mesh_index),
        cereal::make_nvp("entry_indices", scene_node.entry_indices),
        cereal::make_nvp("animation_state", scene_node.animation_state),
        cereal::make_nvp("physics_state", scene_node.physics_state));

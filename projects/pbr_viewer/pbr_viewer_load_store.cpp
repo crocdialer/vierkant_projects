@@ -280,6 +280,7 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 
         scene_node_t node = {};
         node.name = obj.name;
+        node.enabled = obj.enabled;
         node.transform = obj.transform;
 
         if(obj.has_component<vierkant::animation_component_t>())
@@ -427,6 +428,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                     }
                     else { obj = vierkant::Object3D::create(m_scene->registry()); }
                     obj->name = node.name;
+                    obj->enabled = node.enabled;
                     obj->transform = node.transform;
                     if(node.animation_state) { obj->add_component(*node.animation_state); }
                     if(node.physics_state) { obj->add_component(*node.physics_state); }
