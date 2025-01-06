@@ -23,7 +23,7 @@ public:
     struct settings_t
     {
         spdlog::level::level_enum log_level = spdlog::level::info;
-        std::string log_file = "";
+        std::string log_file;
         bool use_validation = false;
         bool use_debug_labels = false;
         crocore::set_lru<std::string> recent_files;
