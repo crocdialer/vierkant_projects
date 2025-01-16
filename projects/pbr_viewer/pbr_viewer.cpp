@@ -367,14 +367,13 @@ void PBRViewer::update(double time_delta)
     m_window->draw();
 }
 
-vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::WindowPtr &w)
+vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::WindowPtr &/*w*/)
 {
-    auto image_index = w->swapchain().image_index();
-    const auto &framebuffer = m_window->swapchain().framebuffers()[image_index];
+    const auto &framebuffer = m_window->swapchain().current_framebuffer();
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
 
     // tmp testing of overlay-drizzling
-    auto &overlay_assets = m_overlay_assets[image_index];
+    auto &overlay_assets = m_overlay_assets[m_window->swapchain().image_index()];
 
     auto render_scene = [this, &framebuffer, &semaphore_infos, &overlay_assets]() -> VkCommandBuffer {
         auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
