@@ -169,7 +169,7 @@ void PBRViewer::create_context_and_window()
         device_info.extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
 
-    // TODO: upcoming extension testing
+    // NOTE: those extensions can be used, but not widely supported and our implementation is experimental
     //    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
     //    device_info.extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
 
@@ -367,7 +367,7 @@ void PBRViewer::update(double time_delta)
     m_window->draw();
 }
 
-vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::WindowPtr &/*w*/)
+vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::WindowPtr & /*w*/)
 {
     const auto &framebuffer = m_window->swapchain().current_framebuffer();
     std::vector<vierkant::semaphore_submit_info_t> semaphore_infos;
