@@ -32,6 +32,101 @@
 #include <vierkant/texture_block_compression.hpp>
 #include <vierkant/transform.hpp>
 
+namespace cereal
+{
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::bcn::block_t &block)
+{
+    archive(cereal::make_nvp("value", block.value));
+}
+
+template<class Archive>
+void serialize(Archive &archive,
+               vierkant::bcn::compress_result_t &compress_result)
+{
+    archive(cereal::make_nvp("mode", compress_result.mode),
+            cereal::make_nvp("base_width", compress_result.base_width),
+            cereal::make_nvp("base_height", compress_result.base_height),
+            cereal::make_nvp("levels", compress_result.levels));
+}
+
+//! optional value support
+template <typename T>
+struct OptionalNameValuePair : public NameValuePair<T>
+{
+    OptionalNameValuePair(char const* name, T&& value, std::remove_reference_t<T> defaultValue_)
+        : NameValuePair<T>(name, std::forward<T>(value))
+          , defaultValue(std::move(defaultValue_))
+    {}
+
+    std::remove_reference_t<T> defaultValue;
+};
+
+template <typename T>
+OptionalNameValuePair<T>
+make_optional_nvp(const std::string& name,
+                  T&& value,
+                  std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
+{
+    return { name.c_str(), std::forward<T>(value), std::move(defaultValue) };
+}
+
+template <typename T>
+OptionalNameValuePair<T>
+make_optional_nvp(const char* name,
+                  T&& value,
+                  std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
+{
+    return { name, std::forward<T>(value), std::move(defaultValue) };
+}
+
+template <typename T>
+void prologue(JSONInputArchive&, const OptionalNameValuePair<T>&)
+{
+}
+
+template <typename T>
+void prologue(JSONOutputArchive&, const OptionalNameValuePair<T>&)
+{
+}
+
+template <typename T>
+void epilogue(JSONInputArchive&, const OptionalNameValuePair<T>&)
+{
+}
+
+template <typename T>
+void epilogue(JSONOutputArchive&, const OptionalNameValuePair<T>&)
+{
+}
+
+template<class T>
+inline void CEREAL_SAVE_FUNCTION_NAME(JSONOutputArchive &ar, OptionalNameValuePair<T> const &t)
+{
+    ar.setNextName(t.name);
+    ar(t.value);
+}
+
+template<class T>
+inline void CEREAL_LOAD_FUNCTION_NAME(JSONInputArchive &ar, OptionalNameValuePair<T> &t)
+{
+    ar.setNextName(t.name);
+
+    try
+    {
+        ar(t.value);
+    } catch(const Exception &e)
+    {
+        ar.setNextName(nullptr);
+
+        if(std::string(e.what()).find("provided NVP (" + std::string(t.name)) == std::string::npos) { throw; }
+        else { t.value = t.defaultValue; }
+    }
+}
+
+}// namespace cereal
+
 namespace crocore
 {
 
@@ -252,6 +347,7 @@ void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
             cereal::make_nvp("position", createInfo.position),
             cereal::make_nvp("fullscreen", createInfo.fullscreen),
             cereal::make_nvp("vsync", createInfo.vsync),
+            cereal::make_optional_nvp("joysticks", createInfo.joysticks, true),
             cereal::make_nvp("monitor_index", createInfo.monitor_index),
             cereal::make_nvp("sample_count", createInfo.sample_count),
             cereal::make_nvp("title", createInfo.title)
@@ -377,100 +473,5 @@ void serialize(Archive &archive,
 }
 
 }// namespace vierkant::model
-
-namespace cereal
-{
-
-template<class Archive>
-void serialize(Archive &archive, vierkant::bcn::block_t &block)
-{
-    archive(cereal::make_nvp("value", block.value));
-}
-
-template<class Archive>
-void serialize(Archive &archive,
-               vierkant::bcn::compress_result_t &compress_result)
-{
-    archive(cereal::make_nvp("mode", compress_result.mode),
-            cereal::make_nvp("base_width", compress_result.base_width),
-            cereal::make_nvp("base_height", compress_result.base_height),
-            cereal::make_nvp("levels", compress_result.levels));
-}
-
-//! optional value support
-template <typename T>
-struct OptionalNameValuePair : public NameValuePair<T>
-{
-    OptionalNameValuePair(char const* name, T&& value, std::remove_reference_t<T> defaultValue_)
-        : NameValuePair<T>(name, std::forward<T>(value))
-          , defaultValue(std::move(defaultValue_))
-    {}
-
-    std::remove_reference_t<T> defaultValue;
-};
-
-template <typename T>
-OptionalNameValuePair<T>
-make_optional_nvp(const std::string& name,
-                  T&& value,
-                  std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
-{
-    return { name.c_str(), std::forward<T>(value), std::move(defaultValue) };
-}
-
-template <typename T>
-OptionalNameValuePair<T>
-make_optional_nvp(const char* name,
-                  T&& value,
-                  std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
-{
-    return { name, std::forward<T>(value), std::move(defaultValue) };
-}
-
-template <typename T>
-void prologue(JSONInputArchive&, const OptionalNameValuePair<T>&)
-{
-}
-
-template <typename T>
-void prologue(JSONOutputArchive&, const OptionalNameValuePair<T>&)
-{
-}
-
-template <typename T>
-void epilogue(JSONInputArchive&, const OptionalNameValuePair<T>&)
-{
-}
-
-template <typename T>
-void epilogue(JSONOutputArchive&, const OptionalNameValuePair<T>&)
-{
-}
-
-template<class T>
-inline void CEREAL_SAVE_FUNCTION_NAME(JSONOutputArchive &ar, OptionalNameValuePair<T> const &t)
-{
-    ar.setNextName(t.name);
-    ar(t.value);
-}
-
-template<class T>
-inline void CEREAL_LOAD_FUNCTION_NAME(JSONInputArchive &ar, OptionalNameValuePair<T> &t)
-{
-    ar.setNextName(t.name);
-
-    try
-    {
-        ar(t.value);
-    } catch(const Exception &e)
-    {
-        ar.setNextName(nullptr);
-
-        if(std::string(e.what()).find("provided NVP (" + std::string(t.name)) == std::string::npos) { throw; }
-        else { t.value = t.defaultValue; }
-    }
-}
-
-}// namespace cereal
 
 

@@ -33,6 +33,7 @@ public:
                                                        .position = {},
                                                        .fullscreen = false,
                                                        .vsync = true,
+                                                       .joysticks = true,
                                                        .monitor_index = 0,
                                                        .sample_count = VK_SAMPLE_COUNT_1_BIT,
                                                        .title = "pbr_viewer"};
