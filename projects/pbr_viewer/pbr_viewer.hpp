@@ -94,8 +94,8 @@ public:
         //! a descriptive name
         std::string name;
 
-        //! indicicating if this node is enabeld
-        bool enabled;
+        //! indicating if node is enabled
+        bool enabled = true;
 
         //! rigid transformation
         vierkant::transform_t transform = {};
