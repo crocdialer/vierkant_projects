@@ -71,7 +71,7 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_ESCAPE: running = false; break;
 
-                case vierkant::Key::_SPACE: m_settings.draw_ui = !m_settings.draw_ui; break;
+                case vierkant::Key::_SPACEBAR: m_settings.draw_ui = !m_settings.draw_ui; break;
 
                 case vierkant::Key::_F:
                 {
