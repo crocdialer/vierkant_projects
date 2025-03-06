@@ -196,7 +196,7 @@ private:
     vierkant::semaphore_submit_info_t generate_overlay(overlay_assets_t &overlay_asset,
                                                        const vierkant::ImagePtr &id_img);
 
-    std::atomic<uint32_t> m_num_loading = 0;
+    std::atomic<uint32_t> m_num_loading = 0, m_num_frames = 0;
 
     settings_t m_settings = {};
 
