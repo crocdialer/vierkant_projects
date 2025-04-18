@@ -2,7 +2,6 @@
 // Created by crocdialer on 2/11/22.
 //
 
-//#include <netzer/http.hpp>
 #include <crocore/filesystem.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
@@ -85,6 +84,7 @@ void PBRViewer::create_ui()
                 }
                 break;
                 case vierkant::Key::_C:
+                {
                     if(m_camera_control.current == m_camera_control.orbit)
                     {
                         m_camera_control.current = m_camera_control.fly;
@@ -93,6 +93,7 @@ void PBRViewer::create_ui()
                     m_camera->transform = m_camera_control.current->transform();
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
+                }
 
                 case vierkant::Key::_G: m_settings.draw_grid = !m_settings.draw_grid; break;
 
@@ -323,6 +324,33 @@ void PBRViewer::create_ui()
                 m_camera_control.current = m_camera_control.fly;
                 refresh = true;
             }
+            ImGui::SameLine();
+            bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+
+            if(ImGui::Checkbox("ortho", &ortho))
+            {
+                if(ortho)
+                {
+                    vierkant::ortho_camera_params_t params = {};
+                    float size = .4f * m_camera_control.orbit->distance;
+                    params.top = size;
+                    params.bottom = -size;
+                    params.left = -size * m_window->aspect_ratio();
+                    params.right = size * m_window->aspect_ratio();
+                    params.near_ = 0.f;
+                    params.far_ = 10000.f;
+                    m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
+                    m_camera->name = "ortho";
+                    
+//                    m_camera_control.orbit->spherical_coords = {glm::half_pi<float>(), 0.f};
+                }
+                else
+                {
+                    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+                    m_camera->name = "default";
+                }
+                m_camera->transform = m_camera_control.current->transform();
+            }
             if(refresh)
             {
                 m_camera->transform = m_camera_control.current->transform();
@@ -428,8 +456,15 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
-    m_camera->name = "default";
+    if(m_settings.ortho_camera)
+    {
+
+    }
+    else
+    {
+        m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+        m_camera->name = "default";
+    }
 
     create_camera_controls();
 
@@ -542,7 +577,4 @@ void PBRViewer::create_camera_controls()
 
     // update camera from current
     m_camera->transform = m_camera_control.current->transform();
-
-    //    // add/update camera_params
-    //    m_camera->get_component<vierkant::physical_camera_params_t>() = m_settings.camera_params;
 }
