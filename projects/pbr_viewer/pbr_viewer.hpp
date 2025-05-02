@@ -191,6 +191,7 @@ private:
         uint64_t semaphore_value = 0;
         vierkant::object_overlay_context_ptr object_overlay_context;
         vierkant::SceneRenderer::object_id_by_index_fn_t object_by_index_fn;
+        vierkant::SceneRenderer::indices_by_id_fn_t indices_by_id_fn;
         vierkant::ImagePtr overlay;
     };
 

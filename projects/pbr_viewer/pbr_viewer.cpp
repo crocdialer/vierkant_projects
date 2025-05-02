@@ -385,6 +385,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             semaphore_infos.push_back(overlay_submit_info);
         }
         overlay_assets.object_by_index_fn = render_result.object_by_index_fn;
+        overlay_assets.indices_by_id_fn = render_result.indices_by_id_fn;
         return m_renderer.render(framebuffer);
     };
 
@@ -489,6 +490,16 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
     overlay_params.object_id_img = id_img;
     overlay_params.object_ids = m_selected_indices;
+
+    for(const auto &obj: m_selected_objects)
+    {
+        if(overlay_asset.indices_by_id_fn)
+        {
+            auto draw_indices = overlay_asset.indices_by_id_fn(obj->id());
+            overlay_params.object_ids.insert(draw_indices.begin(), draw_indices.end());
+        }
+    }
+
     overlay_asset.overlay = vierkant::object_overlay(overlay_asset.object_overlay_context, overlay_params);
 
     vierkant::semaphore_submit_info_t overlay_signal_info = {};
