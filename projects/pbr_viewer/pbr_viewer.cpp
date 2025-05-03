@@ -489,7 +489,7 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_params.mode = m_settings.object_overlay_mode;
     overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
     overlay_params.object_id_img = id_img;
-    overlay_params.object_ids = m_selected_indices;
+//    overlay_params.object_ids = m_selected_indices;
 
     for(const auto &obj: m_selected_objects)
     {
