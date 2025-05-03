@@ -331,8 +331,15 @@ void PBRViewer::create_ui()
             {
                 if(ortho)
                 {
+                    auto scene_aabb = m_scene->root()->aabb();
+
+                    // scene-aabb, center cam, view top-down, set ortho-params
+                    m_camera_control.orbit->spherical_coords = {0.f, -glm::half_pi<float>()};
+                    m_camera_control.orbit->look_at = scene_aabb.center();
+//                    m_camera_control.orbit->distance = scene_aabb.max.y - scene_aabb.center().y + 1.f;
+
                     vierkant::ortho_camera_params_t params = {};
-                    float size = .4f * m_camera_control.orbit->distance;
+                    float size = scene_aabb.half_extents().z;
                     params.top = size;
                     params.bottom = -size;
                     params.left = -size * m_window->aspect_ratio();
@@ -341,8 +348,6 @@ void PBRViewer::create_ui()
                     params.far_ = 10000.f;
                     m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
                     m_camera->name = "ortho";
-                    
-//                    m_camera_control.orbit->spherical_coords = {glm::half_pi<float>(), 0.f};
                 }
                 else
                 {
