@@ -440,8 +440,9 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_grid)
         {
-            m_draw_context.draw_grid(m_renderer_overlay, 10.f, 100, m_camera->view_transform(),
-                                     m_camera->projection_matrix());
+            m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8), 1.f), 1.f,
+                                     static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera)),
+                                     m_camera->view_transform(), m_camera->projection_matrix());
         }
 
         return m_renderer_overlay.render(framebuffer);
@@ -489,7 +490,7 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_params.mode = m_settings.object_overlay_mode;
     overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
     overlay_params.object_id_img = id_img;
-//    overlay_params.object_ids = m_selected_indices;
+    //    overlay_params.object_ids = m_selected_indices;
 
     for(const auto &obj: m_selected_objects)
     {
