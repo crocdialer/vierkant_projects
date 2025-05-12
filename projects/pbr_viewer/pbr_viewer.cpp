@@ -440,7 +440,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_grid)
         {
-            m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8), 1.f), 1.f,
+            m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8), 1.f), 1.f, glm::vec2(0.05f),
                                      static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera)),
                                      m_camera->view_transform(), m_camera->projection_matrix());
         }
