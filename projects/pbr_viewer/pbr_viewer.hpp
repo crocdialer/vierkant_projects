@@ -55,6 +55,8 @@ public:
 
         float ui_font_scale = 30.f;
 
+        bool ui_draw_view_controls = false;
+
         bool draw_grid = true;
 
         bool draw_aabbs = false;
@@ -280,10 +282,11 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("recent_files", settings.recent_files), cereal::make_nvp("window", settings.window_info),
        cereal::make_nvp("pbr_settings", settings.pbr_settings),
        cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
-       cereal::make_nvp("draw_ui", settings.draw_ui), cereal::make_nvp("font_url", settings.font_url),
-       cereal::make_nvp("ui_scale", settings.ui_scale), cereal::make_nvp("ui_font_scale", settings.ui_font_scale),
-       cereal::make_nvp("draw_grid", settings.draw_grid), cereal::make_nvp("draw_aabbs", settings.draw_aabbs),
-       cereal::make_nvp("draw_physics", settings.draw_physics),
+       cereal::make_nvp("draw_ui", settings.draw_ui),
+       cereal::make_optional_nvp("ui_draw_view_controls", settings.ui_draw_view_controls),
+       cereal::make_nvp("font_url", settings.font_url), cereal::make_nvp("ui_scale", settings.ui_scale),
+       cereal::make_nvp("ui_font_scale", settings.ui_font_scale), cereal::make_nvp("draw_grid", settings.draw_grid),
+       cereal::make_nvp("draw_aabbs", settings.draw_aabbs), cereal::make_nvp("draw_physics", settings.draw_physics),
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),

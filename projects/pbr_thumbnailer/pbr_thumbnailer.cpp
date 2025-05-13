@@ -356,7 +356,7 @@ std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
     if(result.count("num_samples")) { ret.num_samples = result["num_samples"].as<uint32_t>(); }
     if(result.count("max_path")) { ret.max_path_length = result["max_path"].as<uint32_t>(); }
     if(result.count("seed")) { ret.random_seed = result["seed"].as<uint32_t>(); }
-    if(result.count("angle")) { ret.cam_spherical_coords.x = glm::radians(result["angle"].as<float>()); }
+    if(result.count("angle")) { ret.cam_spherical_coords.y = glm::radians(result["angle"].as<float>()); }
     if(result.count("skybox") && result["skybox"].as<bool>()) { ret.draw_skybox = true; }
     if(result.count("camera") && result["camera"].as<bool>()) { ret.use_model_camera = true; }
     if(result.count("raster") && result["raster"].as<bool>()) { ret.use_pathtracer = false; }

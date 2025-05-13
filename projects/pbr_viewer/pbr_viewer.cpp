@@ -54,7 +54,7 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     else
     {
         // initial pos
-        m_settings.orbit_camera->spherical_coords = {1.1f, -0.5f};
+        m_settings.orbit_camera->spherical_coords = {-0.5f, 1.1f};
         m_settings.orbit_camera->distance = 4.f;
     }
     this->loop_throttling = !m_settings.window_info.vsync;

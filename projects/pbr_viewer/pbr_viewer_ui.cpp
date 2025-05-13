@@ -274,6 +274,7 @@ void PBRViewer::create_ui()
 
             ImGui::Checkbox("draw grid", &m_settings.draw_grid);
             ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
+            ImGui::Checkbox("draw view-controls", &m_settings.ui_draw_view_controls);
             ImGui::Checkbox("physics debug-draw", &m_settings.draw_physics);
             ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
             ImGui::Checkbox("texture compression", &m_settings.texture_compression);
@@ -334,9 +335,9 @@ void PBRViewer::create_ui()
                     auto scene_aabb = m_scene->root()->aabb();
 
                     // scene-aabb, center cam, view top-down, set ortho-params
-                    m_camera_control.orbit->spherical_coords = {0.f, -glm::half_pi<float>()};
+                    m_camera_control.orbit->spherical_coords = {-glm::half_pi<float>(), 0.f};
                     m_camera_control.orbit->look_at = scene_aabb.center();
-//                    m_camera_control.orbit->distance = scene_aabb.max.y - scene_aabb.center().y + 1.f;
+                    //                    m_camera_control.orbit->distance = scene_aabb.max.y - scene_aabb.center().y + 1.f;
 
                     vierkant::ortho_camera_params_t params = {};
                     float size = scene_aabb.half_extents().z;
@@ -448,6 +449,17 @@ void PBRViewer::create_ui()
         {
             vierkant::gui::draw_transform_guizmo(*m_selected_objects.begin(), m_camera, m_settings.current_guizmo);
         }
+
+        if(m_settings.ui_draw_view_controls)
+        {
+            auto view = vierkant::mat4_cast(m_camera->view_transform());
+            const glm::vec2 sz = {150, 150};
+            glm::vec2 pos = {(static_cast<float>(m_window->size().x) - sz.x) / 2.f, 0.f};
+            if(ImGuizmo::ViewManipulate(glm::value_ptr(view), 1.f, {pos.x, pos.y}, {sz.x, sz.y}, 0x00000000))
+            {
+                m_camera->transform = vierkant::inverse(vierkant::transform_cast(view));
+            }
+        }
     };
 
     // imgui demo window
@@ -461,10 +473,7 @@ void PBRViewer::create_ui()
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
     // camera
-    if(m_settings.ortho_camera)
-    {
-
-    }
+    if(m_settings.ortho_camera) {}
     else
     {
         m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});

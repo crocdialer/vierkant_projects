@@ -48,8 +48,8 @@ public:
         //! output-image resolution
         glm::uvec2 result_image_size = {1024, 1024};
 
-        //! azimuth- and polar-angles for camera-placement in radians
-        glm::vec2 cam_spherical_coords = {1.1f, -0.5f};
+        //! polar and azimuth-angles for camera-placement in radians
+        glm::vec2 cam_spherical_coords = {-0.5f, 1.1f};
 
         //! flag to request a path-tracer rendering-backend
         bool use_pathtracer = true;
