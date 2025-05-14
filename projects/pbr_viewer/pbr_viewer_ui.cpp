@@ -443,7 +443,7 @@ void PBRViewer::create_ui()
         vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
     };
 
-    // object-manipulators
+    // object/view manipulation
     m_gui_context.delegates["guizmo"] = [this] {
         if(!m_selected_objects.empty())
         {
@@ -457,7 +457,19 @@ void PBRViewer::create_ui()
             glm::vec2 pos = {(static_cast<float>(m_window->size().x) - sz.x) / 2.f, 0.f};
             if(ImGuizmo::ViewManipulate(glm::value_ptr(view), 1.f, {pos.x, pos.y}, {sz.x, sz.y}, 0x00000000))
             {
-                m_camera->transform = vierkant::inverse(vierkant::transform_cast(view));
+                auto transform = vierkant::inverse(vierkant::transform_cast(view));
+                glm::vec2 pitch_yaw = glm::eulerAngles(transform.rotation).xy();
+
+                if(m_camera_control.current == m_camera_control.orbit)
+                {
+                    m_camera_control.orbit->spherical_coords = pitch_yaw;
+                }
+                else { m_camera_control.fly->spherical_coords = pitch_yaw; }
+
+                if(m_camera_control.current->transform_cb)
+                {
+                    m_camera_control.current->transform_cb(m_camera_control.current->transform());
+                }
             }
         }
     };
