@@ -332,19 +332,7 @@ void PBRViewer::create_ui()
             {
                 if(ortho)
                 {
-                    auto scene_aabb = m_scene->root()->aabb();
-
-                    // scene-aabb, center cam, view top-down, set ortho-params
-                    m_camera_control.orbit->spherical_coords = {-glm::half_pi<float>(), 0.f};
-                    m_camera_control.orbit->look_at = scene_aabb.center();
-                    //                    m_camera_control.orbit->distance = scene_aabb.max.y - scene_aabb.center().y + 1.f;
-
                     vierkant::ortho_camera_params_t params = {};
-                    float size = scene_aabb.half_extents().z;
-                    params.top = size;
-                    params.bottom = -size;
-                    params.left = -size * m_window->aspect_ratio();
-                    params.right = size * m_window->aspect_ratio();
                     params.near_ = 0.f;
                     params.far_ = 10000.f;
                     m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
@@ -355,7 +343,7 @@ void PBRViewer::create_ui()
                     m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
                     m_camera->name = "default";
                 }
-                m_camera->transform = m_camera_control.current->transform();
+                m_camera_control.current->transform_cb(m_camera_control.current->transform());
             }
             if(refresh)
             {
@@ -604,6 +592,20 @@ void PBRViewer::create_camera_controls()
     auto transform_cb = [this](const vierkant::transform_t &transform) {
         m_camera->set_global_transform(transform);
         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+
+      if(m_camera_control.current == m_camera_control.orbit)
+      {
+          if(auto ortho_cam = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera))
+          {
+              float size = .2f * m_camera_control.orbit->distance;//scene_aabb.half_extents().z;
+              ortho_cam->ortho_params.top = size;
+              ortho_cam->ortho_params.bottom = -size;
+              ortho_cam->ortho_params.left = -size * m_window->aspect_ratio();
+              ortho_cam->ortho_params.right = size * m_window->aspect_ratio();
+//              ortho_cam->ortho_params.near_ = 0.f;
+//              ortho_cam->ortho_params.far_ = 10000.f;
+          }
+      }
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;

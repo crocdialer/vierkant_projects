@@ -187,8 +187,10 @@ void PBRViewer::create_context_and_window()
                 m_window->swapchain().sample_count();
         m_camera_control.current->screen_size = {w, h};
 
-        auto cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera);
-        cam->perspective_params.aspect = m_window->aspect_ratio();
+        if(auto cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera))
+        {
+            cam->perspective_params.aspect = m_window->aspect_ratio();
+        }
     };
     window_delegate.close_fn = [this]() { running = false; };
     m_window->window_delegates[name()] = window_delegate;
