@@ -490,14 +490,18 @@ vierkant::semaphore_submit_info_t PBRViewer::generate_overlay(PBRViewer::overlay
     overlay_params.mode = m_settings.object_overlay_mode;
     overlay_params.commandbuffer = overlay_asset.command_buffer.handle();
     overlay_params.object_id_img = id_img;
-    //    overlay_params.object_ids = m_selected_indices;
 
-    for(const auto &obj: m_selected_objects)
+    if(overlay_asset.indices_by_id_fn)
     {
-        if(overlay_asset.indices_by_id_fn)
+        vierkant::LambdaVisitor visitor;
+
+        for(auto &obj: m_selected_objects)
         {
-            auto draw_indices = overlay_asset.indices_by_id_fn(obj->id());
-            overlay_params.object_ids.insert(draw_indices.begin(), draw_indices.end());
+            visitor.traverse(*obj, [&overlay_asset, &overlay_params](const auto &obj) -> bool {
+                auto draw_indices = overlay_asset.indices_by_id_fn(obj.id());
+                overlay_params.object_ids.insert(draw_indices.begin(), draw_indices.end());
+                return true;
+            });
         }
     }
 
