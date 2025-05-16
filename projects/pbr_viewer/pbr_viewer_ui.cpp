@@ -10,6 +10,26 @@
 
 bool DEMO_GUI = false;
 
+void PBRViewer::toggle_ortho_camera()
+{
+    bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+
+    if(!ortho)
+    {
+        vierkant::ortho_camera_params_t params = {};
+        params.near_ = 0.f;
+        params.far_ = 10000.f;
+        m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
+        m_camera->name = "ortho";
+    }
+    else
+    {
+        m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+        m_camera->name = "default";
+    }
+    m_camera_control.current->transform_cb(m_camera_control.current->transform());
+}
+
 void PBRViewer::create_ui()
 {
     // create a KeyDelegate
@@ -113,6 +133,8 @@ void PBRViewer::create_ui()
                     m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
                     break;
 
+                case vierkant::Key::_O: toggle_ortho_camera(); break;
+
                 case vierkant::Key::_PERIOD:
                 {
                     vierkant::AABB aabb;
@@ -170,6 +192,8 @@ void PBRViewer::create_ui()
                             m_pbr_renderer->settings.use_meshlet_pipeline =
                                     !m_pbr_renderer->settings.use_meshlet_pipeline;
                             break;
+
+                        case vierkant::Joystick::Input::BUTTON_BUMPER_RIGHT: toggle_ortho_camera(); break;
 
                         case vierkant::Joystick::Input::BUTTON_BACK:
                             if(m_camera_control.current == m_camera_control.orbit)
@@ -328,23 +352,7 @@ void PBRViewer::create_ui()
             ImGui::SameLine();
             bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
 
-            if(ImGui::Checkbox("ortho", &ortho))
-            {
-                if(ortho)
-                {
-                    vierkant::ortho_camera_params_t params = {};
-                    params.near_ = 0.f;
-                    params.far_ = 10000.f;
-                    m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
-                    m_camera->name = "ortho";
-                }
-                else
-                {
-                    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
-                    m_camera->name = "default";
-                }
-                m_camera_control.current->transform_cb(m_camera_control.current->transform());
-            }
+            if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
             if(refresh)
             {
                 m_camera->transform = m_camera_control.current->transform();
@@ -593,19 +601,17 @@ void PBRViewer::create_camera_controls()
         m_camera->set_global_transform(transform);
         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
-      if(m_camera_control.current == m_camera_control.orbit)
-      {
-          if(auto ortho_cam = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera))
-          {
-              float size = .2f * m_camera_control.orbit->distance;//scene_aabb.half_extents().z;
-              ortho_cam->ortho_params.top = size;
-              ortho_cam->ortho_params.bottom = -size;
-              ortho_cam->ortho_params.left = -size * m_window->aspect_ratio();
-              ortho_cam->ortho_params.right = size * m_window->aspect_ratio();
-//              ortho_cam->ortho_params.near_ = 0.f;
-//              ortho_cam->ortho_params.far_ = 10000.f;
-          }
-      }
+        if(m_camera_control.current == m_camera_control.orbit)
+        {
+            if(auto ortho_cam = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera))
+            {
+                float size = .2f * m_camera_control.orbit->distance;//scene_aabb.half_extents().z;
+                ortho_cam->ortho_params.top = size;
+                ortho_cam->ortho_params.bottom = -size;
+                ortho_cam->ortho_params.left = -size * m_window->aspect_ratio();
+                ortho_cam->ortho_params.right = size * m_window->aspect_ratio();
+            }
+        }
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
