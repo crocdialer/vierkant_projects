@@ -458,7 +458,14 @@ void PBRViewer::create_ui()
             if(ImGuizmo::ViewManipulate(glm::value_ptr(view), 1.f, {pos.x, pos.y}, {sz.x, sz.y}, 0x00000000))
             {
                 auto transform = vierkant::inverse(vierkant::transform_cast(view));
-                glm::vec2 pitch_yaw = glm::eulerAngles(transform.rotation).xy();
+                glm::vec3 pitch_yaw = glm::eulerAngles(transform.rotation);
+
+                // account for roll and negative angles
+                auto sng_x = static_cast<float>(crocore::sgn(-pitch_yaw.x));
+                float sng_y = 1.f - 2.f * std::abs(pitch_yaw.z) * glm::one_over_pi<float>();
+                pitch_yaw.x += std::abs(pitch_yaw.z) * sng_x;
+                pitch_yaw.y = std::fmod(glm::two_pi<float>() + std::abs(pitch_yaw.z) + pitch_yaw.y * sng_y,
+                                        glm::two_pi<float>());
 
                 if(m_camera_control.current == m_camera_control.orbit)
                 {
