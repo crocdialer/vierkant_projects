@@ -171,11 +171,14 @@ void PBRViewer::create_context_and_window()
 
     // NOTE: those extensions can be used, but not widely supported and our implementation is experimental
     //    device_info.extensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-    //    device_info.extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
+    if(vierkant::check_device_extension_support(physical_device, {VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME}))
+    {
+        device_info.extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
+    }
 
     m_device = vierkant::Device::create(device_info);
     m_window->create_swapchain(m_device, std::min(m_device->max_usable_samples(), m_settings.window_info.sample_count),
-                               m_settings.window_info.vsync);
+                               m_settings.window_info.vsync, m_settings.window_info.use_hdr);
 
     // create a WindowDelegate
     vierkant::window_delegate_t window_delegate = {};
@@ -442,7 +445,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_grid)
         {
-            m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8), 1.f), 1.f, glm::vec2(0.05f),
+            m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8f), 1.f), 1.f, glm::vec2(0.05f),
                                      static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera)),
                                      m_camera->view_transform(), m_camera->projection_matrix());
         }
