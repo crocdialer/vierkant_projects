@@ -1,18 +1,18 @@
-[submodule "submodules/vierkant"]
-	path = submodules/vierkant
+[submodule "extern/vierkant"]
+	path = extern/vierkant
 	url = git@github.com:crocdialer/vierkant.git
 
-[submodule "submodules/cereal"]
-	path = submodules/cereal
+[submodule "extern/cereal"]
+	path = extern/cereal
 	url = git@github.com:USCiLab/cereal.git
   shallow = true
 
-[submodule "submodules/libzip"]
-	path = submodules/libzip
+[submodule "extern/libzip"]
+	path = extern/libzip
 	url = git@github.com:nih-at/libzip.git
   shallow = true
 
-[submodule "submodules/cxxopts"]
-	path = submodules/cxxopts
+[submodule "extern/cxxopts"]
+	path = extern/cxxopts
 	url = git@github.com:jarro2783/cxxopts.git
   shallow = true
