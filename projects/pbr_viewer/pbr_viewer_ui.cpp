@@ -300,6 +300,14 @@ void PBRViewer::create_ui()
 
                 if(ImGui::BeginMenu("settings"))
                 {
+                    const char *log_items[] = {"Trace", "Debug", "Info", "Warn", "Error", "Critical", "Off"};
+                    int log_level = static_cast<int>(spdlog::get_level());
+
+                    if(ImGui::Combo("log level", &log_level, log_items, IM_ARRAYSIZE(log_items)))
+                    {
+                        spdlog::set_level(spdlog::level::level_enum(log_level));
+                    }
+
                     ImGui::Checkbox("draw grid", &m_settings.draw_grid);
                     ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
                     ImGui::Checkbox("draw view-controls", &m_settings.ui_draw_view_controls);
@@ -411,6 +419,21 @@ void PBRViewer::create_ui()
                 vierkant::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
                 ImGui::EndMenu();
             }
+
+            if(ImGui::BeginMenu("stats"))
+            {
+                auto loop_time = current_loop_time();
+                ImGui::Text("fps: %.1f (%.1f ms)", 1.f / loop_time, loop_time * 1000.f);
+                ImGui::Spacing();
+                ImGui::Text("time: %s | frame: %d",
+                            crocore::secs_to_time_str(static_cast<float>(application_time())).c_str(),
+                            static_cast<uint32_t>(m_window->num_frames()));
+                ImGui::Spacing();
+
+                vierkant::gui::draw_scene_renderer_statistics_ui(m_scene_renderer);
+                ImGui::EndMenu();
+            }
+
             ImGui::EndMenuBar();
         }
         ImGui::End();
@@ -433,7 +456,7 @@ void PBRViewer::create_ui()
         }
         ImGui::Separator();
 
-        vierkant::gui::draw_scene_renderer_ui(m_scene_renderer);
+        vierkant::gui::draw_scene_renderer_settings_ui(m_scene_renderer);
 
         ImGui::End();
     };
