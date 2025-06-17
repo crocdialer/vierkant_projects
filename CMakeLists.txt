@@ -24,7 +24,7 @@ option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 option(BUILD_TESTS "Build Tests" OFF)
 
 # vierkant
-add_subdirectory("submodules/vierkant")
+add_subdirectory("extern/vierkant")
 set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 
 ## netzer
@@ -33,10 +33,10 @@ set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 #include_directories(${netzer_INCLUDE_DIRS})
 
 # cereal
-include_directories("submodules/cereal/include")
+include_directories("extern/cereal/include")
 
 # cxxopts
-include_directories("submodules/cxxopts/include")
+include_directories("extern/cxxopts/include")
 
 # libzip
 set(BUILD_TOOLS OFF)
@@ -52,7 +52,7 @@ set(ENABLE_WINDOWS_CRYPTO OFF)
 set(ENABLE_ZSTD ON)
 set(CMAKE_POLICY_DEFAULT_CMP0063 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-add_subdirectory(submodules/libzip EXCLUDE_FROM_ALL)
+add_subdirectory(extern/libzip EXCLUDE_FROM_ALL)
 set(LIBS ${LIBS} zip)
 
 # projects

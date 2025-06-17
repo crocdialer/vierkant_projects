@@ -239,172 +239,208 @@ void PBRViewer::create_ui()
     colors[ImGuiCol_TitleBg] = ImVec4(0, 0, 0, bg_alpha);
     colors[ImGuiCol_TitleBgActive] = ImVec4(0, 0, 0, bg_alpha_active);
 
-    m_gui_context.delegates["application"] = [this] {
+    m_gui_context.delegates["application"].fn = [this] {
         int corner = 0;
 
-        const float DISTANCE = 10.0f;
-        ImGuiIO &io = ImGui::GetIO();
+        // const float DISTANCE = 10.0f;
+        // ImGuiIO &io = ImGui::GetIO();
 
-        ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
-                                   (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
-        ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
-        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        ImVec2 window_pos(0, 0);
+        // ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
+        // ImGui::SetNextWindowSize(io.DisplaySize);
 
         ImGui::Begin("about: blank", nullptr,
-                     (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoTitleBar |
-                             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
-                             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
-                             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+                     (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoDecoration |
+                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
+                             ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-        if(ImGui::BeginMenu(name().c_str()))
+        if(ImGui::BeginMenuBar())
         {
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            if(ImGui::MenuItem("save"))
+            if(ImGui::BeginMenu(name().c_str()))
             {
-                save_settings(m_settings);
-                save_scene();
-            }
+                ImGui::Separator();
+                ImGui::Spacing();
 
-            ImGui::Separator();
-            ImGui::Spacing();
-            if(ImGui::MenuItem("reload"))
-            {
-                spdlog::warn("menu: reload");
-                if(auto settings = load_settings()) { m_settings = std::move(*settings); }
-                create_camera_controls();
-                if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
-                else { m_scene_renderer = m_pbr_renderer; }
-            }
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            if(ImGui::BeginMenu("recent files"))
-            {
-                for(const auto &f: m_settings.recent_files)
+                if(ImGui::MenuItem("save"))
                 {
-                    if(ImGui::MenuItem(f.c_str()))
+                    save_settings(m_settings);
+                    save_scene();
+                }
+
+                ImGui::Separator();
+                ImGui::Spacing();
+                if(ImGui::MenuItem("reload"))
+                {
+                    spdlog::warn("menu: reload");
+                    if(auto settings = load_settings()) { m_settings = std::move(*settings); }
+                    create_camera_controls();
+                    if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
+                    else { m_scene_renderer = m_pbr_renderer; }
+                }
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                if(ImGui::BeginMenu("recent files"))
+                {
+                    for(const auto &f: m_settings.recent_files)
                     {
-                        spdlog::debug("menu: open recent file -> {}", f);
-                        load_file(f);
-                        break;
+                        auto file_name = crocore::filesystem::get_filename_part(f);
+                        if(ImGui::MenuItem(file_name.c_str()))
+                        {
+                            spdlog::debug("menu: open recent file -> {}", f);
+                            load_file(f);
+                            break;
+                        }
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                if(ImGui::BeginMenu("settings"))
+                {
+                    const char *log_items[] = {"Trace", "Debug", "Info", "Warn", "Error", "Critical", "Off"};
+                    int log_level = static_cast<int>(spdlog::get_level());
+
+                    if(ImGui::Combo("log level", &log_level, log_items, IM_ARRAYSIZE(log_items)))
+                    {
+                        spdlog::set_level(spdlog::level::level_enum(log_level));
+                    }
+
+                    ImGui::Checkbox("draw grid", &m_settings.draw_grid);
+                    ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
+                    ImGui::Checkbox("draw view-controls", &m_settings.ui_draw_view_controls);
+                    ImGui::Checkbox("physics debug-draw", &m_settings.draw_physics);
+                    ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
+                    ImGui::Checkbox("texture compression", &m_settings.texture_compression);
+                    ImGui::Checkbox("remap indices", &m_settings.mesh_buffer_params.remap_indices);
+                    ImGui::Checkbox("optimize vertex cache", &m_settings.mesh_buffer_params.optimize_vertex_cache);
+                    ImGui::Checkbox("generate mesh-LODs", &m_settings.mesh_buffer_params.generate_lods);
+                    ImGui::Checkbox("generate meshlets", &m_settings.mesh_buffer_params.generate_meshlets);
+                    ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
+                    ImGui::Checkbox("zip-compress bundles", &m_settings.cache_zip_archive);
+
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+
+                    if(ImGui::RadioButton("none", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::None))
+                    {
+                        m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::None;
+                    }
+                    ImGui::SameLine();
+
+                    if(ImGui::RadioButton("mask", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Mask))
+                    {
+                        m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Mask;
+                    }
+                    ImGui::SameLine();
+
+                    if(ImGui::RadioButton("silhoutte",
+                                          m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
+                    {
+                        m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Silhouette;
+                    }
+
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    // camera control select
+                    bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
+
+                    if(ImGui::RadioButton("orbit", orbit_cam))
+                    {
+                        m_camera_control.current = m_camera_control.orbit;
+                        refresh = true;
+                    }
+                    ImGui::SameLine();
+
+                    if(ImGui::RadioButton("fly", !orbit_cam))
+                    {
+                        m_camera_control.current = m_camera_control.fly;
+                        refresh = true;
+                    }
+                    ImGui::SameLine();
+                    bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+
+                    if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
+                    if(refresh)
+                    {
+                        m_camera->transform = m_camera_control.current->transform();
+                        if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+                    }
+                    ImGui::EndMenu();
+                }
+
+                ImGui::Separator();
+                ImGui::Spacing();
+                if(ImGui::Button("about: blank object"))
+                {
+                    auto new_obj = vierkant::Object3D::create(m_scene->registry());
+                    new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
+                    m_scene->add_object(new_obj);
+                }
+                if(ImGui::Button("add boxes (25)"))
+                {
+                    auto cubes = m_scene->any_object_by_name("cubes");
+                    if(!cubes)
+                    {
+                        auto new_group = vierkant::Object3D::create(m_scene->registry(), "cubes");
+                        m_scene->add_object(new_group);
+                        cubes = new_group.get();
+                    }
+
+                    for(uint32_t i = 0; i < 25; ++i)
+                    {
+                        auto new_obj = m_scene->create_mesh_object({m_box_mesh});
+                        new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
+                        new_obj->transform.translation.y = 10.f;
+                        new_obj->transform.translation += glm::ballRand(1.f);
+                        vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
+                        vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
+                        cmp.shape = box;
+                        cmp.mass = 1.f;
+
+                        // add to group
+                        cubes->add_child(new_obj);
+                        cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
                     }
                 }
+
+                ImGui::Separator();
+                ImGui::Spacing();
+                if(ImGui::MenuItem("quit")) { running = false; }
                 ImGui::EndMenu();
             }
-            ImGui::Separator();
-            ImGui::Spacing();
 
-            ImGui::Checkbox("draw grid", &m_settings.draw_grid);
-            ImGui::Checkbox("draw aabbs", &m_settings.draw_aabbs);
-            ImGui::Checkbox("draw view-controls", &m_settings.ui_draw_view_controls);
-            ImGui::Checkbox("physics debug-draw", &m_settings.draw_physics);
-            ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
-            ImGui::Checkbox("texture compression", &m_settings.texture_compression);
-            ImGui::Checkbox("remap indices", &m_settings.mesh_buffer_params.remap_indices);
-            ImGui::Checkbox("optimize vertex cache", &m_settings.mesh_buffer_params.optimize_vertex_cache);
-            ImGui::Checkbox("generate mesh-LODs", &m_settings.mesh_buffer_params.generate_lods);
-            ImGui::Checkbox("generate meshlets", &m_settings.mesh_buffer_params.generate_meshlets);
-            ImGui::Checkbox("cache mesh-bundles", &m_settings.cache_mesh_bundles);
-            ImGui::Checkbox("zip-compress bundles", &m_settings.cache_zip_archive);
-
-            ImGui::Separator();
-            ImGui::Spacing();
-
-
-            if(ImGui::RadioButton("none", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::None))
+            if(ImGui::BeginMenu("display"))
             {
-                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::None;
-            }
-            ImGui::SameLine();
-
-            if(ImGui::RadioButton("mask", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Mask))
-            {
-                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Mask;
-            }
-            ImGui::SameLine();
-
-            if(ImGui::RadioButton("silhoutte",
-                                  m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::Silhouette))
-            {
-                m_settings.object_overlay_mode = vierkant::ObjectOverlayMode::Silhouette;
+                vierkant::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
+                ImGui::EndMenu();
             }
 
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // camera control select
-            bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
-
-            if(ImGui::RadioButton("orbit", orbit_cam))
+            if(ImGui::BeginMenu("stats"))
             {
-                m_camera_control.current = m_camera_control.orbit;
-                refresh = true;
-            }
-            ImGui::SameLine();
+                auto loop_time = current_loop_time();
+                ImGui::Text("fps: %.1f (%.1f ms)", 1.f / loop_time, loop_time * 1000.f);
+                ImGui::Spacing();
+                ImGui::Text("time: %s | frame: %d",
+                            crocore::secs_to_time_str(static_cast<float>(application_time())).c_str(),
+                            static_cast<uint32_t>(m_window->num_frames()));
+                ImGui::Spacing();
 
-            if(ImGui::RadioButton("fly", !orbit_cam))
-            {
-                m_camera_control.current = m_camera_control.fly;
-                refresh = true;
-            }
-            ImGui::SameLine();
-            bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
-
-            if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
-            if(refresh)
-            {
-                m_camera->transform = m_camera_control.current->transform();
-                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+                vierkant::gui::draw_scene_renderer_statistics_ui(m_scene_renderer);
+                ImGui::EndMenu();
             }
 
-            ImGui::Separator();
-            ImGui::Spacing();
-            if(ImGui::Button("about: blank object"))
-            {
-                auto new_obj = vierkant::Object3D::create(m_scene->registry());
-                new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
-                m_scene->add_object(new_obj);
-            }
-            if(ImGui::Button("add boxes (25)"))
-            {
-                auto cubes = m_scene->any_object_by_name("cubes");
-                if(!cubes)
-                {
-                    auto new_group = vierkant::Object3D::create(m_scene->registry(), "cubes");
-                    m_scene->add_object(new_group);
-                    cubes = new_group.get();
-                }
-
-                for(uint32_t i = 0; i < 25; ++i)
-                {
-                    auto new_obj = m_scene->create_mesh_object({m_box_mesh});
-                    new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
-                    new_obj->transform.translation.y = 10.f;
-                    new_obj->transform.translation += glm::ballRand(1.f);
-                    vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
-                    vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
-                    cmp.shape = box;
-                    cmp.mass = 1.f;
-
-                    // add to group
-                    cubes->add_child(new_obj);
-                    cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
-                }
-            }
-
-            ImGui::Separator();
-            ImGui::Spacing();
-            if(ImGui::MenuItem("quit")) { running = false; }
-            ImGui::EndMenu();
+            ImGui::EndMenuBar();
         }
-        vierkant::gui::draw_application_ui(std::static_pointer_cast<Application>(shared_from_this()), m_window);
         ImGui::End();
     };
 
     // renderer window
-    m_gui_context.delegates["renderer"] = [this] {
+    m_gui_context.delegates["renderer"].fn = [this] {
         bool is_path_tracer = m_scene_renderer == m_path_tracer;
 
         ImGui::SetNextWindowPos(ImVec2(1025, 10), ImGuiCond_FirstUseEver);
@@ -420,19 +456,19 @@ void PBRViewer::create_ui()
         }
         ImGui::Separator();
 
-        vierkant::gui::draw_scene_renderer_ui(m_scene_renderer);
+        vierkant::gui::draw_scene_renderer_settings_ui(m_scene_renderer);
 
         ImGui::End();
     };
 
     // log window
-    m_gui_context.delegates["logger"] = [&log_queue = m_log_queue, &mutex = m_log_queue_mutex] {
+    m_gui_context.delegates["logger"].fn = [&log_queue = m_log_queue, &mutex = m_log_queue_mutex] {
         std::shared_lock lock(mutex);
         vierkant::gui::draw_logger_ui(log_queue);
     };
 
     // scenegraph window
-    m_gui_context.delegates["scenegraph"] = [this] {
+    m_gui_context.delegates["scenegraph"].fn = [this] {
         ImGui::SetNextWindowPos(ImVec2(1470, 10), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
 
@@ -440,7 +476,7 @@ void PBRViewer::create_ui()
     };
 
     // object/view manipulation
-    m_gui_context.delegates["guizmo"] = [this] {
+    m_gui_context.delegates["guizmo"].fn = [this] {
         if(!m_selected_objects.empty())
         {
             vierkant::gui::draw_transform_guizmo(*m_selected_objects.begin(), m_camera, m_settings.current_guizmo);
@@ -478,7 +514,7 @@ void PBRViewer::create_ui()
     };
 
     // imgui demo window
-    m_gui_context.delegates["demo"] = [] {
+    m_gui_context.delegates["demo"].fn = [] {
         if(DEMO_GUI) { ImGui::ShowDemoWindow(&DEMO_GUI); }
         if(DEMO_GUI) { ImPlot::ShowDemoWindow(&DEMO_GUI); }
     };
