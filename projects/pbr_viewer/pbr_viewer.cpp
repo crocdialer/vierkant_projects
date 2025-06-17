@@ -106,8 +106,6 @@ void PBRViewer::create_context_and_window()
     instance_info.use_debug_labels = m_settings.use_debug_labels;
     m_instance = vierkant::Instance(instance_info);
 
-    auto video_modes = vierkant::get_video_modes();
-
     m_settings.window_info.title = name();
     m_settings.window_info.instance = m_instance.handle();
     m_window = vierkant::Window::create(m_settings.window_info);
