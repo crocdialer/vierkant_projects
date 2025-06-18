@@ -2,11 +2,12 @@
 // Created by crocdialer on 2/11/22.
 //
 
-#include <crocore/filesystem.hpp>
-#include <vierkant/imgui/imgui_util.h>
-
 #include "pbr_viewer.hpp"
+
+#include "ImGuiFileDialog.h"
+#include <crocore/filesystem.hpp>
 #include <glm/gtc/random.hpp>
+#include <vierkant/imgui/imgui_util.h>
 
 bool DEMO_GUI = false;
 
@@ -270,6 +271,15 @@ void PBRViewer::create_ui()
 
                 ImGui::Separator();
                 ImGui::Spacing();
+
+                if(ImGui::MenuItem("load"))
+                {
+                    IGFD::FileDialogConfig config;
+                    config.path = ".";
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".gltf,.glb,.obj",
+                                                            config);
+                }
+
                 if(ImGui::MenuItem("reload"))
                 {
                     spdlog::warn("menu: reload");
@@ -437,6 +447,23 @@ void PBRViewer::create_ui()
             ImGui::EndMenuBar();
         }
         ImGui::End();
+    };
+
+    // renderer window
+    m_gui_context.delegates["file_dialog"].fn = [this] {
+        // display
+        if(ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey"))
+        {
+            if(ImGuiFileDialog::Instance()->IsOk())
+            {
+                auto f = ImGuiFileDialog::Instance()->GetCurrentFileName();
+                auto p = std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentPath()) / std::filesystem::path(f);
+
+                // load file
+                load_file(p);
+            }
+            ImGuiFileDialog::Instance()->Close();
+        };
     };
 
     // renderer window
