@@ -41,6 +41,7 @@ SOFTWARE.
 #include <cerrno>
 
 // this option need c++17
+#define USE_STD_FILESYSTEM
 #ifdef USE_STD_FILESYSTEM
 #include <filesystem>
 #include <exception>

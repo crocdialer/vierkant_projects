@@ -4,10 +4,10 @@
 
 #include "pbr_viewer.hpp"
 
-#include "ImGuiFileDialog.h"
 #include <crocore/filesystem.hpp>
 #include <glm/gtc/random.hpp>
 #include <vierkant/imgui/imgui_util.h>
+#include "ImGuiFileDialog.h"
 
 bool DEMO_GUI = false;
 
@@ -456,11 +456,11 @@ void PBRViewer::create_ui()
         {
             if(ImGuiFileDialog::Instance()->IsOk())
             {
-                auto f = ImGuiFileDialog::Instance()->GetCurrentFileName();
-                auto p = std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentPath()) / std::filesystem::path(f);
+                auto p = std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentPath()) /
+                         std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentFileName());
 
                 // load file
-                load_file(p);
+                load_file(p.string());
             }
             ImGuiFileDialog::Instance()->Close();
         };
