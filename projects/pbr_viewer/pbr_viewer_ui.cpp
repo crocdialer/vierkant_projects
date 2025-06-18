@@ -4,10 +4,12 @@
 
 #include "pbr_viewer.hpp"
 
+#include "ImGuiFileDialog.h"
 #include <crocore/filesystem.hpp>
 #include <glm/gtc/random.hpp>
 #include <vierkant/imgui/imgui_util.h>
-#include "ImGuiFileDialog.h"
+
+constexpr char g_imgui_file_dialog_key[] = "imgui_file_dialog_key";
 
 bool DEMO_GUI = false;
 
@@ -276,8 +278,9 @@ void PBRViewer::create_ui()
                 {
                     IGFD::FileDialogConfig config;
                     config.path = ".";
-                    ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".gltf,.glb,.obj",
-                                                            config);
+                    config.flags = ImGuiFileDialogFlags_DisableCreateDirectoryButton;
+                    constexpr char filter_str[] = "(.gltf|.glb|.obj)";//".gltf|.glb|.obj";
+                    ImGuiFileDialog::Instance()->OpenDialog(g_imgui_file_dialog_key, "Choose File", filter_str, config);
                 }
 
                 if(ImGui::MenuItem("reload"))
@@ -452,7 +455,8 @@ void PBRViewer::create_ui()
     // renderer window
     m_gui_context.delegates["file_dialog"].fn = [this] {
         // display
-        if(ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey"))
+        ImGuiWindowFlags flags = 0;
+        if(ImGuiFileDialog::Instance()->Display(g_imgui_file_dialog_key, flags, ImVec2(320, 240)))
         {
             if(ImGuiFileDialog::Instance()->IsOk())
             {
