@@ -357,8 +357,7 @@ public:
     IGFD_FileStyleFlags flags = 0;
 
 public:
-    FileStyle();
-    FileStyle(const FileStyle& vStyle);
+    FileStyle() = default;
     FileStyle(const ImVec4& vColor, const std::string& vIcon = "", ImFont* vFont = nullptr);
 };
 

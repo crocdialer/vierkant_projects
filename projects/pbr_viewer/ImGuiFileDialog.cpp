@@ -1104,16 +1104,6 @@ bool IGFD::Utils::NaturalCompare(const std::string& vA, const std::string& vB, b
     return vDescending ? as > bs : as < bs;  // toto1 < toto1+
 }
 
-IGFD::FileStyle::FileStyle() : color(0, 0, 0, 0) {
-}
-
-IGFD::FileStyle::FileStyle(const FileStyle& vStyle) {
-    color = vStyle.color;
-    icon  = vStyle.icon;
-    font  = vStyle.font;
-    flags = vStyle.flags;
-}
-
 IGFD::FileStyle::FileStyle(const ImVec4& vColor, const std::string& vIcon, ImFont* vFont) : color(vColor), icon(vIcon), font(vFont) {
 }
 
