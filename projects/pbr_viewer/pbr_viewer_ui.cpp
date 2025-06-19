@@ -283,7 +283,9 @@ void PBRViewer::create_ui()
                         config.path = crocore::filesystem::get_directory_part(*m_settings.recent_files.rbegin());
                     }
                     config.flags = ImGuiFileDialogFlags_DisableCreateDirectoryButton;
-                    constexpr char filter_str[] = "(( .gltf|.glb|.obj ))";//".gltf|.glb|.obj";
+                    constexpr char filter_str[] =
+                            "supported (*.gltf *.glb *.obj *.hdr *.jpg *.png *.json){.gltf, .glb, .obj, .hdr, "
+                            ".jpg, .png, .json},all {.*}";
                     ImGuiFileDialog::Instance()->OpenDialog(g_imgui_file_dialog_key, "Choose File", filter_str, config);
                 }
 
