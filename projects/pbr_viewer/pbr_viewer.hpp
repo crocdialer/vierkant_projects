@@ -107,6 +107,9 @@ public:
         std::vector<uint32_t> children = {};
 
         //! optional mesh-index and set of enabled entries.
+        std::optional<size_t> scene_index;
+
+        //! optional mesh-index and set of enabled entries.
         std::optional<size_t> mesh_index;
         std::optional<std::unordered_set<uint32_t>> entry_indices = {};
 
@@ -126,7 +129,12 @@ public:
 
     struct scene_data_t
     {
+        //! array of file-paths, containing sub-scenes (.json)
+        std::vector<std::string> scene_paths;
+
+        //! array of file-paths, containing model-files (.gltf, .glb, .obj)
         std::vector<std::string> model_paths;
+
         std::string environment_path;
         std::vector<scene_node_t> nodes;
 
@@ -310,11 +318,12 @@ template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled, true),
-       cereal::make_nvp("transform", scene_node.transform), cereal::make_nvp("children", scene_node.children),
-       cereal::make_nvp("mesh_index", scene_node.mesh_index),
-       cereal::make_nvp("entry_indices", scene_node.entry_indices),
-       cereal::make_nvp("animation_state", scene_node.animation_state),
-       cereal::make_nvp("physics_state", scene_node.physics_state));
+       cereal::make_nvp("transform", scene_node.transform), cereal::make_optional_nvp("children", scene_node.children),
+       cereal::make_optional_nvp("scene_index", scene_node.scene_index),
+       cereal::make_optional_nvp("mesh_index", scene_node.mesh_index),
+       cereal::make_optional_nvp("entry_indices", scene_node.entry_indices),
+       cereal::make_optional_nvp("animation_state", scene_node.animation_state),
+       cereal::make_optional_nvp("physics_state", scene_node.physics_state));
 }
 
 template<class Archive>
@@ -327,8 +336,9 @@ void serialize(Archive &ar, PBRViewer::scene_camera_t &camera)
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
 {
-    ar(cereal::make_nvp("environment_path", scene_data.environment_path),
+    ar(cereal::make_optional_nvp("environment_path", scene_data.environment_path),
+       cereal::make_optional_nvp("scene_paths", scene_data.scene_paths),
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
        cereal::make_nvp("scene_roots", scene_data.scene_roots), cereal::make_nvp("cameras", scene_data.cameras),
-       cereal::make_nvp("materials", scene_data.materials));
+       cereal::make_optional_nvp("materials", scene_data.materials));
 }
