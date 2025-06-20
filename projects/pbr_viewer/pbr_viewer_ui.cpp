@@ -301,7 +301,8 @@ void PBRViewer::create_ui()
                     constexpr char filter_str[] =
                             "supported (*.gltf *.glb *.obj *.hdr *.jpg *.png *.json){.gltf, .glb, .obj, .hdr, "
                             ".jpg, .png, .json},all {.*}";
-                    g_file_dialog.OpenDialog(g_imgui_file_dialog_load_key, "load model/image/scene ...", filter_str, config);
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_load_key, "load model/image/scene ...", filter_str,
+                                             config);
                 }
 
                 if(ImGui::MenuItem("reload"))
@@ -454,6 +455,21 @@ void PBRViewer::create_ui()
                 ImGui::EndMenu();
             }
 
+            if(ImGui::BeginMenu("renderer"))
+            {
+                bool is_path_tracer = m_scene_renderer == m_path_tracer;
+
+                if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)) { m_scene_renderer = m_pbr_renderer; }
+                ImGui::SameLine();
+                if(ImGui::RadioButton("pathtracer", is_path_tracer))
+                {
+                    m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
+                }
+                ImGui::Spacing();
+                vierkant::gui::draw_scene_renderer_settings_ui(m_scene_renderer);
+                ImGui::EndMenu();
+            }
+
             if(ImGui::BeginMenu("stats"))
             {
                 auto loop_time = current_loop_time();
@@ -507,28 +523,6 @@ void PBRViewer::create_ui()
             }
             g_file_dialog.Close();
         };
-    };
-
-    // renderer window
-    m_gui_context.delegates["renderer"].fn = [this] {
-        bool is_path_tracer = m_scene_renderer == m_path_tracer;
-
-        ImGui::SetNextWindowPos(ImVec2(1025, 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
-
-        ImGui::Begin("renderer");
-
-        if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)) { m_scene_renderer = m_pbr_renderer; }
-        ImGui::SameLine();
-        if(ImGui::RadioButton("pathtracer", is_path_tracer))
-        {
-            m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
-        }
-        ImGui::Separator();
-
-        vierkant::gui::draw_scene_renderer_settings_ui(m_scene_renderer);
-
-        ImGui::End();
     };
 
     // log window
