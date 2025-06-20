@@ -9,6 +9,7 @@
 #include <glm/gtc/random.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
+ImGuiFileDialog g_file_dialog;
 constexpr char g_imgui_file_dialog_load_key[] = "imgui_file_dialog_load_key";
 constexpr char g_imgui_file_dialog_save_key[] = "imgui_file_dialog_save_key";
 
@@ -282,8 +283,7 @@ void PBRViewer::create_ui()
                     }
                     config.flags = ImGuiFileDialogFlags_DisableCreateDirectoryButton;
                     constexpr char filter_str[] = "vierkant-scene (*.json){.json}";
-                    ImGuiFileDialog::Instance()->OpenDialog(g_imgui_file_dialog_save_key, "Choose File", filter_str,
-                                                            config);
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_save_key, "save scene ...", filter_str, config);
                 }
 
                 ImGui::Separator();
@@ -301,8 +301,7 @@ void PBRViewer::create_ui()
                     constexpr char filter_str[] =
                             "supported (*.gltf *.glb *.obj *.hdr *.jpg *.png *.json){.gltf, .glb, .obj, .hdr, "
                             ".jpg, .png, .json},all {.*}";
-                    ImGuiFileDialog::Instance()->OpenDialog(g_imgui_file_dialog_load_key, "Choose File", filter_str,
-                                                            config);
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_load_key, "load model/image/scene ...", filter_str, config);
                 }
 
                 if(ImGui::MenuItem("reload"))
@@ -482,31 +481,31 @@ void PBRViewer::create_ui()
         auto min_size = io.DisplaySize * 0.5f;
 
         // load dialog
-        if(ImGuiFileDialog::Instance()->Display(g_imgui_file_dialog_load_key, flags, min_size))
+        if(g_file_dialog.Display(g_imgui_file_dialog_load_key, flags, min_size))
         {
-            if(ImGuiFileDialog::Instance()->IsOk())
+            if(g_file_dialog.IsOk())
             {
-                auto p = std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentPath()) /
-                         std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentFileName());
+                auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
+                         std::filesystem::path(g_file_dialog.GetCurrentFileName());
 
                 // load file
                 load_file(p.string());
             }
-            ImGuiFileDialog::Instance()->Close();
+            g_file_dialog.Close();
         }
 
         // save dialog
-        if(ImGuiFileDialog::Instance()->Display(g_imgui_file_dialog_save_key, flags, min_size))
+        if(g_file_dialog.Display(g_imgui_file_dialog_save_key, flags, min_size))
         {
-            if(ImGuiFileDialog::Instance()->IsOk())
+            if(g_file_dialog.IsOk())
             {
-                auto p = std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentPath()) /
-                         std::filesystem::path(ImGuiFileDialog::Instance()->GetCurrentFileName());
+                auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
+                         std::filesystem::path(g_file_dialog.GetCurrentFileName());
 
                 // save scene
                 save_scene(p.string());
             }
-            ImGuiFileDialog::Instance()->Close();
+            g_file_dialog.Close();
         };
     };
 
