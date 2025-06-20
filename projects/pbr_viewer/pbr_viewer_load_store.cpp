@@ -253,6 +253,7 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 {
     // scene traversal
     scene_data_t data;
+    data.name = m_scene->root()->name;
     data.environment_path = m_scene_data.environment_path;
 
     vierkant::SelectVisitor<vierkant::Camera> camera_filter;
@@ -361,21 +362,30 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     }
 }
 
-void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
+void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
 {
-    auto load_task = [this, scene_data]() {
+    auto load_task = [this, scene_data_in]() {
         // load background
-        if(scene_data) { load_file(scene_data->environment_path); }
+        if(scene_data_in) { load_file(scene_data_in->environment_path); }
 
-        // TODO: use threadpool
         std::vector<vierkant::MeshPtr> meshes;
-        std::vector<scene_node_t> nodes;
-        std::vector<uint32_t> scene_roots;
-        std::vector<scene_camera_t> cameras;
+        scene_data_t scene_data;
 
-        if(scene_data)
+        if(scene_data_in)
         {
-            for(const auto &p: scene_data->model_paths)
+            scene_data = std::move(*scene_data_in);
+
+            // sub-scenes
+            for(const auto &p: scene_data.scene_paths)
+            {
+                auto sub_scene_data = load_scene_data(p);
+                if(sub_scene_data)
+                {
+                    // TODO: load a sub-scene
+                }
+            }
+
+            for(const auto &p: scene_data.model_paths)
             {
                 auto mesh = load_mesh(p);
 
@@ -384,8 +394,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                     // optional material override(s)
                     for(auto &mat: mesh->materials)
                     {
-                        auto it = scene_data->materials.find(mat->m.id);
-                        if(it != scene_data->materials.end())
+                        auto it = scene_data.materials.find(mat->m.id);
+                        if(it != scene_data.materials.end())
                         {
                             mat->m = it->second;
                             spdlog::trace("overriding material: {}", mat->m.name);
@@ -394,9 +404,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                     meshes.push_back(mesh);
                 }
             }
-            nodes = scene_data->nodes;
-            cameras = scene_data->cameras;
-            scene_roots = scene_data->scene_roots;
         }
         else
         {
@@ -405,20 +412,21 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
             scene_node_t node = {};
             node.name = "cube";
             node.mesh_index = 0;
-            nodes = {node};
-            scene_roots = {0};
+            scene_data.nodes = {node};
+            scene_data.scene_roots = {0};
         }
 
-        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras),
-                        scene_roots = std::move(scene_roots)]() {
-            if(!nodes.empty())
+        auto done_cb = [this, scene_data = std::move(scene_data), meshes = std::move(meshes)]() {
+            if(!scene_data.nodes.empty())
             {
-                m_scene->clear();
+                // auto root = vierkant::Object3D::create(m_scene->registry());
+                auto &root = m_scene->root();
 
+                root->name = scene_data.name;
                 std::vector<vierkant::Object3DPtr> objects;
 
                 // create objects for all nodes
-                for(const auto &node: nodes)
+                for(const auto &node: scene_data.nodes)
                 {
                     vierkant::Object3DPtr obj;
 
@@ -438,15 +446,15 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
                 }
 
                 // recreate node-hierarchy
-                for(uint32_t i = 0; i < nodes.size(); ++i)
+                for(uint32_t i = 0; i < scene_data.nodes.size(); ++i)
                 {
-                    for(auto child_index: nodes[i].children) { objects[i]->add_child(objects[child_index]); }
+                    for(auto child_index: scene_data.nodes[i].children) { objects[i]->add_child(objects[child_index]); }
                 }
 
                 // add scene-roots
-                for(auto idx: scene_roots) { m_scene->add_object(objects[idx]); }
+                for(auto idx: scene_data.scene_roots) { root->add_child(objects[idx]); }
 
-                for(const auto &cam: cameras)
+                for(const auto &cam: scene_data.cameras)
                 {
                     auto object = std::visit(
                             [this](auto &&camera_params) -> vierkant::CameraPtr {
@@ -467,10 +475,13 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
 
                     object->name = cam.name;
                     object->transform = cam.transform;
-                    m_scene->add_object(object);
+                    root->add_child(object);
 
                     m_camera = object;
                 }
+
+                // m_scene->clear();
+                // m_scene->add_object(root);
                 if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             }
         };

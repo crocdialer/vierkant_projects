@@ -129,6 +129,9 @@ public:
 
     struct scene_data_t
     {
+        //! descriptive name for the scene
+        std::string name;
+
         //! array of file-paths, containing sub-scenes (.json)
         std::vector<std::string> scene_paths;
 
@@ -336,7 +339,8 @@ void serialize(Archive &ar, PBRViewer::scene_camera_t &camera)
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
 {
-    ar(cereal::make_optional_nvp("environment_path", scene_data.environment_path),
+    ar(cereal::make_optional_nvp("name", scene_data.name),
+       cereal::make_optional_nvp("environment_path", scene_data.environment_path),
        cereal::make_optional_nvp("scene_paths", scene_data.scene_paths),
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
        cereal::make_nvp("scene_roots", scene_data.scene_roots), cereal::make_nvp("cameras", scene_data.cameras),
