@@ -2,11 +2,16 @@
 // Created by crocdialer on 2/11/22.
 //
 
+#include "pbr_viewer.hpp"
+
+#include "ImGuiFileDialog.h"
 #include <crocore/filesystem.hpp>
+#include <glm/gtc/random.hpp>
 #include <vierkant/imgui/imgui_util.h>
 
-#include "pbr_viewer.hpp"
-#include <glm/gtc/random.hpp>
+ImGuiFileDialog g_file_dialog;
+constexpr char g_imgui_file_dialog_load_key[] = "imgui_file_dialog_load_key";
+constexpr char g_imgui_file_dialog_save_key[] = "imgui_file_dialog_save_key";
 
 bool DEMO_GUI = false;
 
@@ -268,8 +273,37 @@ void PBRViewer::create_ui()
                     save_scene();
                 }
 
+                if(ImGui::MenuItem("save as ..."))
+                {
+                    IGFD::FileDialogConfig config;
+                    config.path = ".";
+                    if(!m_settings.recent_files.empty())
+                    {
+                        config.path = crocore::filesystem::get_directory_part(*m_settings.recent_files.rbegin());
+                    }
+                    config.flags = ImGuiFileDialogFlags_DisableCreateDirectoryButton;
+                    constexpr char filter_str[] = "vierkant-scene (*.json){.json}";
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_save_key, "save scene ...", filter_str, config);
+                }
+
                 ImGui::Separator();
                 ImGui::Spacing();
+
+                if(ImGui::MenuItem("load ..."))
+                {
+                    IGFD::FileDialogConfig config;
+                    config.path = ".";
+                    if(!m_settings.recent_files.empty())
+                    {
+                        config.path = crocore::filesystem::get_directory_part(*m_settings.recent_files.rbegin());
+                    }
+                    config.flags = ImGuiFileDialogFlags_DisableCreateDirectoryButton;
+                    constexpr char filter_str[] =
+                            "supported (*.gltf *.glb *.obj *.hdr *.jpg *.png *.json){.gltf, .glb, .obj, .hdr, "
+                            ".jpg, .png, .json},all {.*}";
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_load_key, "load model/image/scene ...", filter_str, config);
+                }
+
                 if(ImGui::MenuItem("reload"))
                 {
                     spdlog::warn("menu: reload");
@@ -437,6 +471,42 @@ void PBRViewer::create_ui()
             ImGui::EndMenuBar();
         }
         ImGui::End();
+    };
+
+    // renderer window
+    m_gui_context.delegates["file_dialog"].fn = [this] {
+        // display
+        ImGuiIO &io = ImGui::GetIO();
+        ImGuiWindowFlags flags = 0;
+        auto min_size = io.DisplaySize * 0.5f;
+
+        // load dialog
+        if(g_file_dialog.Display(g_imgui_file_dialog_load_key, flags, min_size))
+        {
+            if(g_file_dialog.IsOk())
+            {
+                auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
+                         std::filesystem::path(g_file_dialog.GetCurrentFileName());
+
+                // load file
+                load_file(p.string());
+            }
+            g_file_dialog.Close();
+        }
+
+        // save dialog
+        if(g_file_dialog.Display(g_imgui_file_dialog_save_key, flags, min_size))
+        {
+            if(g_file_dialog.IsOk())
+            {
+                auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
+                         std::filesystem::path(g_file_dialog.GetCurrentFileName());
+
+                // save scene
+                save_scene(p.string());
+            }
+            g_file_dialog.Close();
+        };
     };
 
     // renderer window
