@@ -16,6 +16,8 @@
 #include <vierkant/physics_context.hpp>
 #include <vierkant/physics_debug_draw.hpp>
 
+DEFINE_NAMED_UUID(SceneId)
+
 class PBRViewer : public crocore::Application
 {
 
@@ -106,8 +108,8 @@ public:
         //! list of child-nodes (indices into scene_data_t::nodes)
         std::vector<uint32_t> children = {};
 
-        //! optional index into an array of sub-scenes.
-        std::optional<size_t> scene_index;
+        //! optional sub-scene-id.
+        std::optional<SceneId> scene_id;
 
         //! optional mesh-index and set of enabled entries.
         std::optional<size_t> mesh_index;
@@ -133,7 +135,8 @@ public:
         std::string name;
 
         //! array of file-paths, containing sub-scenes (.json)
-        std::vector<std::string> scene_paths;
+        // std::vector<std::string> scene_paths;
+        std::unordered_map<SceneId, std::string> scene_paths;
 
         //! array of file-paths, containing model-files (.gltf, .glb, .obj)
         std::vector<std::string> model_paths;
@@ -284,6 +287,7 @@ private:
 
     // tmp, keep track of mesh/model-paths
     std::map<vierkant::MeshConstPtr, std::filesystem::path> m_model_paths;
+    std::map<SceneId, std::filesystem::path> m_scene_paths;
 };
 
 template<class Archive>
@@ -322,7 +326,7 @@ void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled, true),
        cereal::make_nvp("transform", scene_node.transform), cereal::make_optional_nvp("children", scene_node.children),
-       cereal::make_optional_nvp("scene_index", scene_node.scene_index),
+       cereal::make_optional_nvp("scene_id", scene_node.scene_id),
        cereal::make_optional_nvp("mesh_index", scene_node.mesh_index),
        cereal::make_optional_nvp("entry_indices", scene_node.entry_indices),
        cereal::make_optional_nvp("animation_state", scene_node.animation_state),

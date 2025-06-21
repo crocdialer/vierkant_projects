@@ -14,11 +14,7 @@ constexpr char g_zip_path[] = "cache.zip";
 struct object_flags_component_t
 {
     VIERKANT_ENABLE_AS_COMPONENT();
-    enum
-    {
-        NONE = 0,
-        SUB_SCENE
-    } flags = NONE;
+    SceneId scene_id = SceneId::nil();
 };
 
 void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
@@ -291,16 +287,26 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         // skip cameras
         if(dynamic_cast<vierkant::Camera *>(&obj)) { return true; }
 
-        scene_node_t node = {};
+        obj_to_node_index[&obj] = data.nodes.size();
+        
+        scene_node_t &node = data.nodes.emplace_back();
         node.name = obj.name;
         node.enabled = obj.enabled;
         node.transform = obj.transform;
 
         if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
         {
-            if(flags_cmp->flags == object_flags_component_t::SUB_SCENE)
+            if(flags_cmp->scene_id)
             {
-                // TODO: handle subscene serialization
+                // handle subscene serialization
+                spdlog::debug("handle sub-scene serialization: {} -> {}", obj.name, flags_cmp->scene_id.str());
+                node.scene_id = flags_cmp->scene_id;
+
+                auto path_it = m_scene_paths.find(flags_cmp->scene_id);
+                if(path_it != m_scene_paths.end()) { data.scene_paths[flags_cmp->scene_id] = path_it->second.string(); }
+
+                // handled as subscene, bail out
+                return false;
             }
         }
 
@@ -313,9 +319,6 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         {
             node.physics_state = obj.get_component<vierkant::physics_component_t>();
         }
-
-        obj_to_node_index[&obj] = data.nodes.size();
-        data.nodes.push_back(node);
 
         if(obj.has_component<vierkant::mesh_component_t>())
         {
@@ -348,6 +351,12 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(!obj_to_node_index.contains(&obj)) { return true; }
+
+        // skip object from sub-scenes
+        if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
+        {
+            if(flags_cmp->scene_id) { return false; }
+        }
         auto &node = data.nodes[obj_to_node_index[&obj]];
         for(const auto &child: obj.children) { node.children.push_back(obj_to_node_index[child.get()]); }
 
@@ -390,7 +399,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
         struct scene_data_assets_t
         {
             scene_data_t scene_data;
-            uint32_t scene_base_index = 0;
+            SceneId scene_id;
             std::vector<vierkant::MeshPtr> meshes;
             std::vector<vierkant::Object3DPtr> objects;
         };
@@ -401,25 +410,27 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
             scene_assets[0].scene_data = std::move(*scene_data_in);
 
             // sub-scenes
-            std::deque<std::string> sub_scene_paths = {scene_assets[0].scene_data.scene_paths.begin(),
-                                                       scene_assets[0].scene_data.scene_paths.end()};
+            std::deque<std::pair<SceneId, std::string>> sub_scene_paths = {
+                    scene_assets[0].scene_data.scene_paths.begin(), scene_assets[0].scene_data.scene_paths.end()};
 
             // iterate subscene-paths bfs
             while(!sub_scene_paths.empty())
             {
-                auto p = std::move(sub_scene_paths.front());
+                auto [id, p] = std::move(sub_scene_paths.front());
                 sub_scene_paths.pop_front();
+
+                m_scene_paths[id] = p;
 
                 auto sub_scene_data = load_scene_data(p);
                 if(sub_scene_data)
                 {
                     auto &new_scene_asset = scene_assets.emplace_back();
                     new_scene_asset.scene_data = std::move(*sub_scene_data);
-                    new_scene_asset.scene_base_index = scene_assets.size();
+                    new_scene_asset.scene_id = id;
 
-                    for(const auto &sub_scene_path: new_scene_asset.scene_data.scene_paths)
+                    for(const auto &[id, sub_scene_path]: new_scene_asset.scene_data.scene_paths)
                     {
-                        sub_scene_paths.push_back(sub_scene_path);
+                        sub_scene_paths.emplace_back(id, sub_scene_path);
                     }
                 }
             }
@@ -526,9 +537,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
 
                     m_camera = object;
                 }
-
-                // m_scene->clear();
-                // m_scene->add_object(root);
                 return root;
             }
             return nullptr;
@@ -536,11 +544,13 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
 
         auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object]() mutable {
             std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
+            std::unordered_map<SceneId, vierkant::Object3DPtr> scene_map;
 
             for(uint32_t i = 0; i < scene_assets.size(); ++i)
             {
                 root_objects[i] = create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes,
                                                      m_scene->registry(), scene_assets[i].objects);
+                scene_map[scene_assets[i].scene_id] = root_objects[i];
             }
 
             for(auto &scene_asset: scene_assets)
@@ -550,16 +560,15 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
                 {
                     const auto &node = scene_asset.scene_data.nodes[j];
 
-                    if(node.scene_index)
+                    if(node.scene_id)
                     {
-                        // assign children from scene-root to this node
-                        uint32_t scene_index = scene_asset.scene_base_index + *node.scene_index + 1;
-                        auto children = root_objects[scene_index]->children;
+                        assert(scene_map.contains(*node.scene_id));
+                        auto children = scene_map[*node.scene_id]->children;
                         for(const auto &child: children) { scene_asset.objects[j]->add_child(child); }
 
                         // flag object to contain a sub-scene
-                        scene_asset.objects[j]->add_component<object_flags_component_t>(
-                                {object_flags_component_t::SUB_SCENE});
+                        auto &cmp = scene_asset.objects[j]->add_component<object_flags_component_t>();
+                        cmp.scene_id = *node.scene_id;
                     }
                 }
             }
