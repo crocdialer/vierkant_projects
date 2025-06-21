@@ -81,7 +81,7 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load a scene
-    build_scene(m_scene_data.nodes.empty() ? load_scene_data() : m_scene_data);
+    build_scene(m_scene_data.nodes.empty() ? load_scene_data() : m_scene_data, true);
 }
 
 void PBRViewer::teardown()

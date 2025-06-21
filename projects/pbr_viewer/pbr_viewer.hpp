@@ -134,8 +134,7 @@ public:
         //! descriptive name for the scene
         std::string name;
 
-        //! array of file-paths, containing sub-scenes (.json)
-        // std::vector<std::string> scene_paths;
+        //! map of sub-scenes (.json)
         std::unordered_map<SceneId, std::string> scene_paths;
 
         //! array of file-paths, containing model-files (.gltf, .glb, .obj)
@@ -153,7 +152,7 @@ public:
 
     explicit PBRViewer(const crocore::Application::create_info_t &create_info);
 
-    void load_file(const std::string &path);
+    void load_file(const std::string &path, bool clear);
 
     bool parse_override_settings(int argc, char *argv[]);
 
@@ -198,7 +197,7 @@ private:
 
     static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = "scene.json");
 
-    void build_scene(const std::optional<scene_data_t> &scene_data);
+    void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false);
 
     struct overlay_assets_t
     {

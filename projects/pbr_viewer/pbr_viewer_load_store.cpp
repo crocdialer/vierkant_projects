@@ -220,7 +220,7 @@ std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesys
 #pragma GCC diagnostic pop
 #endif
 
-void PBRViewer::load_file(const std::string &path)
+void PBRViewer::load_file(const std::string &path, bool clear)
 {
     auto add_to_recent_files = [this](const std::string &f) {
         main_queue().post([this, f] {
@@ -238,7 +238,7 @@ void PBRViewer::load_file(const std::string &path)
 
         case crocore::filesystem::FileType::MODEL:
             add_to_recent_files(path);
-            load_model(path, false);
+            load_model(path, clear);
             break;
 
         case crocore::filesystem::FileType::OTHER:
@@ -246,9 +246,9 @@ void PBRViewer::load_file(const std::string &path)
             {
                 if(auto loaded_scene = load_scene_data(path))
                 {
-                    m_scene->clear();
+                    if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
-                    build_scene(loaded_scene);
+                    build_scene(loaded_scene, clear);
                 }
             }
             break;
@@ -288,7 +288,7 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         if(dynamic_cast<vierkant::Camera *>(&obj)) { return true; }
 
         obj_to_node_index[&obj] = data.nodes.size();
-        
+
         scene_node_t &node = data.nodes.emplace_back();
         node.name = obj.name;
         node.enabled = obj.enabled;
@@ -390,11 +390,11 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     }
 }
 
-void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
+void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene)
 {
-    auto load_task = [this, scene_data_in]() {
+    auto load_task = [this, scene_data_in, clear_scene]() {
         // load background
-        if(scene_data_in) { load_file(scene_data_in->environment_path); }
+        if(scene_data_in && clear_scene) { load_file(scene_data_in->environment_path, false); }
 
         struct scene_data_assets_t
         {
@@ -404,7 +404,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
             std::vector<vierkant::Object3DPtr> objects;
         };
         std::vector<scene_data_assets_t> scene_assets(1);
-
+        m_scene_paths[scene_assets[0].scene_id] = "";
+        
         if(scene_data_in)
         {
             scene_assets[0].scene_data = std::move(*scene_data_in);
@@ -542,7 +543,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
             return nullptr;
         };
 
-        auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object]() mutable {
+        auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object, clear_scene]() mutable {
             std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
             std::unordered_map<SceneId, vierkant::Object3DPtr> scene_map;
 
@@ -575,9 +576,14 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
 
             if(root_objects[0])
             {
-                m_scene->root()->name = root_objects[0]->name;
-                auto children = root_objects[0]->children;
-                for(const auto &child: children) { m_scene->add_object(child); }
+                if(clear_scene)
+                {
+                    m_scene->clear();
+                    m_scene->root()->name = root_objects[0]->name;
+                    auto children = root_objects[0]->children;
+                    for(const auto &child: children) { m_scene->add_object(child); }
+                }
+                else { m_scene->add_object(root_objects[0]); }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
         };
