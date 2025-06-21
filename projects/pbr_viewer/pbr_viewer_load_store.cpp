@@ -437,13 +437,21 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     }
                 }
             }
+            std::unordered_map<std::string, vierkant::MeshPtr> mesh_cache;
 
             // load meshes for scene and sub-scenes
             for(auto &asset: scene_assets)
             {
                 for(const auto &p: asset.scene_data.model_paths)
                 {
-                    auto mesh = load_mesh(p);
+                    vierkant::MeshPtr mesh;
+                    auto cache_it = mesh_cache.find(p);
+                    if(cache_it != mesh_cache.end()) { mesh = cache_it->second; }
+                    else
+                    {
+                        mesh = load_mesh(p);
+                        mesh_cache[p] = mesh;
+                    }
 
                     if(mesh)
                     {
