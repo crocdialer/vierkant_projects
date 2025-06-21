@@ -552,14 +552,17 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
         };
 
         auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object, clear_scene]() mutable {
+            // root nodes for all (sub-)scenes
             std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
-            std::unordered_map<SceneId, vierkant::Object3DPtr> scene_map;
+
+            // map scene-ids to their root-objects
+            std::unordered_map<SceneId, vierkant::Object3DPtr> scene_root_map;
 
             for(uint32_t i = 0; i < scene_assets.size(); ++i)
             {
                 root_objects[i] = create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes,
                                                      m_scene->registry(), scene_assets[i].objects);
-                scene_map[scene_assets[i].scene_id] = root_objects[i];
+                scene_root_map[scene_assets[i].scene_id] = root_objects[i];
                 auto &cmp = root_objects[i]->add_component<object_flags_component_t>();
                 cmp.scene_id = scene_assets[i].scene_id;
             }
@@ -573,8 +576,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
                     if(node.scene_id)
                     {
-                        assert(scene_map.contains(*node.scene_id));
-                        auto children = scene_map[*node.scene_id]->children;
+                        assert(scene_root_map.contains(*node.scene_id));
+                        auto children = scene_root_map[*node.scene_id]->children;
                         for(const auto &child: children) { scene_asset.objects[j]->add_child(child); }
 
                         // flag object to contain a sub-scene
