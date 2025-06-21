@@ -197,7 +197,7 @@ private:
 
     static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = "scene.json");
 
-    void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false);
+    void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false, SceneId scene_id = {});
 
     struct overlay_assets_t
     {

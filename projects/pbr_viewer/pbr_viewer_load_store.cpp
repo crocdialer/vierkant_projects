@@ -248,7 +248,9 @@ void PBRViewer::load_file(const std::string &path, bool clear)
                 {
                     if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
-                    build_scene(loaded_scene, clear);
+                    SceneId scene_id;
+                    m_scene_paths[scene_id] = path;
+                    build_scene(loaded_scene, clear, scene_id);
                 }
             }
             break;
@@ -390,9 +392,9 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     }
 }
 
-void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene)
+void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene, SceneId scene_id)
 {
-    auto load_task = [this, scene_data_in, clear_scene]() {
+    auto load_task = [this, scene_data_in, scene_id, clear_scene]() {
         // load background
         if(scene_data_in && clear_scene) { load_file(scene_data_in->environment_path, false); }
 
@@ -404,11 +406,11 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             std::vector<vierkant::Object3DPtr> objects;
         };
         std::vector<scene_data_assets_t> scene_assets(1);
-        m_scene_paths[scene_assets[0].scene_id] = "";
-        
+
         if(scene_data_in)
         {
             scene_assets[0].scene_data = std::move(*scene_data_in);
+            scene_assets[0].scene_id = scene_id;
 
             // sub-scenes
             std::deque<std::pair<SceneId, std::string>> sub_scene_paths = {
@@ -477,8 +479,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             if(!scene_data.nodes.empty())
             {
                 auto root = vierkant::Object3D::create(registry);
-                // auto &root = m_scene->root();
-
                 root->name = scene_data.name;
 
                 // create objects for all nodes
@@ -552,6 +552,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 root_objects[i] = create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes,
                                                      m_scene->registry(), scene_assets[i].objects);
                 scene_map[scene_assets[i].scene_id] = root_objects[i];
+                auto &cmp = root_objects[i]->add_component<object_flags_component_t>();
+                cmp.scene_id = scene_assets[i].scene_id;
             }
 
             for(auto &scene_asset: scene_assets)
