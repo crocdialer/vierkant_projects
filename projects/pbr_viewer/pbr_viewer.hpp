@@ -106,7 +106,7 @@ public:
         //! list of child-nodes (indices into scene_data_t::nodes)
         std::vector<uint32_t> children = {};
 
-        //! optional mesh-index and set of enabled entries.
+        //! optional index into an array of sub-scenes.
         std::optional<size_t> scene_index;
 
         //! optional mesh-index and set of enabled entries.

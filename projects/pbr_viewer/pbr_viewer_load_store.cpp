@@ -10,6 +10,17 @@ using double_second = std::chrono::duration<double>;
 constexpr char g_cache_path[] = "cache";
 constexpr char g_zip_path[] = "cache.zip";
 
+//! define a custom object-component, used to help with (sub)scene serialization
+struct object_flags_component_t
+{
+    VIERKANT_ENABLE_AS_COMPONENT();
+    enum
+    {
+        NONE = 0,
+        SUB_SCENE
+    } flags = NONE;
+};
+
 void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
 {
     vierkant::MeshPtr mesh;
@@ -285,6 +296,14 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         node.enabled = obj.enabled;
         node.transform = obj.transform;
 
+        if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
+        {
+            if(flags_cmp->flags == object_flags_component_t::SUB_SCENE)
+            {
+                // TODO: handle subscene serialization
+            }
+        }
+
         if(obj.has_component<vierkant::animation_component_t>())
         {
             node.animation_state = obj.get_component<vierkant::animation_component_t>();
@@ -368,62 +387,87 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
         // load background
         if(scene_data_in) { load_file(scene_data_in->environment_path); }
 
-        std::vector<vierkant::MeshPtr> meshes;
-        scene_data_t scene_data;
+        struct scene_data_assets_t
+        {
+            scene_data_t scene_data;
+            uint32_t scene_base_index = 0;
+            std::vector<vierkant::MeshPtr> meshes;
+            std::vector<vierkant::Object3DPtr> objects;
+        };
+        std::vector<scene_data_assets_t> scene_assets(1);
 
         if(scene_data_in)
         {
-            scene_data = std::move(*scene_data_in);
+            scene_assets[0].scene_data = std::move(*scene_data_in);
 
             // sub-scenes
-            for(const auto &p: scene_data.scene_paths)
+            std::deque<std::string> sub_scene_paths = {scene_assets[0].scene_data.scene_paths.begin(),
+                                                       scene_assets[0].scene_data.scene_paths.end()};
+
+            // iterate subscene-paths bfs
+            while(!sub_scene_paths.empty())
             {
+                auto p = std::move(sub_scene_paths.front());
+                sub_scene_paths.pop_front();
+
                 auto sub_scene_data = load_scene_data(p);
                 if(sub_scene_data)
                 {
-                    // TODO: load a sub-scene
+                    auto &new_scene_asset = scene_assets.emplace_back();
+                    new_scene_asset.scene_data = std::move(*sub_scene_data);
+                    new_scene_asset.scene_base_index = scene_assets.size();
+
+                    for(const auto &sub_scene_path: new_scene_asset.scene_data.scene_paths)
+                    {
+                        sub_scene_paths.push_back(sub_scene_path);
+                    }
                 }
             }
 
-            for(const auto &p: scene_data.model_paths)
+            // load meshes for scene and sub-scenes
+            for(auto &asset: scene_assets)
             {
-                auto mesh = load_mesh(p);
-
-                if(mesh)
+                for(const auto &p: asset.scene_data.model_paths)
                 {
-                    // optional material override(s)
-                    for(auto &mat: mesh->materials)
+                    auto mesh = load_mesh(p);
+
+                    if(mesh)
                     {
-                        auto it = scene_data.materials.find(mat->m.id);
-                        if(it != scene_data.materials.end())
+                        // optional material override(s)
+                        for(auto &mat: mesh->materials)
                         {
-                            mat->m = it->second;
-                            spdlog::trace("overriding material: {}", mat->m.name);
+                            auto it = asset.scene_data.materials.find(mat->m.id);
+                            if(it != asset.scene_data.materials.end())
+                            {
+                                mat->m = it->second;
+                                spdlog::trace("overriding material: {}", mat->m.name);
+                            }
                         }
+                        asset.meshes.push_back(mesh);
                     }
-                    meshes.push_back(mesh);
                 }
             }
         }
         else
         {
             auto cube_mesh = load_mesh("cube");
-            meshes.push_back(cube_mesh);
+            scene_assets[0].meshes.push_back(cube_mesh);
             scene_node_t node = {};
             node.name = "cube";
             node.mesh_index = 0;
-            scene_data.nodes = {node};
-            scene_data.scene_roots = {0};
+            scene_assets[0].scene_data.nodes = {node};
+            scene_assets[0].scene_data.scene_roots = {0};
         }
 
-        auto done_cb = [this, scene_data = std::move(scene_data), meshes = std::move(meshes)]() {
+        auto create_root_object = [this](const scene_data_t &scene_data, const std::vector<vierkant::MeshPtr> &meshes,
+                                         const std::shared_ptr<entt::registry> &registry,
+                                         std::vector<vierkant::Object3DPtr> &out_objects) -> vierkant::Object3DPtr {
             if(!scene_data.nodes.empty())
             {
-                // auto root = vierkant::Object3D::create(m_scene->registry());
-                auto &root = m_scene->root();
+                auto root = vierkant::Object3D::create(registry);
+                // auto &root = m_scene->root();
 
                 root->name = scene_data.name;
-                std::vector<vierkant::Object3DPtr> objects;
 
                 // create objects for all nodes
                 for(const auto &node: scene_data.nodes)
@@ -435,38 +479,41 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
                         const auto &mesh = meshes[*node.mesh_index];
                         obj = m_scene->create_mesh_object({mesh, node.entry_indices});
                     }
-                    else { obj = vierkant::Object3D::create(m_scene->registry()); }
+                    else { obj = vierkant::Object3D::create(registry); }
                     obj->name = node.name;
                     obj->enabled = node.enabled;
                     obj->transform = node.transform;
                     if(node.animation_state) { obj->add_component(*node.animation_state); }
                     if(node.physics_state) { obj->add_component(*node.physics_state); }
 
-                    objects.push_back(obj);
+                    out_objects.push_back(obj);
                 }
 
                 // recreate node-hierarchy
                 for(uint32_t i = 0; i < scene_data.nodes.size(); ++i)
                 {
-                    for(auto child_index: scene_data.nodes[i].children) { objects[i]->add_child(objects[child_index]); }
+                    for(auto child_index: scene_data.nodes[i].children)
+                    {
+                        out_objects[i]->add_child(out_objects[child_index]);
+                    }
                 }
 
                 // add scene-roots
-                for(auto idx: scene_data.scene_roots) { root->add_child(objects[idx]); }
+                for(auto idx: scene_data.scene_roots) { root->add_child(out_objects[idx]); }
 
                 for(const auto &cam: scene_data.cameras)
                 {
                     auto object = std::visit(
-                            [this](auto &&camera_params) -> vierkant::CameraPtr {
+                            [this, &registry](auto &&camera_params) -> vierkant::CameraPtr {
                                 using T = std::decay_t<decltype(camera_params)>;
 
                                 if constexpr(std::is_same_v<T, vierkant::ortho_camera_params_t>)
                                 {
-                                    return vierkant::OrthoCamera::create(m_scene->registry(), camera_params);
+                                    return vierkant::OrthoCamera::create(registry, camera_params);
                                 }
                                 else if constexpr(std::is_same_v<T, vierkant::physical_camera_params_t>)
                                 {
-                                    return vierkant::PerspectiveCamera::create(m_scene->registry(), camera_params);
+                                    return vierkant::PerspectiveCamera::create(registry, camera_params);
                                 }
                                 else
                                     return nullptr;
@@ -482,8 +529,48 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in)
 
                 // m_scene->clear();
                 // m_scene->add_object(root);
-                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+                return root;
             }
+            return nullptr;
+        };
+
+        auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object]() mutable {
+            std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
+
+            for(uint32_t i = 0; i < scene_assets.size(); ++i)
+            {
+                root_objects[i] = create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes,
+                                                     m_scene->registry(), scene_assets[i].objects);
+            }
+
+            for(auto &scene_asset: scene_assets)
+            {
+                // connect sub-scenes to nodes
+                for(uint32_t j = 0; j < scene_asset.scene_data.nodes.size(); ++j)
+                {
+                    const auto &node = scene_asset.scene_data.nodes[j];
+
+                    if(node.scene_index)
+                    {
+                        // assign children from scene-root to this node
+                        uint32_t scene_index = scene_asset.scene_base_index + *node.scene_index + 1;
+                        auto children = root_objects[scene_index]->children;
+                        for(const auto &child: children) { scene_asset.objects[j]->add_child(child); }
+
+                        // flag object to contain a sub-scene
+                        scene_asset.objects[j]->add_component<object_flags_component_t>(
+                                {object_flags_component_t::SUB_SCENE});
+                    }
+                }
+            }
+
+            if(root_objects[0])
+            {
+                m_scene->root()->name = root_objects[0]->name;
+                auto children = root_objects[0]->children;
+                for(const auto &child: children) { m_scene->add_object(child); }
+            }
+            if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
         };
         main_queue().post(done_cb);
     };
