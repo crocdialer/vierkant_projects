@@ -138,7 +138,6 @@ public:
         std::unordered_map<SceneId, std::string> scene_paths;
 
         //! array of file-paths, containing model-files (.gltf, .glb, .obj)
-        // std::vector<std::string> model_paths;
         std::unordered_map<vierkant::MeshId, std::string> model_paths;
 
         std::string environment_path;
@@ -285,7 +284,7 @@ private:
 
     scene_data_t m_scene_data;
 
-    // tmp, keep track of mesh/model-paths
+    // track of scene/model-paths
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<SceneId, std::filesystem::path> m_scene_paths;
 };
