@@ -11,6 +11,7 @@
 
 ImGuiFileDialog g_file_dialog;
 constexpr char g_imgui_file_dialog_load_key[] = "imgui_file_dialog_load_key";
+constexpr char g_imgui_file_dialog_import_key[] = "imgui_file_dialog_import_key";
 constexpr char g_imgui_file_dialog_save_key[] = "imgui_file_dialog_save_key";
 
 bool DEMO_GUI = false;
@@ -289,8 +290,11 @@ void PBRViewer::create_ui()
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                if(ImGui::MenuItem("load ..."))
-                {
+                //! file-load/import filter
+                constexpr char filter_str[] =
+                        "supported (*.gltf *.glb *.obj *.hdr *.jpg *.png *.json){.gltf, .glb, .obj, .hdr, "
+                        ".jpg, .png, .json},all {.*}";
+                auto get_file_dialog_config = [this] {
                     IGFD::FileDialogConfig config;
                     config.path = ".";
                     if(!m_settings.recent_files.empty())
@@ -298,11 +302,18 @@ void PBRViewer::create_ui()
                         config.path = crocore::filesystem::get_directory_part(*m_settings.recent_files.rbegin());
                     }
                     config.flags = ImGuiFileDialogFlags_DisableCreateDirectoryButton;
-                    constexpr char filter_str[] =
-                            "supported (*.gltf *.glb *.obj *.hdr *.jpg *.png *.json){.gltf, .glb, .obj, .hdr, "
-                            ".jpg, .png, .json},all {.*}";
+                    return config;
+                };
+                if(ImGui::MenuItem("load ..."))
+                {
                     g_file_dialog.OpenDialog(g_imgui_file_dialog_load_key, "load model/image/scene ...", filter_str,
-                                             config);
+                                             get_file_dialog_config());
+                }
+
+                if(ImGui::MenuItem("import ..."))
+                {
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_import_key, "import model/image/scene ...", filter_str,
+                                             get_file_dialog_config());
                 }
 
                 if(ImGui::MenuItem("reload"))
@@ -324,7 +335,7 @@ void PBRViewer::create_ui()
                         if(ImGui::MenuItem(file_name.c_str()))
                         {
                             spdlog::debug("menu: open recent file -> {}", f);
-                            load_file(f);
+                            load_file(f, false);
                             break;
                         }
                     }
@@ -496,16 +507,27 @@ void PBRViewer::create_ui()
         ImGuiWindowFlags flags = 0;
         auto min_size = io.DisplaySize * 0.5f;
 
+        auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
+                 std::filesystem::path(g_file_dialog.GetCurrentFileName());
+
         // load dialog
         if(g_file_dialog.Display(g_imgui_file_dialog_load_key, flags, min_size))
         {
             if(g_file_dialog.IsOk())
             {
-                auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
-                         std::filesystem::path(g_file_dialog.GetCurrentFileName());
-
                 // load file
-                load_file(p.string());
+                load_file(p.string(), true);
+            }
+            g_file_dialog.Close();
+        }
+
+        // import dialog
+        if(g_file_dialog.Display(g_imgui_file_dialog_import_key, flags, min_size))
+        {
+            if(g_file_dialog.IsOk())
+            {
+                // load file
+                load_file(p.string(), false);
             }
             g_file_dialog.Close();
         }
@@ -649,7 +671,7 @@ void PBRViewer::create_ui()
     vierkant::mouse_delegate_t file_drop_delegate = {};
     file_drop_delegate.file_drop = [this](const vierkant::MouseEvent &, const std::vector<std::string> &files) {
         auto &f = files.back();
-        load_file(f);
+        load_file(f, false);
     };
     m_window->mouse_delegates["filedrop"] = file_drop_delegate;
 }

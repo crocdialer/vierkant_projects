@@ -81,7 +81,7 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load a scene
-    build_scene(m_scene_data.nodes.empty() ? load_scene_data() : m_scene_data);
+    build_scene(m_scene_data.nodes.empty() ? load_scene_data() : m_scene_data, true);
 }
 
 void PBRViewer::teardown()
@@ -357,7 +357,7 @@ void PBRViewer::create_texture_image()
     if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
     m_box_mesh->materials = {mat};
 
-    m_model_paths[m_box_mesh] = "cube";
+    m_model_paths[m_box_mesh->id] = "cube";
 }
 
 void PBRViewer::update(double time_delta)

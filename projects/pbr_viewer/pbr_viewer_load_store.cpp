@@ -10,6 +10,13 @@ using double_second = std::chrono::duration<double>;
 constexpr char g_cache_path[] = "cache";
 constexpr char g_zip_path[] = "cache.zip";
 
+//! define a custom object-component, used to help with (sub)scene serialization
+struct object_flags_component_t
+{
+    VIERKANT_ENABLE_AS_COMPONENT();
+    SceneId scene_id = SceneId::nil();
+};
+
 void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
 {
     vierkant::MeshPtr mesh;
@@ -213,7 +220,7 @@ std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesys
 #pragma GCC diagnostic pop
 #endif
 
-void PBRViewer::load_file(const std::string &path)
+void PBRViewer::load_file(const std::string &path, bool clear)
 {
     auto add_to_recent_files = [this](const std::string &f) {
         main_queue().post([this, f] {
@@ -231,7 +238,7 @@ void PBRViewer::load_file(const std::string &path)
 
         case crocore::filesystem::FileType::MODEL:
             add_to_recent_files(path);
-            load_model(path, false);
+            load_model(path, clear);
             break;
 
         case crocore::filesystem::FileType::OTHER:
@@ -239,9 +246,11 @@ void PBRViewer::load_file(const std::string &path)
             {
                 if(auto loaded_scene = load_scene_data(path))
                 {
-                    m_scene->clear();
+                    if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
-                    build_scene(loaded_scene);
+                    SceneId scene_id;
+                    m_scene_paths[scene_id] = path;
+                    build_scene(loaded_scene, clear, scene_id);
                 }
             }
             break;
@@ -253,36 +262,47 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 {
     // scene traversal
     scene_data_t data;
+    data.name = m_scene->root()->name;
     data.environment_path = m_scene_data.environment_path;
 
-    vierkant::SelectVisitor<vierkant::Camera> camera_filter;
-    m_scene->root()->accept(camera_filter);
-
-    for(const auto &cam: camera_filter.objects)
-    {
-        scene_camera_t scene_camera = {};
-        scene_camera.name = cam->name;
-        scene_camera.transform = cam->transform;
-        scene_camera.params = cam->params();
-        data.cameras.push_back(scene_camera);
-    }
-
-    // set of meshes -> indices / paths !?
-    std::map<vierkant::MeshConstPtr, size_t> mesh_indices;
+    // set of mesh-ids
+    std::unordered_set<vierkant::MeshId> mesh_ids;
     std::map<vierkant::Object3D *, size_t> obj_to_node_index;
-    std::map<std::filesystem::path, size_t> path_map;
 
     vierkant::LambdaVisitor visitor;
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(&obj == m_scene->root().get()) { return true; }
 
         // skip cameras
-        if(dynamic_cast<vierkant::Camera *>(&obj)) { return true; }
+        if(auto *cam = dynamic_cast<vierkant::Camera *>(&obj))
+        {
+            scene_camera_t &scene_camera = data.cameras.emplace_back();
+            scene_camera.name = cam->name;
+            scene_camera.transform = cam->transform;
+            scene_camera.params = cam->params();
+            return true;
+        }
 
-        scene_node_t node = {};
+        obj_to_node_index[&obj] = data.nodes.size();
+
+        scene_node_t &node = data.nodes.emplace_back();
         node.name = obj.name;
         node.enabled = obj.enabled;
         node.transform = obj.transform;
+
+        if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
+        {
+            if(flags_cmp->scene_id)
+            {
+                node.scene_id = flags_cmp->scene_id;
+
+                auto path_it = m_scene_paths.find(flags_cmp->scene_id);
+                if(path_it != m_scene_paths.end()) { data.scene_paths[flags_cmp->scene_id] = path_it->second.string(); }
+
+                // handled as subscene, bail out
+                return false;
+            }
+        }
 
         if(obj.has_component<vierkant::animation_component_t>())
         {
@@ -294,29 +314,18 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
             node.physics_state = obj.get_component<vierkant::physics_component_t>();
         }
 
-        obj_to_node_index[&obj] = data.nodes.size();
-        data.nodes.push_back(node);
-
         if(obj.has_component<vierkant::mesh_component_t>())
         {
             auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
             const auto &mesh = mesh_component.mesh;
 
-            if(!mesh_indices.contains(mesh))
+            if(!mesh_ids.contains(mesh->id))
             {
-                auto path_it = m_model_paths.find(mesh);
+                auto path_it = m_model_paths.find(mesh->id);
                 if(path_it != m_model_paths.end())
                 {
-                    size_t index;
-
-                    if(!path_map.contains(path_it->second))
-                    {
-                        path_map[path_it->second] = data.model_paths.size();
-                        index = data.model_paths.size();
-                        data.model_paths.push_back(path_it->second.string());
-                    }
-                    else { index = path_map.at(path_it->second); }
-                    mesh_indices[mesh] = index;
+                    data.model_paths[mesh->id] = path_it->second.string();
+                    mesh_ids.insert(mesh->id);
                 }
             }
         }
@@ -328,13 +337,19 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
 
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(!obj_to_node_index.contains(&obj)) { return true; }
+
+        // skip object from sub-scenes
+        if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
+        {
+            if(flags_cmp->scene_id) { return false; }
+        }
         auto &node = data.nodes[obj_to_node_index[&obj]];
         for(const auto &child: obj.children) { node.children.push_back(obj_to_node_index[child.get()]); }
 
         if(obj.has_component<vierkant::mesh_component_t>())
         {
             auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
-            node.mesh_index = mesh_indices[mesh_component.mesh];
+            node.mesh_id = mesh_component.mesh->id;
             node.entry_indices = mesh_component.entry_indices;
 
             // store materials with dirty hashes
@@ -361,104 +376,149 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     }
 }
 
-void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
+void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene, SceneId scene_id)
 {
-    auto load_task = [this, scene_data]() {
+    auto load_task = [this, scene_data_in, scene_id, clear_scene]() {
         // load background
-        if(scene_data) { load_file(scene_data->environment_path); }
+        if(scene_data_in && clear_scene) { load_file(scene_data_in->environment_path, false); }
 
-        // TODO: use threadpool
-        std::vector<vierkant::MeshPtr> meshes;
-        std::vector<scene_node_t> nodes;
-        std::vector<uint32_t> scene_roots;
-        std::vector<scene_camera_t> cameras;
-
-        if(scene_data)
+        struct scene_data_assets_t
         {
-            for(const auto &p: scene_data->model_paths)
-            {
-                auto mesh = load_mesh(p);
+            scene_data_t scene_data;
+            SceneId scene_id;
+            std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
+            std::vector<vierkant::Object3DPtr> objects;
+        };
+        std::vector<scene_data_assets_t> scene_assets(1);
 
-                if(mesh)
+        if(scene_data_in)
+        {
+            scene_assets[0].scene_data = std::move(*scene_data_in);
+            scene_assets[0].scene_id = scene_id;
+
+            // sub-scenes
+            std::deque<std::pair<SceneId, std::string>> sub_scene_paths = {
+                    scene_assets[0].scene_data.scene_paths.begin(), scene_assets[0].scene_data.scene_paths.end()};
+
+            // iterate subscene-paths bfs
+            while(!sub_scene_paths.empty())
+            {
+                auto [id, p] = std::move(sub_scene_paths.front());
+                sub_scene_paths.pop_front();
+
+                m_scene_paths[id] = p;
+
+                auto sub_scene_data = load_scene_data(p);
+                if(sub_scene_data)
                 {
-                    // optional material override(s)
-                    for(auto &mat: mesh->materials)
+                    auto &new_scene_asset = scene_assets.emplace_back();
+                    new_scene_asset.scene_data = std::move(*sub_scene_data);
+                    new_scene_asset.scene_id = id;
+
+                    for(const auto &[id, sub_scene_path]: new_scene_asset.scene_data.scene_paths)
                     {
-                        auto it = scene_data->materials.find(mat->m.id);
-                        if(it != scene_data->materials.end())
-                        {
-                            mat->m = it->second;
-                            spdlog::trace("overriding material: {}", mat->m.name);
-                        }
+                        sub_scene_paths.emplace_back(id, sub_scene_path);
                     }
-                    meshes.push_back(mesh);
                 }
             }
-            nodes = scene_data->nodes;
-            cameras = scene_data->cameras;
-            scene_roots = scene_data->scene_roots;
+            std::unordered_map<std::string, vierkant::MeshPtr> mesh_cache;
+
+            // load meshes for scene and sub-scenes
+            for(auto &asset: scene_assets)
+            {
+                for(const auto &[id, path]: asset.scene_data.model_paths)
+                {
+                    vierkant::MeshPtr mesh;
+                    auto cache_it = mesh_cache.find(path);
+                    if(cache_it != mesh_cache.end()) { mesh = cache_it->second; }
+                    else
+                    {
+                        mesh = load_mesh(path);
+                        mesh_cache[path] = mesh;
+                    }
+
+                    if(mesh)
+                    {
+                        // optional material override(s)
+                        for(auto &mat: mesh->materials)
+                        {
+                            auto it = asset.scene_data.materials.find(mat->m.id);
+                            if(it != asset.scene_data.materials.end())
+                            {
+                                mat->m = it->second;
+                                spdlog::trace("overriding material: {}", mat->m.name);
+                            }
+                        }
+                        asset.meshes[id] = mesh;
+                    }
+                }
+            }
         }
         else
         {
             auto cube_mesh = load_mesh("cube");
-            meshes.push_back(cube_mesh);
+            scene_assets[0].meshes[cube_mesh->id] = cube_mesh;
             scene_node_t node = {};
             node.name = "cube";
-            node.mesh_index = 0;
-            nodes = {node};
-            scene_roots = {0};
+            node.mesh_id = vierkant::MeshId::from_name(node.name);
+            scene_assets[0].scene_data.nodes = {node};
+            scene_assets[0].scene_data.scene_roots = {0};
         }
 
-        auto done_cb = [this, nodes = std::move(nodes), meshes = std::move(meshes), cameras = std::move(cameras),
-                        scene_roots = std::move(scene_roots)]() {
-            if(!nodes.empty())
+        auto create_root_object = [this](const scene_data_t &scene_data,
+                                         const std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> &meshes,
+                                         const std::shared_ptr<entt::registry> &registry,
+                                         std::vector<vierkant::Object3DPtr> &out_objects) -> vierkant::Object3DPtr {
+            if(!scene_data.nodes.empty())
             {
-                m_scene->clear();
-
-                std::vector<vierkant::Object3DPtr> objects;
+                auto root = vierkant::Object3D::create(registry);
+                root->name = scene_data.name;
 
                 // create objects for all nodes
-                for(const auto &node: nodes)
+                for(const auto &node: scene_data.nodes)
                 {
                     vierkant::Object3DPtr obj;
 
-                    if(node.mesh_index && *node.mesh_index < meshes.size())
+                    if(node.mesh_id && meshes.contains(*node.mesh_id))
                     {
-                        const auto &mesh = meshes[*node.mesh_index];
+                        const auto &mesh = meshes.at(*node.mesh_id);
                         obj = m_scene->create_mesh_object({mesh, node.entry_indices});
                     }
-                    else { obj = vierkant::Object3D::create(m_scene->registry()); }
+                    else { obj = vierkant::Object3D::create(registry); }
                     obj->name = node.name;
                     obj->enabled = node.enabled;
                     obj->transform = node.transform;
                     if(node.animation_state) { obj->add_component(*node.animation_state); }
                     if(node.physics_state) { obj->add_component(*node.physics_state); }
 
-                    objects.push_back(obj);
+                    out_objects.push_back(obj);
                 }
 
                 // recreate node-hierarchy
-                for(uint32_t i = 0; i < nodes.size(); ++i)
+                for(uint32_t i = 0; i < scene_data.nodes.size(); ++i)
                 {
-                    for(auto child_index: nodes[i].children) { objects[i]->add_child(objects[child_index]); }
+                    for(auto child_index: scene_data.nodes[i].children)
+                    {
+                        out_objects[i]->add_child(out_objects[child_index]);
+                    }
                 }
 
                 // add scene-roots
-                for(auto idx: scene_roots) { m_scene->add_object(objects[idx]); }
+                for(auto idx: scene_data.scene_roots) { root->add_child(out_objects[idx]); }
 
-                for(const auto &cam: cameras)
+                for(const auto &cam: scene_data.cameras)
                 {
                     auto object = std::visit(
-                            [this](auto &&camera_params) -> vierkant::CameraPtr {
+                            [this, &registry](auto &&camera_params) -> vierkant::CameraPtr {
                                 using T = std::decay_t<decltype(camera_params)>;
 
                                 if constexpr(std::is_same_v<T, vierkant::ortho_camera_params_t>)
                                 {
-                                    return vierkant::OrthoCamera::create(m_scene->registry(), camera_params);
+                                    return vierkant::OrthoCamera::create(registry, camera_params);
                                 }
                                 else if constexpr(std::is_same_v<T, vierkant::physical_camera_params_t>)
                                 {
-                                    return vierkant::PerspectiveCamera::create(m_scene->registry(), camera_params);
+                                    return vierkant::PerspectiveCamera::create(registry, camera_params);
                                 }
                                 else
                                     return nullptr;
@@ -467,12 +527,62 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data)
 
                     object->name = cam.name;
                     object->transform = cam.transform;
-                    m_scene->add_object(object);
+                    root->add_child(object);
 
                     m_camera = object;
                 }
-                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+                return root;
             }
+            return nullptr;
+        };
+
+        auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object, clear_scene]() mutable {
+            // root nodes for all (sub-)scenes
+            std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
+
+            // map scene-ids to their root-objects
+            std::unordered_map<SceneId, vierkant::Object3DPtr> scene_root_map;
+
+            for(uint32_t i = 0; i < scene_assets.size(); ++i)
+            {
+                root_objects[i] = create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes,
+                                                     m_scene->registry(), scene_assets[i].objects);
+                scene_root_map[scene_assets[i].scene_id] = root_objects[i];
+                auto &cmp = root_objects[i]->add_component<object_flags_component_t>();
+                cmp.scene_id = scene_assets[i].scene_id;
+            }
+
+            for(auto &scene_asset: scene_assets)
+            {
+                // connect sub-scenes to nodes
+                for(uint32_t j = 0; j < scene_asset.scene_data.nodes.size(); ++j)
+                {
+                    const auto &node = scene_asset.scene_data.nodes[j];
+
+                    if(node.scene_id)
+                    {
+                        assert(scene_root_map.contains(*node.scene_id));
+                        auto children = scene_root_map[*node.scene_id]->children;
+                        for(const auto &child: children) { scene_asset.objects[j]->add_child(child); }
+
+                        // flag object to contain a sub-scene
+                        auto &cmp = scene_asset.objects[j]->add_component<object_flags_component_t>();
+                        cmp.scene_id = *node.scene_id;
+                    }
+                }
+            }
+
+            if(root_objects[0])
+            {
+                if(clear_scene)
+                {
+                    m_scene->clear();
+                    auto children = root_objects[0]->children;
+                    for(const auto &child: children) { m_scene->add_object(child); }
+                }
+                else { m_scene->add_object(root_objects[0]); }
+            }
+            if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
         };
         main_queue().post(done_cb);
     };
@@ -485,7 +595,11 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     auto start_time = std::chrono::steady_clock::now();
     vierkant::MeshPtr mesh;
 
-    if(path == "cube") { mesh = m_box_mesh; }
+    if(path == "cube")
+    {
+        mesh = m_box_mesh;
+        mesh->id = vierkant::MeshId::from_name("cube");
+    }
     else if(!path.empty())
     {
         spdlog::debug("loading model '{}'", path.string());
@@ -561,7 +675,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     }
 
     // store mesh/path
-    m_model_paths[mesh] = path;
+    m_model_paths[mesh->id] = path;
     return mesh;
 }
 
@@ -724,10 +838,11 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
 
                 case crocore::filesystem::FileType::MODEL:
                 {
-                    m_scene_data.model_paths = {f};
+                    vierkant::MeshId mesh_id;
+                    m_scene_data.model_paths = {{mesh_id, f}};
                     scene_node_t node = {};
                     node.name = std::filesystem::path(f).filename().string();
-                    node.mesh_index = 0;
+                    node.mesh_id = mesh_id;
                     m_scene_data.nodes = {node};
                     m_scene_data.scene_roots = {0};
                     break;
