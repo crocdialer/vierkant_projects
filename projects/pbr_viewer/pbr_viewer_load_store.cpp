@@ -265,14 +265,9 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     data.name = m_scene->root()->name;
     data.environment_path = m_scene_data.environment_path;
 
-    vierkant::SelectVisitor<vierkant::Camera> camera_filter;
-    m_scene->root()->accept(camera_filter);
-
-    // set of meshes -> indices / paths !?
-    // std::map<vierkant::MeshConstPtr, size_t> mesh_indices;
+    // set of mesh-ids
     std::unordered_set<vierkant::MeshId> mesh_ids;
     std::map<vierkant::Object3D *, size_t> obj_to_node_index;
-    // std::map<std::filesystem::path, size_t> path_map;
 
     vierkant::LambdaVisitor visitor;
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
@@ -299,8 +294,6 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         {
             if(flags_cmp->scene_id)
             {
-                // handle subscene serialization
-                spdlog::debug("handle sub-scene serialization: {} -> {}", obj.name, flags_cmp->scene_id.str());
                 node.scene_id = flags_cmp->scene_id;
 
                 auto path_it = m_scene_paths.find(flags_cmp->scene_id);
