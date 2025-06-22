@@ -111,8 +111,8 @@ public:
         //! optional sub-scene-id.
         std::optional<SceneId> scene_id;
 
-        //! optional mesh-index and set of enabled entries.
-        std::optional<size_t> mesh_index;
+        //! optional mesh-Id and set of enabled entries.
+        std::optional<vierkant::MeshId> mesh_id;
         std::optional<std::unordered_set<uint32_t>> entry_indices = {};
 
         //! optional animation-state
@@ -138,7 +138,8 @@ public:
         std::unordered_map<SceneId, std::string> scene_paths;
 
         //! array of file-paths, containing model-files (.gltf, .glb, .obj)
-        std::vector<std::string> model_paths;
+        // std::vector<std::string> model_paths;
+        std::unordered_map<vierkant::MeshId, std::string> model_paths;
 
         std::string environment_path;
         std::vector<scene_node_t> nodes;
@@ -285,7 +286,7 @@ private:
     scene_data_t m_scene_data;
 
     // tmp, keep track of mesh/model-paths
-    std::map<vierkant::MeshConstPtr, std::filesystem::path> m_model_paths;
+    std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<SceneId, std::filesystem::path> m_scene_paths;
 };
 
@@ -326,7 +327,7 @@ void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled, true),
        cereal::make_nvp("transform", scene_node.transform), cereal::make_optional_nvp("children", scene_node.children),
        cereal::make_optional_nvp("scene_id", scene_node.scene_id),
-       cereal::make_optional_nvp("mesh_index", scene_node.mesh_index),
+       cereal::make_optional_nvp("mesh_id", scene_node.mesh_id),
        cereal::make_optional_nvp("entry_indices", scene_node.entry_indices),
        cereal::make_optional_nvp("animation_state", scene_node.animation_state),
        cereal::make_optional_nvp("physics_state", scene_node.physics_state));
