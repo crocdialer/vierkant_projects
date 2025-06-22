@@ -563,7 +563,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     {
                         assert(scene_root_map.contains(*node.scene_id));
                         auto children = scene_root_map[*node.scene_id]->children;
-                        for(const auto &child: children) { scene_asset.objects[j]->add_child(child); }
+                        for(const auto &child: children) { scene_asset.objects[j]->add_child(child->clone()); }
 
                         // flag object to contain a sub-scene
                         auto &cmp = scene_asset.objects[j]->add_component<object_flags_component_t>();
