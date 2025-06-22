@@ -325,14 +325,6 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
                 if(path_it != m_model_paths.end())
                 {
                     data.model_paths[mesh->id] = path_it->second.string();
-
-                    // if(!path_map.contains(path_it->second))
-                    // {
-                    //     path_map[path_it->second] = data.model_paths.size();
-                    //     index = data.model_paths.size();
-                    //     data.model_paths[mesh->id] = path_it->second.string();
-                    // }
-                    // else { index = path_map.at(path_it->second); }
                     mesh_ids.insert(mesh->id);
                 }
             }
@@ -457,7 +449,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                 spdlog::trace("overriding material: {}", mat->m.name);
                             }
                         }
-                        asset.meshes[mesh->id] = mesh;
+                        asset.meshes[id] = mesh;
                     }
                 }
             }
