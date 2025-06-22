@@ -268,15 +268,6 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
     vierkant::SelectVisitor<vierkant::Camera> camera_filter;
     m_scene->root()->accept(camera_filter);
 
-    for(const auto &cam: camera_filter.objects)
-    {
-        scene_camera_t scene_camera = {};
-        scene_camera.name = cam->name;
-        scene_camera.transform = cam->transform;
-        scene_camera.params = cam->params();
-        data.cameras.push_back(scene_camera);
-    }
-
     // set of meshes -> indices / paths !?
     std::map<vierkant::MeshConstPtr, size_t> mesh_indices;
     std::map<vierkant::Object3D *, size_t> obj_to_node_index;
@@ -287,7 +278,14 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         if(&obj == m_scene->root().get()) { return true; }
 
         // skip cameras
-        if(dynamic_cast<vierkant::Camera *>(&obj)) { return true; }
+        if(auto *cam = dynamic_cast<vierkant::Camera *>(&obj)) 
+        {
+            scene_camera_t &scene_camera = data.cameras.emplace_back();
+            scene_camera.name = cam->name;
+            scene_camera.transform = cam->transform;
+            scene_camera.params = cam->params();
+            return true; 
+        }
 
         obj_to_node_index[&obj] = data.nodes.size();
 
