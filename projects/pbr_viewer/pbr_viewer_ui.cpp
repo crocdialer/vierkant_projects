@@ -653,8 +653,9 @@ void PBRViewer::create_ui()
                 std::unordered_set<vierkant::Object3D *> picked_objects;
                 spdlog::stopwatch sw;
 
-                for(auto draw_idx: picked_ids)
+                for(uint32_t i = 0; i < picked_ids.size(); ++i)
                 {
+                    auto draw_idx = picked_ids[i];
                     vierkant::Object3D *picked_object = nullptr;
                     const auto &overlay_asset = m_overlay_assets[m_window->swapchain().image_index()];
                     if(overlay_asset.object_by_index_fn)
@@ -663,7 +664,7 @@ void PBRViewer::create_ui()
                         picked_object = m_scene->object_by_id(object_id);
                         picked_objects.insert(picked_object);
                     }
-                    spdlog::debug("picked object: {}", picked_object->name);
+                    spdlog::trace("picked object({}/{}): {}", i + 1, picked_ids.size(), picked_object->name);
                     m_selected_indices.insert(draw_idx);
                 }
 
