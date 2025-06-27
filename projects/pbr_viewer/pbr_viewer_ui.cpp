@@ -16,6 +16,11 @@ constexpr char g_imgui_file_dialog_save_key[] = "imgui_file_dialog_save_key";
 
 bool DEMO_GUI = false;
 
+struct ui_state_t
+{
+    glm::vec2 last_click;
+};
+
 void PBRViewer::toggle_ortho_camera()
 {
     bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
@@ -38,6 +43,8 @@ void PBRViewer::toggle_ortho_camera()
 
 void PBRViewer::create_ui()
 {
+    m_ui_state = {new ui_state_t, std::default_delete<ui_state_t>()};
+
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
     key_delegate.key_press = [this](const vierkant::KeyEvent &e) {
@@ -630,41 +637,51 @@ void PBRViewer::create_ui()
             }
             else if(e.is_left())
             {
-                vierkant::Object3DPtr picked_object;
-                //                picked_object = m_scene->pick(m_camera->calculate_ray(e.position(), m_window->size()));
+                // only store last click
+                m_ui_state->last_click = e.position();
+            }
+        }
+    };
+    simple_mouse.mouse_release = [this](const vierkant::MouseEvent &e) {
+        if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
+        {
+            if(e.is_left())
+            {
+                auto area = (glm::vec2(e.position()) - m_ui_state->last_click) / glm::vec2(m_window->size());
+                auto picked_ids = m_scene_renderer->pick(m_ui_state->last_click / glm::vec2(m_window->size()), area);
 
-                // TODO: gpu-based picking query - this is brute-force/blocking atm - only testing
+                std::unordered_set<vierkant::Object3D *> picked_objects;
                 spdlog::stopwatch sw;
-                auto picked_ids = m_scene_renderer->pick(glm::vec2(e.position()) / glm::vec2(m_window->size()), {});
 
-                for(auto obj_id: picked_ids)
+                for(auto draw_idx: picked_ids)
                 {
-                    spdlog::trace("obj_id: {} -- {}", std::to_string(obj_id),
-                                  std::chrono::duration_cast<std::chrono::microseconds>(sw.elapsed()));
-
+                    vierkant::Object3D *picked_object = nullptr;
                     const auto &overlay_asset = m_overlay_assets[m_window->swapchain().image_index()];
                     if(overlay_asset.object_by_index_fn)
                     {
-                        auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(obj_id);
-                        picked_object = m_scene->object_by_id(object_id)->shared_from_this();
+                        auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(draw_idx);
+                        picked_object = m_scene->object_by_id(object_id);
+                        picked_objects.insert(picked_object);
                     }
-                    spdlog::trace("picked object: {}", picked_object->name);
-                    m_selected_indices.insert(obj_id);
+                    spdlog::debug("picked object: {}", picked_object->name);
+                    m_selected_indices.insert(draw_idx);
                 }
 
-                if(picked_object)
+                // start new selection
+                if(!e.is_control_down() && !picked_objects.empty()) { m_selected_objects.clear(); }
+
+                for(auto *po: picked_objects)
                 {
-                    if(e.is_control_down())
+                    auto picked_object = po->shared_from_this();
+                    if(e.is_control_down() && m_selected_objects.contains(picked_object))
                     {
-                        if(m_selected_objects.contains(picked_object)) { m_selected_objects.erase(picked_object); }
-                        else { m_selected_objects.insert(picked_object); }
+                        m_selected_objects.erase(picked_object);
                     }
-                    else { m_selected_objects = {picked_object}; }
+                    else { m_selected_objects.insert(picked_object); }
                 }
             }
         }
     };
-
     m_window->mouse_delegates["simple_mouse"] = simple_mouse;
 
     // attach drag/drop mouse-delegate

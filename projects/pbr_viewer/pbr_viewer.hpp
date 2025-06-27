@@ -275,6 +275,9 @@ private:
 
     vierkant::gui::Context m_gui_context;
 
+    // some internal UI-state
+    std::unique_ptr<struct ui_state_t, std::function<void(struct ui_state_t *)>> m_ui_state;
+
     vierkant::DrawContext m_draw_context;
 
     size_t m_max_log_queue_size = 100;
