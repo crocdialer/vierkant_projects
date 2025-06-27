@@ -445,7 +445,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_selection_area)
         {
-            // m_draw_context.draw_rect(m_renderer_overlay, *m_selection_area, glm::vec4(1.f, 0.f, 0.f, 0.6f));
+            m_draw_context.draw_rect(m_renderer_overlay, *m_selection_area, glm::vec4(.3f, 0.25f, .8f, 0.3f));
         }
 
         if(m_settings.draw_grid)
