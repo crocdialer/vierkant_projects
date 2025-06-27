@@ -443,6 +443,11 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
             }
         }
 
+        if(m_selection_area)
+        {
+            // m_draw_context.draw_rect(m_renderer_overlay, *m_selection_area, glm::vec4(1.f, 0.f, 0.f, 0.6f));
+        }
+
         if(m_settings.draw_grid)
         {
             m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8f), 1.f), 1.f, glm::vec2(0.05f),

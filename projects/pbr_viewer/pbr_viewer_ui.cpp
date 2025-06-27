@@ -18,7 +18,7 @@ bool DEMO_GUI = false;
 
 struct ui_state_t
 {
-    glm::vec2 last_click;
+    glm::ivec2 last_click;
 };
 
 void PBRViewer::toggle_ortho_camera()
@@ -647,8 +647,14 @@ void PBRViewer::create_ui()
         {
             if(e.is_left())
             {
-                auto area = (glm::vec2(e.position()) - m_ui_state->last_click) / glm::vec2(m_window->size());
-                auto picked_ids = m_scene_renderer->pick(m_ui_state->last_click / glm::vec2(m_window->size()), area);
+                // clear selection area
+                m_selection_area.reset();
+
+                glm::vec2 tl = {std::min<int>(e.get_x(), m_ui_state->last_click.x),
+                                std::min<int>(e.get_y(), m_ui_state->last_click.y)};
+                glm::vec2 size = glm::abs(e.position() - m_ui_state->last_click);
+                auto picked_ids =
+                        m_scene_renderer->pick(tl / glm::vec2(m_window->size()), size / glm::vec2(m_window->size()));
 
                 std::unordered_set<vierkant::Object3D *> picked_objects;
                 spdlog::stopwatch sw;
@@ -680,6 +686,24 @@ void PBRViewer::create_ui()
                     }
                     else { m_selected_objects.insert(picked_object); }
                 }
+            }
+        }
+    };
+
+    simple_mouse.mouse_drag = [this](const vierkant::MouseEvent &e) {
+        if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
+        {
+            if(e.is_left())
+            {
+                glm::ivec2 tl = {std::min<int>(e.get_x(), m_ui_state->last_click.x),
+                                 std::min<int>(e.get_y(), m_ui_state->last_click.y)};
+                glm::ivec2 size = glm::abs(e.position() - m_ui_state->last_click);
+                m_selection_area = {
+                        tl.x,
+                        tl.y,
+                        size.x,
+                        size.y,
+                };
             }
         }
     };

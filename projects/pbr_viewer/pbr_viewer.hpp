@@ -251,9 +251,11 @@ private:
         vierkant::CameraControlPtr current = orbit;
     } m_camera_control;
 
+    // object-selection / copy/paste
     std::set<vierkant::Object3DPtr> m_selected_objects;
     std::set<vierkant::Object3DPtr> m_copy_objects;
     std::unordered_set<uint32_t> m_selected_indices;
+    std::optional<crocore::Area_<int>> m_selection_area;
 
     vierkant::PipelineCachePtr m_pipeline_cache;
 
