@@ -12,6 +12,7 @@
 ImGuiFileDialog g_file_dialog;
 constexpr char g_imgui_file_dialog_load_key[] = "imgui_file_dialog_load_key";
 constexpr char g_imgui_file_dialog_import_key[] = "imgui_file_dialog_import_key";
+constexpr char g_imgui_file_dialog_import_as_mesh_lib_key[] = "g_imgui_file_dialog_import_as_mesh_lib_key";
 constexpr char g_imgui_file_dialog_save_key[] = "imgui_file_dialog_save_key";
 
 bool DEMO_GUI = false;
@@ -323,6 +324,12 @@ void PBRViewer::create_ui()
                                              get_file_dialog_config());
                 }
 
+                if(ImGui::MenuItem("import as mesh-library ..."))
+                {
+                    g_file_dialog.OpenDialog(g_imgui_file_dialog_import_as_mesh_lib_key,
+                                             "import model as mesh-library ...", filter_str, get_file_dialog_config());
+                }
+
                 if(ImGui::MenuItem("reload"))
                 {
                     spdlog::warn("menu: reload");
@@ -517,13 +524,22 @@ void PBRViewer::create_ui()
         auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
                  std::filesystem::path(g_file_dialog.GetCurrentFileName());
 
+        auto load_model_util = [this, &p](bool clear, bool as_mesh_lib) {
+            add_to_recent_files(p);
+            load_model_params_t load_params = {p};
+            load_params.clear_scene = clear;
+            load_params.load_as_mesh_library = as_mesh_lib;
+            load_params.normalize_size = false;
+            load_model(load_params);
+        };
+
         // load dialog
         if(g_file_dialog.Display(g_imgui_file_dialog_load_key, flags, min_size))
         {
             if(g_file_dialog.IsOk())
             {
-                // load file
-                load_file(p.string(), true);
+                // clear scene, load file as one object
+                load_model_util(true, false);
             }
             g_file_dialog.Close();
         }
@@ -533,8 +549,19 @@ void PBRViewer::create_ui()
         {
             if(g_file_dialog.IsOk())
             {
-                // load file
-                load_file(p.string(), false);
+                // import file into scene, as one object
+                load_model_util(false, false);
+            }
+            g_file_dialog.Close();
+        }
+
+        // import as mesh-library dialog
+        if(g_file_dialog.Display(g_imgui_file_dialog_import_as_mesh_lib_key, flags, min_size))
+        {
+            if(g_file_dialog.IsOk())
+            {
+                // import file into scene, as a library of objects
+                load_model_util(false, true);
             }
             g_file_dialog.Close();
         }

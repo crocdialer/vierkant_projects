@@ -179,7 +179,16 @@ private:
 
     void create_texture_image();
 
-    void load_model(const std::filesystem::path &path = {}, bool clear_scene = true);
+    void add_to_recent_files(const std::filesystem::path &f);
+
+    struct load_model_params_t
+    {
+        std::filesystem::path path = {};
+        bool load_as_mesh_library = false;
+        bool normalize_size = false;
+        bool clear_scene = false;
+    };
+    void load_model(const load_model_params_t &params);
 
     void load_environment(const std::string &path);
 

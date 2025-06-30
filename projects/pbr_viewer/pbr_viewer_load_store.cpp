@@ -17,34 +17,72 @@ struct object_flags_component_t
     SceneId scene_id = SceneId::nil();
 };
 
-void PBRViewer::load_model(const std::filesystem::path &path, bool clear_scene)
+void PBRViewer::add_to_recent_files(const std::filesystem::path &f)
+{
+    main_queue().post([this, f] {
+        m_settings.recent_files.push_back(f);
+        while(m_settings.recent_files.size() > 10) { m_settings.recent_files.pop_front(); }
+    });
+};
+
+void PBRViewer::load_model(const load_model_params_t &params)
 {
     vierkant::MeshPtr mesh;
 
-    auto load_task = [this, path, clear_scene]() {
+    auto load_task = [this, params]() {
         m_num_loading++;
         auto start_time = std::chrono::steady_clock::now();
-        auto mesh = load_mesh(path);
+        auto mesh = load_mesh(params.path);
 
-        auto done_cb = [this, mesh, start_time, path, clear_scene]() {
+        auto done_cb = [this, mesh, start_time, params]() {
             m_selected_objects.clear();
 
-            auto object = m_scene->create_mesh_object({mesh});
-            object->name = std::filesystem::path(path).filename().string();
+            vierkant::Object3DPtr object;
 
-            // scale
-            object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
+            if(params.load_as_mesh_library)
+            {
+                object = vierkant::Object3D::create(m_scene->registry());
 
-            // center aabb
-            auto aabb = object->aabb().transform(object->transform);
-            object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f);
+                // iterate mesh-entries, create sub-objects
+                vierkant::mesh_component_t mesh_component = {mesh};
 
-            if(clear_scene) { m_scene->clear(); }
+                for(uint32_t i = 0; i < mesh->entries.size(); ++i)
+                {
+                    auto &mesh_entry = mesh->entries[i];
+                    mesh_component.entry_indices = {i};
+                    auto entry_obj = m_scene->create_mesh_object(mesh_component);
+
+                    // inherit name and transform from entry
+                    entry_obj->name = mesh_entry.name;
+                    entry_obj->transform = mesh_entry.transform;
+
+                    // clear entry-transform
+                    mesh_entry.transform = {};
+
+                    // add as child-object
+                    object->add_child(entry_obj);
+                }
+            }
+            else { object = m_scene->create_mesh_object({mesh}); }
+
+            object->name = std::filesystem::path(params.path).filename().string();
+
+            if(params.normalize_size)
+            {
+                // scale
+                object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
+
+                // center aabb
+                auto aabb = object->aabb().transform(object->transform);
+                object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f);
+            }
+
+            if(params.clear_scene) { m_scene->clear(); }
             m_scene->add_object(object);
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
-            spdlog::debug("loaded '{}' -- ({:03.2f})", path.string(), dur.count());
+            spdlog::debug("loaded '{}' -- ({:03.2f})", params.path.string(), dur.count());
             m_num_loading--;
         };
         if(mesh) { main_queue().post(done_cb); }
@@ -222,13 +260,6 @@ std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesys
 
 void PBRViewer::load_file(const std::string &path, bool clear)
 {
-    auto add_to_recent_files = [this](const std::string &f) {
-        main_queue().post([this, f] {
-            m_settings.recent_files.push_back(f);
-            while(m_settings.recent_files.size() > 10) { m_settings.recent_files.pop_front(); }
-        });
-    };
-
     switch(crocore::filesystem::get_file_type(path))
     {
         case crocore::filesystem::FileType::IMAGE:
@@ -237,9 +268,13 @@ void PBRViewer::load_file(const std::string &path, bool clear)
             break;
 
         case crocore::filesystem::FileType::MODEL:
+        {
             add_to_recent_files(path);
-            load_model(path, clear);
+            load_model_params_t load_params = {path};
+            load_params.clear_scene = clear;
+            load_model(load_params);
             break;
+        }
 
         case crocore::filesystem::FileType::OTHER:
             if(std::filesystem::path(path).extension() == ".json")
