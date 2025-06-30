@@ -650,9 +650,10 @@ void PBRViewer::create_ui()
                 // clear selection area
                 m_selection_area.reset();
 
-                glm::vec2 tl = {std::min<int>(e.get_x(), m_ui_state->last_click.x),
-                                std::min<int>(e.get_y(), m_ui_state->last_click.y)};
-                glm::vec2 size = glm::abs(e.position() - m_ui_state->last_click);
+                auto current_click = glm::clamp(e.position(), glm::ivec2(0), m_window->size() - 1);
+                glm::vec2 tl = {std::min<int>(current_click.x, m_ui_state->last_click.x),
+                                std::min<int>(current_click.y, m_ui_state->last_click.y)};
+                glm::vec2 size = glm::abs(current_click - m_ui_state->last_click);
                 auto picked_ids =
                         m_scene_renderer->pick(tl / glm::vec2(m_window->size()), size / glm::vec2(m_window->size()));
 
