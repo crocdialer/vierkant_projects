@@ -524,22 +524,13 @@ void PBRViewer::create_ui()
         auto p = std::filesystem::path(g_file_dialog.GetCurrentPath()) /
                  std::filesystem::path(g_file_dialog.GetCurrentFileName());
 
-        auto load_model_util = [this, &p](bool clear, bool as_mesh_lib) {
-            add_to_recent_files(p);
-            load_model_params_t load_params = {p};
-            load_params.clear_scene = clear;
-            load_params.load_as_mesh_library = as_mesh_lib;
-            load_params.normalize_size = false;
-            load_model(load_params);
-        };
-
         // load dialog
         if(g_file_dialog.Display(g_imgui_file_dialog_load_key, flags, min_size))
         {
             if(g_file_dialog.IsOk())
             {
                 // clear scene, load file as one object
-                load_model_util(true, false);
+                load_file(p.string(), true);
             }
             g_file_dialog.Close();
         }
@@ -550,7 +541,7 @@ void PBRViewer::create_ui()
             if(g_file_dialog.IsOk())
             {
                 // import file into scene, as one object
-                load_model_util(false, false);
+                load_file(p.string(), false);
             }
             g_file_dialog.Close();
         }
@@ -561,7 +552,12 @@ void PBRViewer::create_ui()
             if(g_file_dialog.IsOk())
             {
                 // import file into scene, as a library of objects
-                load_model_util(false, true);
+                add_to_recent_files(p);
+                load_model_params_t load_params = {p};
+                load_params.clear_scene = false;
+                load_params.load_as_mesh_library = true;
+                load_params.normalize_size = false;
+                load_model(load_params);
             }
             g_file_dialog.Close();
         }

@@ -45,6 +45,8 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
                 // iterate mesh-entries, create sub-objects
                 vierkant::mesh_component_t mesh_component = {mesh};
+
+                // set library flag
                 mesh_component.library = true;
 
                 for(uint32_t i = 0; i < mesh->entries.size(); ++i)
@@ -56,9 +58,6 @@ void PBRViewer::load_model(const load_model_params_t &params)
                     // inherit name and transform from entry
                     entry_obj->name = mesh_entry.name;
                     entry_obj->transform = mesh_entry.transform;
-
-                    // clear entry-transform
-                    mesh_entry.transform = {};
 
                     // add as child-object
                     object->add_child(entry_obj);
