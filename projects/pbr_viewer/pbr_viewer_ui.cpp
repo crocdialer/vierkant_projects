@@ -545,7 +545,7 @@ void PBRViewer::create_ui()
         }
 
         // import dialog
-        if(g_file_dialog.Display(g_imgui_file_dialog_import_key, flags, min_size))
+        else if(g_file_dialog.Display(g_imgui_file_dialog_import_key, flags, min_size))
         {
             if(g_file_dialog.IsOk())
             {
@@ -556,7 +556,7 @@ void PBRViewer::create_ui()
         }
 
         // import as mesh-library dialog
-        if(g_file_dialog.Display(g_imgui_file_dialog_import_as_mesh_lib_key, flags, min_size))
+        else if(g_file_dialog.Display(g_imgui_file_dialog_import_as_mesh_lib_key, flags, min_size))
         {
             if(g_file_dialog.IsOk())
             {
@@ -567,7 +567,7 @@ void PBRViewer::create_ui()
         }
 
         // save dialog
-        if(g_file_dialog.Display(g_imgui_file_dialog_save_key, flags, min_size))
+        else if(g_file_dialog.Display(g_imgui_file_dialog_save_key, flags, min_size))
         {
             if(g_file_dialog.IsOk())
             {

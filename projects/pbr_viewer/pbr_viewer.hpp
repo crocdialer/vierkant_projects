@@ -94,6 +94,13 @@ public:
         float target_fps = 60.f;
     };
 
+    struct mesh_state_t
+    {
+        vierkant::MeshId mesh_id = vierkant::MeshId::nil();
+        std::optional<std::unordered_set<uint32_t>> entry_indices = {};
+        bool mesh_library = false;
+    };
+
     struct scene_node_t
     {
         //! a descriptive name
@@ -111,9 +118,8 @@ public:
         //! optional sub-scene-id.
         std::optional<SceneId> scene_id;
 
-        //! optional mesh-Id and set of enabled entries.
-        std::optional<vierkant::MeshId> mesh_id;
-        std::optional<std::unordered_set<uint32_t>> entry_indices = {};
+        //! optional mesh-state
+        std::optional<mesh_state_t> mesh_state;
 
         //! optional animation-state
         std::optional<vierkant::animation_component_t> animation_state = {};
@@ -335,13 +341,19 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 }
 
 template<class Archive>
+void serialize(Archive &ar, PBRViewer::mesh_state_t &mesh_state)
+{
+    ar(cereal::make_nvp("mesh_id", mesh_state.mesh_id), cereal::make_nvp("mesh_library", mesh_state.mesh_library),
+       cereal::make_nvp("entry_indices", mesh_state.entry_indices));
+}
+
+template<class Archive>
 void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
 {
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled, true),
        cereal::make_nvp("transform", scene_node.transform), cereal::make_optional_nvp("children", scene_node.children),
        cereal::make_optional_nvp("scene_id", scene_node.scene_id),
-       cereal::make_optional_nvp("mesh_id", scene_node.mesh_id),
-       cereal::make_optional_nvp("entry_indices", scene_node.entry_indices),
+       cereal::make_optional_nvp("mesh_state", scene_node.mesh_state),
        cereal::make_optional_nvp("animation_state", scene_node.animation_state),
        cereal::make_optional_nvp("physics_state", scene_node.physics_state));
 }

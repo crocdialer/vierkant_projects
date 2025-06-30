@@ -45,6 +45,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
                 // iterate mesh-entries, create sub-objects
                 vierkant::mesh_component_t mesh_component = {mesh};
+                mesh_component.library = true;
 
                 for(uint32_t i = 0; i < mesh->entries.size(); ++i)
                 {
@@ -381,14 +382,14 @@ void PBRViewer::save_scene(const std::filesystem::path &path) const
         auto &node = data.nodes[obj_to_node_index[&obj]];
         for(const auto &child: obj.children) { node.children.push_back(obj_to_node_index[child.get()]); }
 
-        if(obj.has_component<vierkant::mesh_component_t>())
+        if(auto *mesh_component = obj.get_component_ptr<vierkant::mesh_component_t>())
         {
-            auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
-            node.mesh_id = mesh_component.mesh->id;
-            node.entry_indices = mesh_component.entry_indices;
+            mesh_state_t mesh_state = {mesh_component->mesh->id, mesh_component->entry_indices,
+                                       mesh_component->library};
+            node.mesh_state = mesh_state;
 
             // store materials with dirty hashes
-            for(const auto &mat: mesh_component.mesh->materials)
+            for(const auto &mat: mesh_component->mesh->materials)
             {
                 if(mat->hash != std::hash<vierkant::material_t>()(mat->m)) { data.materials[mat->m.id] = mat->m; }
             }
@@ -495,7 +496,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             scene_assets[0].meshes[cube_mesh->id] = cube_mesh;
             scene_node_t node = {};
             node.name = "cube";
-            node.mesh_id = vierkant::MeshId::from_name(node.name);
+            node.mesh_state = {vierkant::MeshId::from_name(node.name)};
             scene_assets[0].scene_data.nodes = {node};
             scene_assets[0].scene_data.scene_roots = {0};
         }
@@ -514,10 +515,11 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 {
                     vierkant::Object3DPtr obj;
 
-                    if(node.mesh_id && meshes.contains(*node.mesh_id))
+                    if(node.mesh_state && meshes.contains(node.mesh_state->mesh_id))
                     {
-                        const auto &mesh = meshes.at(*node.mesh_id);
-                        obj = m_scene->create_mesh_object({mesh, node.entry_indices});
+                        const auto &mesh = meshes.at(node.mesh_state->mesh_id);
+                        obj = m_scene->create_mesh_object(
+                                {mesh, node.mesh_state->entry_indices, node.mesh_state->mesh_library});
                     }
                     else { obj = vierkant::Object3D::create(registry); }
                     obj->name = node.name;
@@ -877,7 +879,7 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
                     m_scene_data.model_paths = {{mesh_id, f}};
                     scene_node_t node = {};
                     node.name = std::filesystem::path(f).filename().string();
-                    node.mesh_id = mesh_id;
+                    node.mesh_state = {mesh_id};
                     m_scene_data.nodes = {node};
                     m_scene_data.scene_roots = {0};
                     break;
