@@ -20,7 +20,7 @@ struct object_flags_component_t
 void PBRViewer::add_to_recent_files(const std::filesystem::path &f)
 {
     main_queue().post([this, f] {
-        m_settings.recent_files.push_back(f);
+        m_settings.recent_files.push_back(f.string());
         while(m_settings.recent_files.size() > 10) { m_settings.recent_files.pop_front(); }
     });
 };
