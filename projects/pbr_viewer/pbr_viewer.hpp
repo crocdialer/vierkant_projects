@@ -208,7 +208,7 @@ private:
 
     vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
 
-    void save_scene(const std::filesystem::path &path = "scene.json") const;
+    void save_scene(std::filesystem::path path = {});
 
     static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = "scene.json");
 
@@ -307,6 +307,7 @@ private:
     // track of scene/model-paths
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<SceneId, std::filesystem::path> m_scene_paths;
+    SceneId m_scene_id;
 };
 
 template<class Archive>

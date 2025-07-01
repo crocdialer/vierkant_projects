@@ -293,8 +293,22 @@ void PBRViewer::load_file(const std::string &path, bool clear)
     }
 }
 
-void PBRViewer::save_scene(const std::filesystem::path &path) const
+void PBRViewer::save_scene(std::filesystem::path path)
 {
+    // handle empty path
+    if(path.empty())
+    {
+        auto it = m_scene_paths.find(m_scene_id);
+        if(it != m_scene_paths.end()) { path = it->second; }
+        else
+        {
+            spdlog::warn("{}: unable to figure out save-path", __func__);
+            return;
+        }
+    }
+    spdlog::debug("save scene: {}", path.string());
+    m_scene_paths[m_scene_id] = path;
+
     // scene traversal
     scene_data_t data;
     data.name = m_scene->root()->name;
@@ -498,6 +512,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             node.mesh_state = {vierkant::MeshId::from_name(node.name)};
             scene_assets[0].scene_data.nodes = {node};
             scene_assets[0].scene_data.scene_roots = {0};
+            scene_assets[0].scene_id = scene_id;
+            m_scene_paths[scene_id] = "scene.json";
         }
 
         auto create_root_object = [this](const scene_data_t &scene_data,
@@ -615,6 +631,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     m_scene->clear();
                     auto children = root_objects[0]->children;
                     for(const auto &child: children) { m_scene->add_object(child); }
+                    m_scene_id = scene_assets[0].scene_id;
                 }
                 else { m_scene->add_object(root_objects[0]); }
             }
