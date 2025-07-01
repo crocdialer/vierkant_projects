@@ -45,7 +45,8 @@ void serialize(Archive &archive, vierkant::collision::capsule_t &s)
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::mesh_t &s)
 {
-    archive(cereal::make_nvp("mesh_id", s.mesh_id), cereal::make_nvp("convex_hull", s.convex_hull),
+    archive(cereal::make_nvp("mesh_id", s.mesh_id), cereal::make_nvp("entry_indices", s.entry_indices),
+            cereal::make_nvp("library", s.library), cereal::make_nvp("convex_hull", s.convex_hull),
             cereal::make_nvp("lod_bias", s.lod_bias));
 }
 
