@@ -94,6 +94,8 @@ public:
         float target_fps = 60.f;
     };
 
+    static constexpr char s_default_scene_path[] = "scene.json";
+
     struct mesh_state_t
     {
         vierkant::MeshId mesh_id = vierkant::MeshId::nil();
@@ -210,7 +212,7 @@ private:
 
     void save_scene(std::filesystem::path path = {});
 
-    static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = "scene.json");
+    static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = s_default_scene_path);
 
     void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false, SceneId scene_id = {});
 

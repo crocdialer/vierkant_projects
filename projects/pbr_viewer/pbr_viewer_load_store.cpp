@@ -513,7 +513,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             scene_assets[0].scene_data.nodes = {node};
             scene_assets[0].scene_data.scene_roots = {0};
             scene_assets[0].scene_id = scene_id;
-            m_scene_paths[scene_id] = "scene.json";
+            m_scene_paths[scene_id] = s_default_scene_path;
         }
 
         auto create_root_object = [this](const scene_data_t &scene_data,

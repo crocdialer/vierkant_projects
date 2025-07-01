@@ -81,7 +81,12 @@ void PBRViewer::setup()
     create_graphics_pipeline();
 
     // load a scene
-    build_scene(m_scene_data.nodes.empty() ? load_scene_data() : m_scene_data, true);
+    if(auto scene_data = load_scene_data())
+    {
+        m_scene_data = std::move(*scene_data);
+    }
+    m_scene_paths[m_scene_id] = s_default_scene_path;
+    build_scene(m_scene_data, true, m_scene_id);
 }
 
 void PBRViewer::teardown()
