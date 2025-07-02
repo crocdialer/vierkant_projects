@@ -41,7 +41,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
             if(params.load_as_mesh_library)
             {
-                object = vierkant::Object3D::create(m_scene->registry());
+                object = m_object_store->create_object();
 
                 // iterate mesh-entries, create sub-objects
                 vierkant::mesh_component_t mesh_component = {mesh};
@@ -529,7 +529,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                          std::vector<vierkant::Object3DPtr> &out_objects) -> vierkant::Object3DPtr {
             if(!scene_data.nodes.empty())
             {
-                auto root = vierkant::Object3D::create(registry);
+                auto root = m_object_store->create_object();
                 root->name = scene_data.name;
 
                 // create objects for all nodes
@@ -543,7 +543,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         obj = m_scene->create_mesh_object(
                                 {mesh, node.mesh_state->entry_indices, node.mesh_state->mesh_library});
                     }
-                    else { obj = vierkant::Object3D::create(registry); }
+                    else { obj = m_object_store->create_object(); }
                     obj->name = node.name;
                     obj->enabled = node.enabled;
                     obj->transform = node.transform;
@@ -622,7 +622,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     {
                         assert(scene_root_map.contains(*node.scene_id));
                         auto children = scene_root_map[*node.scene_id]->children;
-                        for(const auto &child: children) { scene_asset.objects[j]->add_child(child->clone()); }
+                        for(const auto &child: children)
+                        {
+                            scene_asset.objects[j]->add_child(m_object_store->clone(child.get()));
+                        }
 
                         // flag object to contain a sub-scene
                         auto &cmp = scene_asset.objects[j]->add_component<object_flags_component_t>();
