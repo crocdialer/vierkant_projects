@@ -64,10 +64,17 @@ void PBRViewer::create_ui()
                     // copy
                     case vierkant::Key::_C: m_copy_objects = m_selected_objects; break;
 
+                    // cut
+                    case vierkant::Key::_X:
+                        m_copy_objects = m_selected_objects;
+                        for(const auto &obj: m_selected_objects) { obj->set_parent(nullptr); }
+                        break;
+
                     // paste
                     case vierkant::Key::_V:
                     {
-                        for(const auto &obj: m_copy_objects) { m_scene->add_object(obj->clone()); }
+                        auto copy_dst = !m_selected_objects.empty() ? *m_selected_objects.begin() : m_scene->root();
+                        for(const auto &obj: m_copy_objects) { copy_dst->add_child(obj->clone()); }
                         break;
                     }
 
