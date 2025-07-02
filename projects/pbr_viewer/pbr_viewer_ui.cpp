@@ -73,7 +73,8 @@ void PBRViewer::create_ui()
                     // paste
                     case vierkant::Key::_V:
                     {
-                        for(const auto &obj: m_copy_objects) { m_scene->add_object(m_object_store->clone(obj.get())); }
+                        auto copy_dst = m_selected_objects.empty() ? m_scene->root() : *m_selected_objects.begin();
+                        for(const auto &obj: m_copy_objects) { copy_dst->add_child(m_object_store->clone(obj.get())); }
                         break;
                     }
 
