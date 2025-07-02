@@ -470,23 +470,30 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     }
                 }
             }
-            std::unordered_map<std::string, vierkant::MeshPtr> mesh_cache;
+            // std::unordered_map<std::string, vierkant::MeshPtr> mesh_cache;
+            std::unordered_map<std::string, std::future<vierkant::MeshPtr>> mesh_future_cache;
+
+            // schedule background creation of meshes
+            for(auto &asset: scene_assets)
+            {
+                for(const auto &[mesh_id, path]: asset.scene_data.model_paths)
+                {
+                    auto cache_it = mesh_future_cache.find(path);
+                    if(cache_it != mesh_future_cache.end()) {}
+                    else
+                    {
+                        mesh_future_cache[path] = background_queue().post([this, path] { return load_mesh(path); });
+                    }
+                }
+            }
 
             // load meshes for scene and sub-scenes
             for(auto &asset: scene_assets)
             {
-                for(const auto &[id, path]: asset.scene_data.model_paths)
+                for(const auto &[mesh_id, path]: asset.scene_data.model_paths)
                 {
-                    vierkant::MeshPtr mesh;
-                    auto cache_it = mesh_cache.find(path);
-                    if(cache_it != mesh_cache.end()) { mesh = cache_it->second; }
-                    else
-                    {
-                        mesh = load_mesh(path);
-                        mesh_cache[path] = mesh;
-                    }
-
-                    if(mesh)
+                    // sync and check
+                    if(auto mesh = mesh_future_cache[path].get())
                     {
                         // optional material override(s)
                         for(auto &mat: mesh->materials)
@@ -498,7 +505,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                 spdlog::trace("overriding material: {}", mat->m.name);
                             }
                         }
-                        asset.meshes[id] = mesh;
+                        asset.meshes[mesh_id] = mesh;
                     }
                 }
             }
