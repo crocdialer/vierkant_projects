@@ -73,17 +73,15 @@ void PBRViewer::create_ui()
                     // paste
                     case vierkant::Key::_V:
                     {
-                        for(const auto &obj: m_copy_objects)
-                        {
-                            m_scene->add_object(m_object_store->clone_object(obj.get()));
-                        }
+                        for(const auto &obj: m_copy_objects) { m_scene->add_object(m_object_store->clone(obj.get())); }
                         break;
                     }
 
                     // group
                     case vierkant::Key::_G:
                     {
-                        auto group = vierkant::Object3D::create(*m_object_store, "group");
+                        auto group = m_object_store->create_object();
+                        group->name = "group";
                         m_scene->add_object(group);
                         for(const auto &sel_obj: m_selected_objects) { group->add_child(sel_obj); }
                         break;
@@ -446,7 +444,7 @@ void PBRViewer::create_ui()
                 ImGui::Spacing();
                 if(ImGui::Button("about: blank object"))
                 {
-                    auto new_obj = vierkant::Object3D::create(*m_object_store);
+                    auto new_obj = m_object_store->create_object();
                     new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
                     m_scene->add_object(new_obj);
                 }
@@ -455,7 +453,8 @@ void PBRViewer::create_ui()
                     auto cubes = m_scene->any_object_by_name("cubes");
                     if(!cubes)
                     {
-                        auto new_group = vierkant::Object3D::create(*m_object_store, "cubes");
+                        auto new_group = m_object_store->create_object();
+                        new_group->name = "cubes";
                         m_scene->add_object(new_group);
                         cubes = new_group.get();
                     }
