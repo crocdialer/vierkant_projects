@@ -259,6 +259,11 @@ private:
 
     std::map<std::string, vierkant::ImagePtr> m_textures;
 
+    // init a scene with physics-support on application-threadpool
+    std::shared_ptr<vierkant::ObjectStore> m_object_store = vierkant::create_object_store();
+    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store);
+    vierkant::PhysicsDebugRendererPtr m_physics_debug;
+    
     vierkant::CameraPtr m_camera;
 
     struct camera_control_t
@@ -275,11 +280,6 @@ private:
     std::optional<crocore::Area_<int>> m_selection_area;
 
     vierkant::PipelineCachePtr m_pipeline_cache;
-
-    // init a scene with physics-support on application-threadpool
-    std::shared_ptr<vierkant::ObjectStore> m_object_store = vierkant::create_object_store();
-    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store);
-    vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
     // selection of scene-renderers
     vierkant::PBRDeferredPtr m_pbr_renderer;
