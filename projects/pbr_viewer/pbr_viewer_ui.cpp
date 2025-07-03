@@ -443,38 +443,59 @@ void PBRViewer::create_ui()
 
                 ImGui::Separator();
                 ImGui::Spacing();
-                if(ImGui::Button("about: blank object"))
+
+                if(ImGui::BeginMenu("add"))
                 {
-                    auto new_obj = m_object_store->create_object();
-                    new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
-                    m_scene->add_object(new_obj);
-                }
-                if(ImGui::Button("add boxes (25)"))
-                {
-                    auto cubes = m_scene->any_object_by_name("cubes");
-                    if(!cubes)
+                    if(ImGui::Button("empty object"))
                     {
-                        auto new_group = m_object_store->create_object();
-                        new_group->name = "cubes";
-                        m_scene->add_object(new_group);
-                        cubes = new_group.get();
+                        auto new_obj = m_object_store->create_object();
+                        new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
+                        m_scene->add_object(new_obj);
                     }
 
-                    for(uint32_t i = 0; i < 25; ++i)
+                    if(ImGui::Button("box"))
                     {
                         auto new_obj = m_scene->create_mesh_object({m_box_mesh});
-                        new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
-                        new_obj->transform.translation.y = 10.f;
-                        new_obj->transform.translation += glm::ballRand(1.f);
-                        vierkant::object_component auto &cmp = new_obj->add_component<vierkant::physics_component_t>();
-                        vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
-                        cmp.shape = box;
-                        cmp.mass = 1.f;
-
-                        // add to group
-                        cubes->add_child(new_obj);
-                        cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
+                        new_obj->name = spdlog::fmt_lib::format("box_{}", new_obj->id() % 1000);
+                        m_scene->add_object(new_obj);
                     }
+
+                    // if(ImGui::Button("sphere"))
+                    // {
+                    //     auto new_obj = m_object_store->create_object();
+                    //     new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
+                    //     m_scene->add_object(new_obj);
+                    // }
+
+                    if(ImGui::Button("physics boxes (25)"))
+                    {
+                        auto cubes = m_scene->any_object_by_name("cubes");
+                        if(!cubes)
+                        {
+                            auto new_group = m_object_store->create_object();
+                            new_group->name = "cubes";
+                            m_scene->add_object(new_group);
+                            cubes = new_group.get();
+                        }
+
+                        for(uint32_t i = 0; i < 25; ++i)
+                        {
+                            auto new_obj = m_scene->create_mesh_object({m_box_mesh});
+                            new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
+                            new_obj->transform.translation.y = 10.f;
+                            new_obj->transform.translation += glm::ballRand(1.f);
+                            vierkant::object_component auto &cmp =
+                                    new_obj->add_component<vierkant::physics_component_t>();
+                            vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
+                            cmp.shape = box;
+                            cmp.mass = 1.f;
+
+                            // add to group
+                            cubes->add_child(new_obj);
+                            cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
+                        }
+                    }
+                    ImGui::EndMenu();
                 }
 
                 ImGui::Separator();
