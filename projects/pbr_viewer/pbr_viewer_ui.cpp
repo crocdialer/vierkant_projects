@@ -622,7 +622,7 @@ void PBRViewer::create_ui()
     m_gui_context.delegates["guizmo"].fn = [this] {
         if(!m_selected_objects.empty())
         {
-            vierkant::gui::draw_transform_guizmo(*m_selected_objects.begin(), m_camera, m_settings.current_guizmo);
+            vierkant::gui::draw_transform_guizmo(m_selected_objects, m_camera, m_settings.current_guizmo);
         }
 
         if(m_settings.ui_draw_view_controls)
