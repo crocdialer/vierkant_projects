@@ -427,7 +427,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
 
 void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene, SceneId scene_id)
 {
-    auto load_task = [this, scene_data_in, scene_id, clear_scene]() {
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    auto load_task = [this, scene_data_in, scene_id, clear_scene, start_time]() {
         // load background
         if(scene_data_in && clear_scene) { load_file(scene_data_in->environment_path, false); }
 
@@ -595,7 +597,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             return nullptr;
         };
 
-        auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object, clear_scene]() mutable {
+        auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object, clear_scene,
+                        start_time]() mutable {
             // root nodes for all (sub-)scenes
             std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
 
@@ -646,6 +649,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 else { m_scene->add_object(root_objects[0]); }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+
+            // log timing
+            auto build_ms =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time)
+                            .count() / 1000.f;
+            spdlog::debug("done building scene ({:.2f} s): {}", build_ms, m_scene_paths[m_scene_id].string());
         };
         main_queue().post(done_cb);
     };

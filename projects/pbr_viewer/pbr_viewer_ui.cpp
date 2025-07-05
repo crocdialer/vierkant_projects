@@ -241,6 +241,7 @@ void PBRViewer::create_ui()
 
     // create a gui and add a draw-delegate
     vierkant::gui::Context::create_info_t gui_create_info = {};
+    gui_create_info.ini_file = true;
     gui_create_info.ui_scale = m_settings.ui_scale;
     if(!m_settings.font_url.empty())
     {
@@ -612,9 +613,14 @@ void PBRViewer::create_ui()
 
     // scenegraph window
     m_gui_context.delegates["scenegraph"].fn = [this] {
-        ImGui::SetNextWindowPos(ImVec2(1470, 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
+        constexpr int corner = 1;
+        const float DISTANCE = 10.0f;
+        ImGuiIO &io = ImGui::GetIO();
+        ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
+                                (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
+        ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
 
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
         vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
     };
 
