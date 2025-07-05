@@ -363,12 +363,12 @@ void PBRViewer::create_texture_image()
 
 void PBRViewer::update(double time_delta)
 {
-    if(m_settings.draw_ui) { m_gui_context.update(time_delta, m_window->size()); }
-    m_camera_control.current->update(time_delta);
-
-    // update animated objects in the scene
+    // update animated objects, clear flags
     m_scene->update(time_delta);
 
+    if(m_settings.draw_ui) { m_gui_context.update(time_delta, m_window->size()); }
+    m_camera_control.current->update(time_delta);
+    
     // issue top-level draw-command
     m_window->draw();
 }
