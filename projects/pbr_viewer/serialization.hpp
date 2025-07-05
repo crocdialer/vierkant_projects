@@ -6,22 +6,22 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
-#include <cereal/types/vector.hpp>
-#include <cereal/types/set.hpp>
-#include <cereal/types/unordered_set.hpp>
-#include <cereal/types/unordered_map.hpp>
 #include <cereal/types/optional.hpp>
+#include <cereal/types/set.hpp>
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/types/unordered_set.hpp>
 #include <cereal/types/variant.hpp>
+#include <cereal/types/vector.hpp>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 
-#include "glm_cereal.hpp"
 #include "animation_cereal.hpp"
 #include "collision_cereal.hpp"
+#include "glm_cereal.hpp"
 
-#include <crocore/set_lru.hpp>
 #include <crocore/NamedId.hpp>
+#include <crocore/set_lru.hpp>
 
 #include "vierkant/model/model_loading.hpp"
 #include <vierkant/CameraControl.hpp>
@@ -42,64 +42,53 @@ void serialize(Archive &archive, vierkant::bcn::block_t &block)
 }
 
 template<class Archive>
-void serialize(Archive &archive,
-               vierkant::bcn::compress_result_t &compress_result)
+void serialize(Archive &archive, vierkant::bcn::compress_result_t &compress_result)
 {
-    archive(cereal::make_nvp("mode", compress_result.mode),
-            cereal::make_nvp("base_width", compress_result.base_width),
+    archive(cereal::make_nvp("mode", compress_result.mode), cereal::make_nvp("base_width", compress_result.base_width),
             cereal::make_nvp("base_height", compress_result.base_height),
             cereal::make_nvp("levels", compress_result.levels));
 }
 
 //! optional value support
-template <typename T>
+template<typename T>
 struct OptionalNameValuePair : public NameValuePair<T>
 {
-    OptionalNameValuePair(char const* name, T&& value, std::remove_reference_t<T> defaultValue_)
-        : NameValuePair<T>(name, std::forward<T>(value))
-          , defaultValue(std::move(defaultValue_))
+    OptionalNameValuePair(char const *name, T &&value, std::remove_reference_t<T> defaultValue_)
+        : NameValuePair<T>(name, std::forward<T>(value)), defaultValue(std::move(defaultValue_))
     {}
 
     std::remove_reference_t<T> defaultValue;
 };
 
-template <typename T>
-OptionalNameValuePair<T>
-make_optional_nvp(const std::string& name,
-                  T&& value,
-                  std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
+template<typename T>
+OptionalNameValuePair<T> make_optional_nvp(const std::string &name, T &&value,
+                                           std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
 {
-    return { name.c_str(), std::forward<T>(value), std::move(defaultValue) };
+    return {name.c_str(), std::forward<T>(value), std::move(defaultValue)};
 }
 
-template <typename T>
-OptionalNameValuePair<T>
-make_optional_nvp(const char* name,
-                  T&& value,
-                  std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
+template<typename T>
+OptionalNameValuePair<T> make_optional_nvp(const char *name, T &&value,
+                                           std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
 {
-    return { name, std::forward<T>(value), std::move(defaultValue) };
+    return {name, std::forward<T>(value), std::move(defaultValue)};
 }
 
-template <typename T>
-void prologue(JSONInputArchive&, const OptionalNameValuePair<T>&)
-{
-}
+template<typename T>
+void prologue(JSONInputArchive &, const OptionalNameValuePair<T> &)
+{}
 
-template <typename T>
-void prologue(JSONOutputArchive&, const OptionalNameValuePair<T>&)
-{
-}
+template<typename T>
+void prologue(JSONOutputArchive &, const OptionalNameValuePair<T> &)
+{}
 
-template <typename T>
-void epilogue(JSONInputArchive&, const OptionalNameValuePair<T>&)
-{
-}
+template<typename T>
+void epilogue(JSONInputArchive &, const OptionalNameValuePair<T> &)
+{}
 
-template <typename T>
-void epilogue(JSONOutputArchive&, const OptionalNameValuePair<T>&)
-{
-}
+template<typename T>
+void epilogue(JSONOutputArchive &, const OptionalNameValuePair<T> &)
+{}
 
 template<class T>
 inline void CEREAL_SAVE_FUNCTION_NAME(JSONOutputArchive &ar, OptionalNameValuePair<T> const &t)
@@ -137,9 +126,7 @@ std::string save_minimal(Archive const &, const crocore::NamedUUID<T> &named_id)
 }
 
 template<class Archive, class T>
-void load_minimal(Archive const &,
-                  crocore::NamedUUID<T> &named_id,
-                  const std::string &uuid_str)
+void load_minimal(Archive const &, crocore::NamedUUID<T> &named_id, const std::string &uuid_str)
 {
     named_id = crocore::NamedUUID<T>(uuid_str);
 }
@@ -152,7 +139,7 @@ void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
     set_lru = {array.begin(), array.end()};
 }
 
-}
+}// namespace crocore
 
 namespace vierkant
 {
@@ -160,67 +147,60 @@ namespace vierkant
 template<class Archive>
 void serialize(Archive &archive, vierkant::Geometry &g)
 {
-    archive(cereal::make_nvp("topology", g.topology),
-            cereal::make_nvp("positions", g.positions),
-            cereal::make_nvp("colors", g.colors),
-            cereal::make_nvp("tex_coords", g.tex_coords),
-            cereal::make_nvp("normals", g.normals),
-            cereal::make_nvp("tangents", g.tangents),
-            cereal::make_nvp("bone_indices", g.bone_indices),
-            cereal::make_nvp("bone_weights", g.bone_weights),
+    archive(cereal::make_nvp("topology", g.topology), cereal::make_nvp("positions", g.positions),
+            cereal::make_nvp("colors", g.colors), cereal::make_nvp("tex_coords", g.tex_coords),
+            cereal::make_nvp("normals", g.normals), cereal::make_nvp("tangents", g.tangents),
+            cereal::make_nvp("bone_indices", g.bone_indices), cereal::make_nvp("bone_weights", g.bone_weights),
             cereal::make_nvp("indices", g.indices));
 }
 
 template<class Archive, class T>
 void serialize(Archive &archive, vierkant::transform_t_<T> &t)
 {
-    archive(cereal::make_nvp("translation", t.translation),
-            cereal::make_nvp("rotation", t.rotation),
+    archive(cereal::make_nvp("translation", t.translation), cereal::make_nvp("rotation", t.rotation),
             cereal::make_nvp("scale", t.scale));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::AABB &aabb)
 {
-    archive(cereal::make_nvp("min", aabb.min),
-            cereal::make_nvp("max", aabb.max));
+    archive(cereal::make_nvp("min", aabb.min), cereal::make_nvp("max", aabb.max));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Sphere &sphere)
 {
-    archive(cereal::make_nvp("center", sphere.center),
-            cereal::make_nvp("radius", sphere.radius));
+    archive(cereal::make_nvp("center", sphere.center), cereal::make_nvp("radius", sphere.radius));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Cone &cone)
 {
-    archive(cereal::make_nvp("axis", cone.axis),
-            cereal::make_nvp("cutoff", cone.cutoff));
+    archive(cereal::make_nvp("axis", cone.axis), cereal::make_nvp("cutoff", cone.cutoff));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::texture_data_t &tex_data)
+{
+    archive(cereal::make_nvp("texture_id", tex_data.texture_id), cereal::make_nvp("sampler_id", tex_data.sampler_id),
+            cereal::make_nvp("texture_transform", tex_data.texture_transform));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::material_t &material)
 {
-    archive(cereal::make_nvp("id", material.id),
-            cereal::make_nvp("name", material.name),
-            cereal::make_nvp("base_color", material.base_color),
-            cereal::make_nvp("emission", material.emission),
+    archive(cereal::make_nvp("id", material.id), cereal::make_nvp("name", material.name),
+            cereal::make_nvp("base_color", material.base_color), cereal::make_nvp("emission", material.emission),
             cereal::make_nvp("emissive_strength", material.emissive_strength),
-            cereal::make_nvp("roughness", material.roughness),
-            cereal::make_nvp("metalness", material.metalness),
-            cereal::make_nvp("occlusion", material.occlusion),
-            cereal::make_nvp("null_surface", material.null_surface),
-            cereal::make_nvp("twosided", material.twosided),
-            cereal::make_nvp("ior", material.ior),
+            cereal::make_nvp("roughness", material.roughness), cereal::make_nvp("metalness", material.metalness),
+            cereal::make_nvp("occlusion", material.occlusion), cereal::make_nvp("null_surface", material.null_surface),
+            cereal::make_nvp("twosided", material.twosided), cereal::make_nvp("ior", material.ior),
             cereal::make_nvp("attenuation_color", material.attenuation_color),
             cereal::make_nvp("transmission", material.transmission),
             cereal::make_nvp("attenuation_distance", material.attenuation_distance),
             cereal::make_nvp("phase_asymmetry_g", material.phase_asymmetry_g),
             cereal::make_nvp("scattering_ratio", material.scattering_ratio),
-            cereal::make_nvp("thickness", material.thickness),
-            cereal::make_nvp("blend_mode", material.blend_mode),
+            cereal::make_nvp("thickness", material.thickness), cereal::make_nvp("blend_mode", material.blend_mode),
             cereal::make_nvp("alpha_cutoff", material.alpha_cutoff),
             cereal::make_nvp("specular_factor", material.specular_factor),
             cereal::make_nvp("specular_color", material.specular_color),
@@ -231,39 +211,31 @@ void serialize(Archive &archive, vierkant::material_t &material)
             cereal::make_nvp("iridescence_factor", material.iridescence_factor),
             cereal::make_nvp("iridescence_ior", material.iridescence_ior),
             cereal::make_nvp("iridescence_thickness_range", material.iridescence_thickness_range),
-            cereal::make_nvp("texture_transform", material.texture_transform),
-            cereal::make_nvp("textures", material.textures),
-            cereal::make_nvp("samplers", material.samplers));
+            cereal::make_nvp("texture_data", material.texture_data));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::texture_sampler_t &state)
 {
-    archive(cereal::make_nvp("min_filter", state.min_filter),
-            cereal::make_nvp("mag_filter", state.mag_filter),
+    archive(cereal::make_nvp("min_filter", state.min_filter), cereal::make_nvp("mag_filter", state.mag_filter),
             cereal::make_nvp("address_mode_u", state.address_mode_u),
-            cereal::make_nvp("address_mode_v", state.address_mode_v),
-            cereal::make_nvp("transform", state.transform));
+            cereal::make_nvp("address_mode_v", state.address_mode_v), cereal::make_nvp("transform", state.transform));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::vertex_attrib_t &vertex_attrib)
 {
     archive(cereal::make_nvp("buffer_offset", vertex_attrib.buffer_offset),
-//          cereal::make_nvp("buffer", vertex_attrib.buffer),
-            cereal::make_nvp("offset", vertex_attrib.offset),
-            cereal::make_nvp("stride", vertex_attrib.stride),
-            cereal::make_nvp("format", vertex_attrib.format),
-            cereal::make_nvp("input_rate", vertex_attrib.input_rate));
+            //          cereal::make_nvp("buffer", vertex_attrib.buffer),
+            cereal::make_nvp("offset", vertex_attrib.offset), cereal::make_nvp("stride", vertex_attrib.stride),
+            cereal::make_nvp("format", vertex_attrib.format), cereal::make_nvp("input_rate", vertex_attrib.input_rate));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Mesh::entry_create_info_t &entry_info)
 {
-    archive(cereal::make_nvp("name", entry_info.name),
-            cereal::make_nvp("geometry", entry_info.geometry),
-            cereal::make_nvp("transform", entry_info.transform),
-            cereal::make_nvp("node_index", entry_info.node_index),
+    archive(cereal::make_nvp("name", entry_info.name), cereal::make_nvp("geometry", entry_info.geometry),
+            cereal::make_nvp("transform", entry_info.transform), cereal::make_nvp("node_index", entry_info.node_index),
             cereal::make_nvp("material_index", entry_info.material_index),
             cereal::make_nvp("morph_targets", entry_info.morph_targets),
             cereal::make_nvp("morph_weights", entry_info.morph_weights));
@@ -272,23 +244,18 @@ void serialize(Archive &archive, vierkant::Mesh::entry_create_info_t &entry_info
 template<class Archive>
 void serialize(Archive &archive, vierkant::Mesh::lod_t &lod)
 {
-    archive(cereal::make_nvp("base_index", lod.base_index),
-            cereal::make_nvp("num_indices", lod.num_indices),
-            cereal::make_nvp("base_meshlet", lod.base_meshlet),
-            cereal::make_nvp("num_meshlets", lod.num_meshlets));
+    archive(cereal::make_nvp("base_index", lod.base_index), cereal::make_nvp("num_indices", lod.num_indices),
+            cereal::make_nvp("base_meshlet", lod.base_meshlet), cereal::make_nvp("num_meshlets", lod.num_meshlets));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Mesh::entry_t &entry)
 {
-    archive(cereal::make_nvp("name", entry.name),
-            cereal::make_nvp("transform", entry.transform),
+    archive(cereal::make_nvp("name", entry.name), cereal::make_nvp("transform", entry.transform),
             cereal::make_nvp("bounding_box", entry.bounding_box),
             cereal::make_nvp("bounding_sphere", entry.bounding_sphere),
-            cereal::make_nvp("node_index", entry.node_index),
-            cereal::make_nvp("vertex_offset", entry.vertex_offset),
-            cereal::make_nvp("num_vertices", entry.num_vertices),
-            cereal::make_nvp("lods", entry.lods),
+            cereal::make_nvp("node_index", entry.node_index), cereal::make_nvp("vertex_offset", entry.vertex_offset),
+            cereal::make_nvp("num_vertices", entry.num_vertices), cereal::make_nvp("lods", entry.lods),
             cereal::make_nvp("material_index", entry.material_index),
             cereal::make_nvp("primitive_type", entry.primitive_type),
             cereal::make_nvp("morph_vertex_offset", entry.morph_vertex_offset),
@@ -343,16 +310,12 @@ void serialize(Archive &archive, vierkant::mesh_buffer_bundle_t &mesh_buffer_bun
 template<class Archive>
 void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
 {
-    archive(cereal::make_nvp("size", createInfo.size),
-            cereal::make_nvp("position", createInfo.position),
-            cereal::make_nvp("fullscreen", createInfo.fullscreen),
-            cereal::make_nvp("vsync", createInfo.vsync),
+    archive(cereal::make_nvp("size", createInfo.size), cereal::make_nvp("position", createInfo.position),
+            cereal::make_nvp("fullscreen", createInfo.fullscreen), cereal::make_nvp("vsync", createInfo.vsync),
             cereal::make_optional_nvp("use_hdr", createInfo.use_hdr),
             cereal::make_optional_nvp("joysticks", createInfo.joysticks, true),
             cereal::make_nvp("monitor_index", createInfo.monitor_index),
-            cereal::make_nvp("sample_count", createInfo.sample_count),
-            cereal::make_nvp("title", createInfo.title)
-    );
+            cereal::make_nvp("sample_count", createInfo.sample_count), cereal::make_nvp("title", createInfo.title));
 }
 
 template<class Archive>
@@ -377,12 +340,10 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
             cereal::make_nvp("tonemap", render_settings.tonemap),
             cereal::make_nvp("ambient_occlusion", render_settings.ambient_occlusion),
             cereal::make_nvp("max_ao_distance", render_settings.max_ao_distance),
-            cereal::make_nvp("bloom", render_settings.bloom),
-            cereal::make_nvp("gamma", render_settings.gamma),
+            cereal::make_nvp("bloom", render_settings.bloom), cereal::make_nvp("gamma", render_settings.gamma),
             cereal::make_nvp("exposure", render_settings.exposure),
             cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
-            cereal::make_nvp("use_dof_focus_overlay", render_settings.use_dof_focus_overlay)
-    );
+            cereal::make_nvp("use_dof_focus_overlay", render_settings.use_dof_focus_overlay));
 }
 
 template<class Archive>
@@ -397,24 +358,18 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("draw_skybox", render_settings.draw_skybox),
             cereal::make_nvp("compaction", render_settings.compaction),
             cereal::make_nvp("use_denoiser", render_settings.denoising),
-            cereal::make_nvp("tonemap", render_settings.tonemap),
-            cereal::make_nvp("bloom", render_settings.bloom),
+            cereal::make_nvp("tonemap", render_settings.tonemap), cereal::make_nvp("bloom", render_settings.bloom),
             cereal::make_nvp("environment_factor", render_settings.environment_factor),
-            cereal::make_nvp("gamma", render_settings.gamma),
-            cereal::make_nvp("exposure", render_settings.exposure),
-            cereal::make_nvp("depth_of_field", render_settings.depth_of_field)
-    );
+            cereal::make_nvp("gamma", render_settings.gamma), cereal::make_nvp("exposure", render_settings.exposure),
+            cereal::make_nvp("depth_of_field", render_settings.depth_of_field));
 }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::ortho_camera_params_t &cam)
 {
-    archive(cereal::make_nvp("left", cam.left),
-            cereal::make_nvp("right", cam.right),
-            cereal::make_nvp("bottom", cam.bottom),
-            cereal::make_nvp("top", cam.top),
-            cereal::make_nvp("near", cam.near_),
-            cereal::make_nvp("far", cam.far_));
+    archive(cereal::make_nvp("left", cam.left), cereal::make_nvp("right", cam.right),
+            cereal::make_nvp("bottom", cam.bottom), cereal::make_nvp("top", cam.top),
+            cereal::make_nvp("near", cam.near_), cereal::make_nvp("far", cam.far_));
 }
 
 template<class Archive>
@@ -423,9 +378,7 @@ void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
     archive(cereal::make_nvp("focal_length", params.focal_length),
             cereal::make_nvp("sensor_width", params.sensor_width),
             cereal::make_nvp("clipping_distances", params.clipping_distances),
-            cereal::make_nvp("focal_distance", params.focal_distance),
-            cereal::make_nvp("fstop", params.fstop)
-    );
+            cereal::make_nvp("focal_distance", params.focal_distance), cereal::make_nvp("fstop", params.fstop));
 }
 
 template<class Archive>
@@ -438,8 +391,7 @@ void serialize(Archive &archive, vierkant::CameraControl &camera_control)
 template<class Archive>
 void serialize(Archive &archive, vierkant::FlyCamera &fly_camera)
 {
-    archive(cereal::base_class<vierkant::CameraControl>(&fly_camera),
-            cereal::make_nvp("position", fly_camera.position),
+    archive(cereal::base_class<vierkant::CameraControl>(&fly_camera), cereal::make_nvp("position", fly_camera.position),
             cereal::make_nvp("spherical_coords", fly_camera.spherical_coords),
             cereal::make_nvp("move_speed", fly_camera.move_speed));
 }
@@ -449,8 +401,7 @@ void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
 {
     archive(cereal::base_class<vierkant::CameraControl>(&orbit_camera),
             cereal::make_nvp("spherical_coords", orbit_camera.spherical_coords),
-            cereal::make_nvp("distance", orbit_camera.distance),
-            cereal::make_nvp("look_at", orbit_camera.look_at));
+            cereal::make_nvp("distance", orbit_camera.distance), cereal::make_nvp("look_at", orbit_camera.look_at));
 }
 
 }// namespace vierkant
@@ -459,20 +410,15 @@ namespace vierkant::model
 {
 
 template<class Archive>
-void serialize(Archive &archive,
-               vierkant::model::model_assets_t &mesh_assets)
+void serialize(Archive &archive, vierkant::model::model_assets_t &mesh_assets)
 {
     archive(cereal::make_nvp("geometry_data", mesh_assets.geometry_data),
-            cereal::make_nvp("materials", mesh_assets.materials),
-            cereal::make_nvp("textures", mesh_assets.textures),
+            cereal::make_nvp("materials", mesh_assets.materials), cereal::make_nvp("textures", mesh_assets.textures),
             cereal::make_nvp("texture_samplers", mesh_assets.texture_samplers),
-//            cereal::make_nvp("lights", mesh_assets.lights),
-//            cereal::make_nvp("cameras", mesh_assets.cameras),
-            cereal::make_nvp("root_node", mesh_assets.root_node),
-            cereal::make_nvp("root_bone", mesh_assets.root_bone),
+            //            cereal::make_nvp("lights", mesh_assets.lights),
+            //            cereal::make_nvp("cameras", mesh_assets.cameras),
+            cereal::make_nvp("root_node", mesh_assets.root_node), cereal::make_nvp("root_bone", mesh_assets.root_bone),
             cereal::make_nvp("node_animations", mesh_assets.node_animations));
 }
 
 }// namespace vierkant::model
-
-

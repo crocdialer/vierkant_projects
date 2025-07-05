@@ -251,7 +251,7 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_ass
     load_params.device = m_context.device;
     load_params.buffer_flags = buffer_flags;
     load_params.mesh_buffers_params.pack_vertices = true;
-    auto mesh = vierkant::model::load_mesh(load_params, mesh_assets);
+    auto [mesh, textures, samplers] = vierkant::model::load_mesh(load_params, mesh_assets);
 
     // attach mesh to an object, insert into scene
     {

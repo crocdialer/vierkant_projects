@@ -718,10 +718,9 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.load_queue = m_queue_model_loading;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = m_mesh_buffer_flags;
-        {
-            mesh = vierkant::model::load_mesh(load_params, *model_assets);
-            mesh->id = mesh_id;
-        }
+        auto [m, textures, samplers] = vierkant::model::load_mesh(load_params, *model_assets);
+        mesh = m;
+        mesh->id = mesh_id;
 
         m_num_loading--;
 
