@@ -39,7 +39,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
             vierkant::Object3DPtr object;
 
-            if(params.load_as_mesh_library)
+            if(params.mesh_library)
             {
                 object = m_object_store->create_object();
 
@@ -48,10 +48,22 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
                 // set library flag
                 mesh_component.library = true;
+                using filter_key_t = std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>;
+                std::set<filter_key_t> duplicate_filter;
 
                 for(uint32_t i = 0; i < mesh->entries.size(); ++i)
                 {
                     auto &mesh_entry = mesh->entries[i];
+
+                    if(params.mesh_library_no_dups)
+                    {
+                        filter_key_t key = {mesh_entry.material_index, mesh_entry.vertex_offset,
+                                            mesh_entry.num_vertices, mesh_entry.lods.front().base_index,
+                                            mesh_entry.lods.front().num_indices};
+                        if(duplicate_filter.contains(key)) { continue; }
+                        duplicate_filter.insert(key);
+                    }
+
                     mesh_component.entry_indices = {i};
                     auto entry_obj = m_scene->create_mesh_object(mesh_component);
 
@@ -651,9 +663,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
             // log timing
-            auto build_ms =
-                    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time)
-                            .count() / 1000.f;
+            auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    std::chrono::high_resolution_clock::now() - start_time)
+                                    .count() /
+                            1000.f;
             spdlog::debug("done building scene ({:.2f} s): {}", build_ms, m_scene_paths[m_scene_id].string());
         };
         main_queue().post(done_cb);

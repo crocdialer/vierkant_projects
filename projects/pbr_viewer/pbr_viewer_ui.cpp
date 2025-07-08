@@ -586,7 +586,7 @@ void PBRViewer::create_ui()
                 add_to_recent_files(p);
                 load_model_params_t load_params = {p};
                 load_params.clear_scene = false;
-                load_params.load_as_mesh_library = true;
+                load_params.mesh_library = true;
                 load_params.normalize_size = false;
                 load_model(load_params);
             }
