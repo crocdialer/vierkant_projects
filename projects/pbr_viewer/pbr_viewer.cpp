@@ -541,25 +541,25 @@ void PBRViewer::init_logger()
     _loggers[pbr_logger_name] = spdlog::stdout_color_mt(pbr_logger_name);
     _loggers[spdlog::default_logger()->name()] = spdlog::default_logger();
 
-    std::shared_ptr<spdlog::sinks::basic_file_sink_mt> file_sink;
-    try
-    {
-        file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(m_settings.log_file);
-    } catch(spdlog::spdlog_ex &e)
-    {}
+    // std::shared_ptr<spdlog::sinks::basic_file_sink_mt> file_sink;
+    // try
+    // {
+    //     file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(m_settings.log_file);
+    // } catch(spdlog::spdlog_ex &e)
+    // {}
 
-    auto scroll_log_sink = std::make_shared<delegate_sink_t>();
-    scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level,
-                                                    const std::string & /*logger_name*/) {
-        std::unique_lock lock(m_log_queue_mutex);
-        m_log_queue.emplace_back(msg, log_level);
-        while(m_log_queue.size() > m_max_log_queue_size) { m_log_queue.pop_front(); }
-    };
-    for(auto &[name, logger]: _loggers)
-    {
-        logger->sinks().push_back(scroll_log_sink);
-        if(file_sink) { logger->sinks().push_back(file_sink); }
-    }
+    // auto scroll_log_sink = std::make_shared<delegate_sink_t>();
+    // scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level,
+    //                                                 const std::string & /*logger_name*/) {
+    //     std::unique_lock lock(m_log_queue_mutex);
+    //     m_log_queue.emplace_back(msg, log_level);
+    //     while(m_log_queue.size() > m_max_log_queue_size) { m_log_queue.pop_front(); }
+    // };
+    // for(auto &[name, logger]: _loggers)
+    // {
+    //     logger->sinks().push_back(scroll_log_sink);
+    //     if(file_sink) { logger->sinks().push_back(file_sink); }
+    // }
 }
 
 int main(int argc, char *argv[])

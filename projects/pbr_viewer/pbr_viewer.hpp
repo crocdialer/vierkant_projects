@@ -20,6 +20,9 @@
 
 DEFINE_NAMED_UUID(SceneId)
 
+constexpr char g_cache_path[] = "cache";
+constexpr char g_zip_path[] = "cache.zip";
+
 class PBRViewer : public crocore::Application
 {
 
@@ -215,6 +218,7 @@ private:
     void save_scene(std::filesystem::path path = {});
 
     std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = s_default_scene_path);
+    void save_scene_data(const scene_data_t& data, const std::filesystem::path &path);
 
     void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false, SceneId scene_id = {});
 

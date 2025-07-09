@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 if (${CMAKE_BUILD_TYPE} IN_LIST RELEASE_BUILDS)
-    list(APPEND CXX_FLAGS "-O3")
+    list(APPEND CXX_FLAGS "-O1")
     add_definitions(-DNDEBUG)
 else ()
     remove_definitions(-DNDEBUG)
@@ -33,6 +33,10 @@ set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 #include_directories(${netzer_INCLUDE_DIRS})
 
 # cereal
+if(NOT BUILD_SHARED_LIBS)
+add_definitions(-DCEREAL_USE_STATIC_LIB)
+endif()
+
 include_directories("extern/cereal/include")
 
 # cxxopts
