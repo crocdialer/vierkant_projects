@@ -45,6 +45,7 @@ FOREACH(folderItem ${FOLDER_CONTENT})
 
                 if(MSVC)
                     target_compile_options(${itemName} PRIVATE /W2 /bigobj) #TODO /W4 /WX (warnings as errors)
+                    add_compile_definitions(CEREAL_NO_RTTI_POLYMORPHISM)
                 else()
                     target_compile_options(${itemName} PRIVATE -Wall -Wextra -Werror) # -Wpedantic
                 endif()

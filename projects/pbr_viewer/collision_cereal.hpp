@@ -2,7 +2,6 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/list.hpp>
-#include <cereal/types/memory.hpp>
 #include <vierkant/physics_context.hpp>
 
 namespace vierkant::collision

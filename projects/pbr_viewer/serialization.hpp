@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cereal/cereal.hpp>
-#include <cereal/types/memory.hpp>
+// #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/set.hpp>
 #include <cereal/types/unordered_map.hpp>
@@ -47,71 +47,6 @@ void serialize(Archive &archive, vierkant::bcn::compress_result_t &compress_resu
     archive(cereal::make_nvp("mode", compress_result.mode), cereal::make_nvp("base_width", compress_result.base_width),
             cereal::make_nvp("base_height", compress_result.base_height),
             cereal::make_nvp("levels", compress_result.levels));
-}
-
-//! optional value support
-template<typename T>
-struct OptionalNameValuePair : public NameValuePair<T>
-{
-    OptionalNameValuePair(char const *name, T &&value, std::remove_reference_t<T> defaultValue_)
-        : NameValuePair<T>(name, std::forward<T>(value)), defaultValue(std::move(defaultValue_))
-    {}
-
-    std::remove_reference_t<T> defaultValue;
-};
-
-template<typename T>
-OptionalNameValuePair<T> make_optional_nvp(const std::string &name, T &&value,
-                                           std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
-{
-    return {name.c_str(), std::forward<T>(value), std::move(defaultValue)};
-}
-
-template<typename T>
-OptionalNameValuePair<T> make_optional_nvp(const char *name, T &&value,
-                                           std::remove_reference_t<T> defaultValue = std::remove_reference_t<T>())
-{
-    return {name, std::forward<T>(value), std::move(defaultValue)};
-}
-
-template<typename T>
-void prologue(JSONInputArchive &, const OptionalNameValuePair<T> &)
-{}
-
-template<typename T>
-void prologue(JSONOutputArchive &, const OptionalNameValuePair<T> &)
-{}
-
-template<typename T>
-void epilogue(JSONInputArchive &, const OptionalNameValuePair<T> &)
-{}
-
-template<typename T>
-void epilogue(JSONOutputArchive &, const OptionalNameValuePair<T> &)
-{}
-
-template<class T>
-inline void CEREAL_SAVE_FUNCTION_NAME(JSONOutputArchive &ar, OptionalNameValuePair<T> const &t)
-{
-    ar.setNextName(t.name);
-    ar(t.value);
-}
-
-template<class T>
-inline void CEREAL_LOAD_FUNCTION_NAME(JSONInputArchive &ar, OptionalNameValuePair<T> &t)
-{
-    ar.setNextName(t.name);
-
-    try
-    {
-        ar(t.value);
-    } catch(const Exception &e)
-    {
-        ar.setNextName(nullptr);
-
-        if(std::string(e.what()).find("provided NVP (" + std::string(t.name)) == std::string::npos) { throw; }
-        else { t.value = t.defaultValue; }
-    }
 }
 
 }// namespace cereal
@@ -312,8 +247,8 @@ void serialize(Archive &archive, vierkant::Window::create_info_t &createInfo)
 {
     archive(cereal::make_nvp("size", createInfo.size), cereal::make_nvp("position", createInfo.position),
             cereal::make_nvp("fullscreen", createInfo.fullscreen), cereal::make_nvp("vsync", createInfo.vsync),
-            cereal::make_optional_nvp("use_hdr", createInfo.use_hdr),
-            cereal::make_optional_nvp("joysticks", createInfo.joysticks, true),
+            cereal::make_nvp("use_hdr", createInfo.use_hdr),
+            cereal::make_nvp("joysticks", createInfo.joysticks),
             cereal::make_nvp("monitor_index", createInfo.monitor_index),
             cereal::make_nvp("sample_count", createInfo.sample_count), cereal::make_nvp("title", createInfo.title));
 }
@@ -381,44 +316,4 @@ void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
             cereal::make_nvp("focal_distance", params.focal_distance), cereal::make_nvp("fstop", params.fstop));
 }
 
-template<class Archive>
-void serialize(Archive &archive, vierkant::CameraControl &camera_control)
-{
-    archive(cereal::make_nvp("enabled", camera_control.enabled));
-    archive(cereal::make_nvp("mouse_sensitivity", camera_control.mouse_sensitivity));
-}
-
-template<class Archive>
-void serialize(Archive &archive, vierkant::FlyCamera &fly_camera)
-{
-    archive(cereal::base_class<vierkant::CameraControl>(&fly_camera), cereal::make_nvp("position", fly_camera.position),
-            cereal::make_nvp("spherical_coords", fly_camera.spherical_coords),
-            cereal::make_nvp("move_speed", fly_camera.move_speed));
-}
-
-template<class Archive>
-void serialize(Archive &archive, vierkant::OrbitCamera &orbit_camera)
-{
-    archive(cereal::base_class<vierkant::CameraControl>(&orbit_camera),
-            cereal::make_nvp("spherical_coords", orbit_camera.spherical_coords),
-            cereal::make_nvp("distance", orbit_camera.distance), cereal::make_nvp("look_at", orbit_camera.look_at));
-}
-
 }// namespace vierkant
-
-namespace vierkant::model
-{
-
-template<class Archive>
-void serialize(Archive &archive, vierkant::model::model_assets_t &mesh_assets)
-{
-    archive(cereal::make_nvp("geometry_data", mesh_assets.geometry_data),
-            cereal::make_nvp("materials", mesh_assets.materials), cereal::make_nvp("textures", mesh_assets.textures),
-            cereal::make_nvp("texture_samplers", mesh_assets.texture_samplers),
-            //            cereal::make_nvp("lights", mesh_assets.lights),
-            //            cereal::make_nvp("cameras", mesh_assets.cameras),
-            cereal::make_nvp("root_node", mesh_assets.root_node), cereal::make_nvp("root_bone", mesh_assets.root_bone),
-            cereal::make_nvp("node_animations", mesh_assets.node_animations));
-}
-
-}// namespace vierkant::model

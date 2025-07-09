@@ -6,7 +6,7 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/list.hpp>
-#include <cereal/types/memory.hpp>
+// #include <cereal/types/memory.hpp>
 #include <vierkant/animation.hpp>
 #include <vierkant/nodes.hpp>
 
@@ -50,18 +50,3 @@ void serialize(Archive &archive, vierkant::animation_component_t_<T> &a)
 }
 
 }// namespace vierkant
-
-namespace vierkant::nodes
-{
-template<class Archive>
-void serialize(Archive &archive, vierkant::nodes::node_t &n)
-{
-    archive(cereal::make_nvp("name", n.name),
-            cereal::make_nvp("transform", n.transform),
-            cereal::make_nvp("offset", n.offset),
-            cereal::make_nvp("index", n.index),
-            cereal::make_nvp("parent", n.parent),
-            cereal::make_nvp("children", n.children));
-}
-
-}// namespace vierkant::nodes
