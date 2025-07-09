@@ -619,7 +619,7 @@ void PBRViewer::create_ui()
         ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
                                 (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
         ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
-
+        ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
         vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
     };
