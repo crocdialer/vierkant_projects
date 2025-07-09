@@ -368,7 +368,7 @@ void PBRViewer::update(double time_delta)
 
     if(m_settings.draw_ui) { m_gui_context.update(time_delta, m_window->size()); }
     m_camera_control.current->update(time_delta);
-    
+
     // issue top-level draw-command
     m_window->draw();
 }
@@ -455,7 +455,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         {
             m_draw_context.draw_rect(m_renderer_overlay, *m_selection_area, glm::vec4(.3f, 0.25f, .8f, 0.3f));
         }
-        
+
         return m_renderer_overlay.render(framebuffer);
     };
 
@@ -542,11 +542,14 @@ void PBRViewer::init_logger()
     _loggers[spdlog::default_logger()->name()] = spdlog::default_logger();
 
     std::shared_ptr<spdlog::sinks::basic_file_sink_mt> file_sink;
-    try
+    if(!m_settings.log_file.empty())
     {
-        file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(m_settings.log_file);
-    } catch(spdlog::spdlog_ex &e)
-    {}
+        try
+        {
+            file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(m_settings.log_file);
+        } catch(spdlog::spdlog_ex &e)
+        {}
+    }
 
     auto scroll_log_sink = std::make_shared<delegate_sink_t>();
     scroll_log_sink->log_delegates[name()] = [this](const std::string &msg, spdlog::level::level_enum log_level,
