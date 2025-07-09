@@ -586,7 +586,7 @@ void PBRViewer::create_ui()
                 add_to_recent_files(p);
                 load_model_params_t load_params = {p};
                 load_params.clear_scene = false;
-                load_params.load_as_mesh_library = true;
+                load_params.mesh_library = true;
                 load_params.normalize_size = false;
                 load_model(load_params);
             }
@@ -619,7 +619,7 @@ void PBRViewer::create_ui()
         ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
                                 (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
         ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
-
+        ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
         vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
     };

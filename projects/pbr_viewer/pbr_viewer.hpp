@@ -191,9 +191,19 @@ private:
 
     struct load_model_params_t
     {
+        //! model-path
         std::filesystem::path path = {};
-        bool load_as_mesh_library = false;
+
+        //! load a model as mesh-library, containing individual sub-object per mesh-entry
+        bool mesh_library = false;
+
+        //! when loading as mesh-library, avoid duplicated objects for identical entries
+        bool mesh_library_no_dups = false;
+
+        //! normalize dimensions of loaded assets
         bool normalize_size = false;
+
+        //! clear the scene when loading-operation succeeds
         bool clear_scene = false;
     };
     void load_model(const load_model_params_t &params);
