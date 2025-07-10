@@ -434,6 +434,8 @@ void PBRViewer::create_ui()
                     bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
 
                     if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
+
+                    ImGui::SliderFloat("move speed", &m_camera_control.fly->move_speed, 0.1f, 100.f);
                     if(refresh)
                     {
                         m_camera->transform = m_camera_control.current->transform();
@@ -617,7 +619,7 @@ void PBRViewer::create_ui()
         const float DISTANCE = 10.0f;
         ImGuiIO &io = ImGui::GetIO();
         ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE,
-                                (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
+                                   (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
         ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
         ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
