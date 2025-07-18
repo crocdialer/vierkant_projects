@@ -4,19 +4,18 @@
 
 #pragma once
 
-#include <filesystem>
-
-#include "serialization.hpp"
-#include "spdlog/spdlog.h"
+#include "scene_data.hpp"
 #include <crocore/Application.hpp>
 #include <crocore/set_lru.hpp>
+#include <filesystem>
+#include <spdlog/spdlog.h>
+#include <vierkant/CameraControl.hpp>
+#include <vierkant/PBRDeferred.hpp>
 #include <vierkant/PBRPathTracer.hpp>
 #include <vierkant/imgui/imgui_util.h>
 #include <vierkant/object_overlay.hpp>
 #include <vierkant/physics_context.hpp>
 #include <vierkant/physics_debug_draw.hpp>
-
-DEFINE_NAMED_UUID(SceneId)
 
 class PBRViewer : public crocore::Application
 {
@@ -96,68 +95,6 @@ public:
 
     static constexpr char s_default_scene_path[] = "scene.json";
 
-    struct mesh_state_t
-    {
-        vierkant::MeshId mesh_id = vierkant::MeshId::nil();
-        std::optional<std::unordered_set<uint32_t>> entry_indices = {};
-        bool mesh_library = false;
-    };
-
-    struct scene_node_t
-    {
-        //! a descriptive name
-        std::string name;
-
-        //! indicating if node is enabled
-        bool enabled = true;
-
-        //! rigid transformation
-        vierkant::transform_t transform = {};
-
-        //! list of child-nodes (indices into scene_data_t::nodes)
-        std::vector<uint32_t> children = {};
-
-        //! optional sub-scene-id.
-        std::optional<SceneId> scene_id;
-
-        //! optional mesh-state
-        std::optional<mesh_state_t> mesh_state;
-
-        //! optional animation-state
-        std::optional<vierkant::animation_component_t> animation_state = {};
-
-        //! optional physics-state
-        std::optional<vierkant::physics_component_t> physics_state = {};
-    };
-
-    struct scene_camera_t
-    {
-        std::string name;
-        vierkant::transform_t transform = {};
-        vierkant::camera_params_variant_t params = {};
-    };
-
-    struct scene_data_t
-    {
-        //! descriptive name for the scene
-        std::string name;
-
-        //! map of sub-scenes (.json)
-        std::unordered_map<SceneId, std::string> scene_paths;
-
-        //! array of file-paths, containing model-files (.gltf, .glb, .obj)
-        std::unordered_map<vierkant::MeshId, std::string> model_paths;
-
-        std::string environment_path;
-        std::vector<scene_node_t> nodes;
-
-        //! indices into scene_data_t::nodes
-        std::vector<uint32_t> scene_roots;
-
-        std::vector<scene_camera_t> cameras;
-        std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
-    };
-
     explicit PBRViewer(const crocore::Application::create_info_t &create_info);
 
     void load_file(const std::string &path, bool clear);
@@ -224,7 +161,8 @@ private:
 
     static std::optional<scene_data_t> load_scene_data(const std::filesystem::path &path = s_default_scene_path);
 
-    void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false, SceneId scene_id = {});
+    void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false,
+                     vierkant::SceneId scene_id = {});
 
     struct overlay_assets_t
     {
@@ -273,7 +211,7 @@ private:
     std::shared_ptr<vierkant::ObjectStore> m_object_store = vierkant::create_object_store();
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store);
     vierkant::PhysicsDebugRendererPtr m_physics_debug;
-    
+
     vierkant::CameraPtr m_camera;
 
     struct camera_control_t
@@ -319,73 +257,6 @@ private:
 
     // track of scene/model-paths
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
-    std::map<SceneId, std::filesystem::path> m_scene_paths;
-    SceneId m_scene_id;
+    std::map<vierkant::SceneId, std::filesystem::path> m_scene_paths;
+    vierkant::SceneId m_scene_id;
 };
-
-template<class Archive>
-void serialize(Archive &ar, PBRViewer::settings_t &settings)
-{
-    ar(cereal::make_nvp("use_validation", settings.use_validation),
-       cereal::make_nvp("use_debug_labels", settings.use_debug_labels),
-       cereal::make_nvp("log_level", settings.log_level), cereal::make_nvp("log_file", settings.log_file),
-       cereal::make_nvp("recent_files", settings.recent_files), cereal::make_nvp("window", settings.window_info),
-       cereal::make_nvp("pbr_settings", settings.pbr_settings),
-       cereal::make_nvp("path_tracer_settings", settings.path_tracer_settings),
-       cereal::make_nvp("draw_ui", settings.draw_ui),
-       cereal::make_optional_nvp("ui_draw_view_controls", settings.ui_draw_view_controls),
-       cereal::make_nvp("font_url", settings.font_url), cereal::make_nvp("ui_scale", settings.ui_scale),
-       cereal::make_nvp("ui_font_scale", settings.ui_font_scale), cereal::make_nvp("draw_grid", settings.draw_grid),
-       cereal::make_nvp("draw_aabbs", settings.draw_aabbs), cereal::make_nvp("draw_physics", settings.draw_physics),
-       cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
-       cereal::make_nvp("path_tracing", settings.path_tracing),
-       cereal::make_nvp("texture_compression", settings.texture_compression),
-       cereal::make_nvp("mesh_buffer_params", settings.mesh_buffer_params),
-       cereal::make_nvp("cache_mesh_bundles", settings.cache_mesh_bundles),
-       cereal::make_nvp("cache_zip_archive", settings.cache_zip_archive),
-       cereal::make_nvp("enable_raytracing_pipeline_features", settings.enable_raytracing_pipeline_features),
-       cereal::make_nvp("enable_ray_query_features", settings.enable_ray_query_features),
-       cereal::make_nvp("enable_mesh_shader_device_features", settings.enable_mesh_shader_device_features),
-       cereal::make_nvp("orbit_camera", settings.orbit_camera), cereal::make_nvp("fly_camera", settings.fly_camera),
-       cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
-       cereal::make_optional_nvp("ortho_camera", settings.ortho_camera),
-       cereal::make_nvp("current_guizmo", settings.current_guizmo),
-       cereal::make_nvp("object_overlay_mode", settings.object_overlay_mode),
-       cereal::make_nvp("target_fps", settings.target_fps));
-}
-
-template<class Archive>
-void serialize(Archive &ar, PBRViewer::mesh_state_t &mesh_state)
-{
-    ar(cereal::make_nvp("mesh_id", mesh_state.mesh_id), cereal::make_nvp("mesh_library", mesh_state.mesh_library),
-       cereal::make_nvp("entry_indices", mesh_state.entry_indices));
-}
-
-template<class Archive>
-void serialize(Archive &ar, PBRViewer::scene_node_t &scene_node)
-{
-    ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled, true),
-       cereal::make_nvp("transform", scene_node.transform), cereal::make_optional_nvp("children", scene_node.children),
-       cereal::make_optional_nvp("scene_id", scene_node.scene_id),
-       cereal::make_optional_nvp("mesh_state", scene_node.mesh_state),
-       cereal::make_optional_nvp("animation_state", scene_node.animation_state),
-       cereal::make_optional_nvp("physics_state", scene_node.physics_state));
-}
-
-template<class Archive>
-void serialize(Archive &ar, PBRViewer::scene_camera_t &camera)
-{
-    ar(cereal::make_nvp("name", camera.name), cereal::make_nvp("transform", camera.transform),
-       cereal::make_nvp("params", camera.params));
-}
-
-template<class Archive>
-void serialize(Archive &ar, PBRViewer::scene_data_t &scene_data)
-{
-    ar(cereal::make_optional_nvp("name", scene_data.name),
-       cereal::make_optional_nvp("environment_path", scene_data.environment_path),
-       cereal::make_optional_nvp("scene_paths", scene_data.scene_paths),
-       cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
-       cereal::make_nvp("scene_roots", scene_data.scene_roots), cereal::make_nvp("cameras", scene_data.cameras),
-       cereal::make_optional_nvp("materials", scene_data.materials));
-}

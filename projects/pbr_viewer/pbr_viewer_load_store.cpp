@@ -1,10 +1,13 @@
 #include "pbr_viewer.hpp"
-#include "ziparchive.h"
 #include <crocore/filesystem.hpp>
 #include <cxxopts.hpp>
 #include <fstream>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
+
+#include "scene_cereal.hpp"
+#include "serialization.hpp"
+#include "ziparchive.h"
 
 using double_second = std::chrono::duration<double>;
 constexpr char g_cache_path[] = "cache";
@@ -14,7 +17,7 @@ constexpr char g_zip_path[] = "cache.zip";
 struct object_flags_component_t
 {
     VIERKANT_ENABLE_AS_COMPONENT();
-    SceneId scene_id = SceneId::nil();
+    vierkant::SceneId scene_id = vierkant::SceneId::nil();
 };
 
 void PBRViewer::add_to_recent_files(const std::filesystem::path &f)
@@ -295,7 +298,7 @@ void PBRViewer::load_file(const std::string &path, bool clear)
                 {
                     if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
-                    SceneId scene_id;
+                    vierkant::SceneId scene_id;
                     m_scene_paths[scene_id] = path;
                     build_scene(loaded_scene, clear, scene_id);
                 }
@@ -437,7 +440,8 @@ void PBRViewer::save_scene(std::filesystem::path path)
     }
 }
 
-void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene, SceneId scene_id)
+void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene,
+                            vierkant::SceneId scene_id)
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -448,7 +452,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
         struct scene_data_assets_t
         {
             scene_data_t scene_data;
-            SceneId scene_id;
+            vierkant::SceneId scene_id;
             std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
             std::vector<vierkant::Object3DPtr> objects;
         };
@@ -460,7 +464,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             scene_assets[0].scene_id = scene_id;
 
             // sub-scenes
-            std::deque<std::pair<SceneId, std::string>> sub_scene_paths = {
+            std::deque<std::pair<vierkant::SceneId, std::string>> sub_scene_paths = {
                     scene_assets[0].scene_data.scene_paths.begin(), scene_assets[0].scene_data.scene_paths.end()};
 
             // iterate subscene-paths bfs
@@ -615,7 +619,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             std::vector<vierkant::Object3DPtr> root_objects(scene_assets.size());
 
             // map scene-ids to their root-objects
-            std::unordered_map<SceneId, vierkant::Object3DPtr> scene_root_map;
+            std::unordered_map<vierkant::SceneId, vierkant::Object3DPtr> scene_root_map;
 
             for(uint32_t i = 0; i < scene_assets.size(); ++i)
             {
@@ -763,7 +767,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     return mesh;
 }
 
-std::optional<PBRViewer::scene_data_t> PBRViewer::load_scene_data(const std::filesystem::path &path)
+std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::path &path)
 {
     // create and open a character archive for input
     std::ifstream file_stream(path.string());
@@ -774,7 +778,7 @@ std::optional<PBRViewer::scene_data_t> PBRViewer::load_scene_data(const std::fil
         try
         {
             cereal::JSONInputArchive archive(file_stream);
-            PBRViewer::scene_data_t scene_data;
+            scene_data_t scene_data;
             spdlog::debug("loading scene: {}", path.string());
             archive(scene_data);
             return scene_data;
