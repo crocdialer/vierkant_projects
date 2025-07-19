@@ -53,7 +53,7 @@ jobs:
           tag: nightly
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            pbr_viewer_linux_x64.tar.gz
+            pbr_viewer_linux_x64.tar.xz
             pbr_viewer_win_x64.zip
       
 

@@ -25,7 +25,7 @@ nightly builds:
 [pbr_viewer_win_x64.zip](https://github.com/crocdialer/vierkant_projects/releases/download/nightly/pbr_viewer_win_x64.zip)
 
 - linux:
-[pbr_viewer_linux_x64.tar.gz](https://github.com/crocdialer/vierkant_projects/releases/download/nightly/pbr_viewer_linux_x64.tar.gz)
+[pbr_viewer_linux_x64.tar.gz](https://github.com/crocdialer/vierkant_projects/releases/download/nightly/pbr_viewer_linux_x64.tar.xz)
 
 usage:
 -
