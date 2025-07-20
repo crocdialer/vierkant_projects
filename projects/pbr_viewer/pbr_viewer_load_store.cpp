@@ -586,7 +586,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 for(const auto &cam: scene_data.cameras)
                 {
                     auto object = std::visit(
-                            [this, &registry](auto &&camera_params) -> vierkant::CameraPtr {
+                            [&registry](auto &&camera_params) -> vierkant::CameraPtr {
                                 using T = std::decay_t<decltype(camera_params)>;
 
                                 if constexpr(std::is_same_v<T, vierkant::ortho_camera_params_t>)
