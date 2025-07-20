@@ -152,7 +152,15 @@ void PBRViewer::create_ui()
                 case vierkant::Key::_N: m_settings.draw_node_hierarchy = !m_settings.draw_node_hierarchy; break;
 
                 case vierkant::Key::_M:
-                    m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
+                    if(m_pbr_renderer->settings.debug_draw_flags == vierkant::Rasterizer::DRAW_ID)
+                    {
+                        m_pbr_renderer->settings.debug_draw_flags = vierkant::Rasterizer::LOD;
+                    }
+                    else
+                    {
+                        m_pbr_renderer->settings.debug_draw_flags =
+                                m_pbr_renderer->settings.debug_draw_flags ? 0 : vierkant::Rasterizer::DRAW_ID;
+                    }
                     break;
 
                 case vierkant::Key::_O: toggle_ortho_camera(); break;
@@ -207,7 +215,16 @@ void PBRViewer::create_ui()
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_A:
-                            m_pbr_renderer->settings.debug_draw_ids = !m_pbr_renderer->settings.debug_draw_ids;
+                            if(m_pbr_renderer->settings.debug_draw_flags == vierkant::Rasterizer::DRAW_ID)
+                            {
+                                m_pbr_renderer->settings.debug_draw_flags = vierkant::Rasterizer::LOD;
+                            }
+                            else
+                            {
+                                m_pbr_renderer->settings.debug_draw_flags =
+                                        m_pbr_renderer->settings.debug_draw_flags ? 0 : vierkant::Rasterizer::DRAW_ID;
+                            }
+
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_B:
