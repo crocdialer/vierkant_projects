@@ -1,8 +1,6 @@
 #include <crocore/Image.hpp>
 #include <crocore/filesystem.hpp>
-//#include <netzer/http.hpp>
 
-#include "vierkant/model/gltf.hpp"
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
@@ -12,8 +10,6 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 #include "pbr_viewer.hpp"
-
-////////////////////////////// VALIDATION LAYER ///////////////////////////////////////////////////
 
 using log_delegate_fn_t = std::function<void(const std::string &msg, spdlog::level::level_enum log_level,
                                              const std::string &logger_name)>;
