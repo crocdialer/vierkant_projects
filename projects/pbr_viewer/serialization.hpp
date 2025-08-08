@@ -139,7 +139,24 @@ void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
     set_lru = {array.begin(), array.end()};
 }
 
+template<class Archive>
+void save(Archive &archive, const crocore::Image_<unsigned char> &img)
+{
+    archive(crocore::encode_png(img));
+}
+
+template<class Archive>
+void load(Archive &archive, crocore::Image_<unsigned char> &img)
+{
+    std::vector<uint8_t> array;
+    archive(array);
+    img = std::move(*std::dynamic_pointer_cast<crocore::Image_<unsigned char>>(crocore::create_image_from_data(array)));
+}
+
 }// namespace crocore
+
+CEREAL_REGISTER_TYPE(crocore::Image_<unsigned char>);
+CEREAL_REGISTER_POLYMORPHIC_RELATION(crocore::Image, crocore::Image_<unsigned char>);
 
 namespace vierkant
 {
