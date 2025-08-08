@@ -242,6 +242,7 @@ void PBRViewer::create_graphics_pipeline()
     pbr_render_info.hdr_format = m_hdr_format;
     pbr_render_info.pipeline_cache = m_pipeline_cache;
     pbr_render_info.settings = m_settings.pbr_settings;
+    pbr_render_info.settings.use_ray_queries &= m_settings.enable_ray_query_features;
     pbr_render_info.logger_name = "pbr_deferred";
 
     if(m_pbr_renderer)
