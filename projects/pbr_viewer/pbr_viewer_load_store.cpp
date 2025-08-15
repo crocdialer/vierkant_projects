@@ -10,8 +10,14 @@
 #include "ziparchive.h"
 
 using double_second = std::chrono::duration<double>;
+
 constexpr char g_cache_path[] = "cache";
+constexpr char g_model_store_path[] = "models";
+constexpr char g_texture_store_path[] = "textures";
 constexpr char g_zip_path[] = "cache.zip";
+constexpr char g_file_suffix_model[] = "4km";
+
+std::shared_mutex g_bundle_rw_mutex;
 
 //! define a custom object-component, used to help with (sub)scene serialization
 struct object_flags_component_t
@@ -698,8 +704,8 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
         vierkant::hash_combine(hash_val, m_settings.texture_compression);
         std::filesystem::path bundle_path =
-                std::filesystem::path(g_cache_path) /
-                fmt::format("{}_{}.bin", std::filesystem::path(path).filename().string(), hash_val);
+                std::filesystem::path(g_cache_path) / g_model_store_path /
+                fmt::format("{}_{}.{}", std::filesystem::path(path).filename().string(), hash_val, g_file_suffix_model);
 
         auto mesh_id = vierkant::MeshId::from_name(bundle_path.string());
         bool bundle_created = false;
@@ -790,44 +796,8 @@ std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::pa
     return {};
 }
 
-void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets, const std::filesystem::path &path)
-{
-    // save data to archive
-    try
-    {
-        {
-            spdlog::stopwatch sw;
-
-            // create directory, if necessary
-            std::filesystem::create_directories(crocore::filesystem::get_directory_part(path));
-
-            // create and open a character archive for output
-            std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
-            spdlog::debug("serializing/writing mesh_buffer_bundle: {}", path.string());
-            cereal::BinaryOutputArchive archive(ofs);
-            archive(mesh_assets);
-            spdlog::debug("done serializing/writing mesh_buffer_bundle: {} ({})", path.string(), sw.elapsed());
-        }
-
-        if(m_settings.cache_zip_archive)
-        {
-            spdlog::stopwatch sw;
-            {
-                std::unique_lock lock(m_bundle_rw_mutex);
-                spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
-                vierkant::ziparchive zipstream(g_zip_path);
-                zipstream.add_file(path);
-            }
-            spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
-            std::filesystem::remove(path);
-        }
-    } catch(std::exception &e)
-    {
-        spdlog::error(e.what());
-    }
-}
-
-std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
+template<typename T>
+std::optional<T> load_bundle(const std::filesystem::path &path)
 {
     {
         std::ifstream cache_file(path);
@@ -837,9 +807,9 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
             try
             {
                 spdlog::debug("loading bundle '{}'", path.string());
-                vierkant::model::model_assets_t ret;
+                T ret;
 
-                std::shared_lock lock(m_bundle_rw_mutex);
+                std::shared_lock lock(g_bundle_rw_mutex);
                 cereal::BinaryInputArchive archive(cache_file);
                 archive(ret);
                 return ret;
@@ -856,11 +826,10 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
     {
         try
         {
-            //            spdlog::trace("archive '{}': {}", g_zip_path, zip.contents());
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
-            vierkant::model::model_assets_t ret;
+            T ret;
 
-            std::shared_lock lock(m_bundle_rw_mutex);
+            std::shared_lock lock(g_bundle_rw_mutex);
             auto zipstream = zip.open_file(path);
             cereal::BinaryInputArchive archive(zipstream);
             archive(ret);
@@ -871,6 +840,64 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
         }
     }
     return {};
+}
+
+template<typename T>
+void save_bundle(const T &data, const std::filesystem::path &path, bool compress)
+{
+    // save data to archive
+    try
+    {
+        {
+            spdlog::stopwatch sw;
+
+            // create directory, if necessary
+            std::filesystem::create_directories(crocore::filesystem::get_directory_part(path));
+
+            // create and open a character archive for output
+            std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
+            spdlog::debug("serializing/writing bundle: {}", path.string());
+            cereal::BinaryOutputArchive archive(ofs);
+            archive(data);
+            spdlog::debug("done serializing/writing bundle: {} ({})", path.string(), sw.elapsed());
+        }
+
+        if(compress)
+        {
+            spdlog::stopwatch sw;
+            {
+                std::unique_lock lock(g_bundle_rw_mutex);
+                spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
+                vierkant::ziparchive zipstream(g_zip_path);
+                zipstream.add_file(path);
+            }
+            spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
+            std::filesystem::remove(path);
+        }
+    } catch(std::exception &e)
+    {
+        spdlog::error(e.what());
+    }
+}
+
+void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets, const std::filesystem::path &path)
+{
+    save_bundle(mesh_assets, path, m_settings.cache_zip_archive);
+}
+
+std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
+{
+    return load_bundle<vierkant::model::model_assets_t>(path);
+}
+
+void PBRViewer::save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path)
+{
+    save_bundle(material_data, path, m_settings.cache_zip_archive);
+}
+
+std::optional<material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
+{
+    return load_bundle<material_data_t>(path);
 }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])

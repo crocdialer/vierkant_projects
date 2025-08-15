@@ -46,9 +46,19 @@ void PBRViewer::create_ui()
 {
     m_ui_state = {new ui_state_t, std::default_delete<ui_state_t>()};
 
+    auto center_selected_objects = [this] {
+        vierkant::AABB aabb;
+        for(const auto &obj: m_selected_objects) { aabb += obj->aabb().transform(obj->global_transform()); }
+        m_camera_control.orbit->look_at = aabb.center();
+        if(m_camera_control.orbit->transform_cb)
+        {
+            m_camera_control.orbit->transform_cb(m_camera_control.orbit->transform());
+        }
+    };
+
     // create a KeyDelegate
     vierkant::key_delegate_t key_delegate = {};
-    key_delegate.key_press = [this](const vierkant::KeyEvent &e) {
+    key_delegate.key_press = [this, center_selected_objects](const vierkant::KeyEvent &e) {
         if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureKeyboard))
         {
             if(e.is_control_down())
@@ -167,13 +177,7 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_PERIOD:
                 {
-                    vierkant::AABB aabb;
-                    for(const auto &obj: m_selected_objects) { aabb += obj->aabb().transform(obj->global_transform()); }
-                    m_camera_control.orbit->look_at = aabb.center();
-                    if(m_camera_control.orbit->transform_cb)
-                    {
-                        m_camera_control.orbit->transform_cb(m_camera_control.orbit->transform());
-                    }
+                    center_selected_objects();
                     break;
                 }
 
@@ -189,7 +193,7 @@ void PBRViewer::create_ui()
     m_window->key_delegates[name()] = key_delegate;
 
     vierkant::joystick_delegate_t joystick_delegate = {};
-    joystick_delegate.joystick_cb = [&](const auto &joysticks) {
+    joystick_delegate.joystick_cb = [this, center_selected_objects](const auto &joysticks) {
         if(!joysticks.empty())
         {
             auto &js = joysticks.front();
@@ -233,6 +237,8 @@ void PBRViewer::create_ui()
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_BUMPER_RIGHT: toggle_ortho_camera(); break;
+
+                        case vierkant::Joystick::Input::BUTTON_STICK_LEFT: center_selected_objects(); break;
 
                         case vierkant::Joystick::Input::BUTTON_BACK:
                             if(m_camera_control.current == m_camera_control.orbit)

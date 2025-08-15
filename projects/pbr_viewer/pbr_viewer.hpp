@@ -155,6 +155,10 @@ private:
 
     std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path);
 
+    void save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path);
+
+    std::optional<material_data_t> load_material_bundle(const std::filesystem::path &path);
+
     vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
 
     void save_scene(std::filesystem::path path = {});
@@ -250,7 +254,7 @@ private:
 
     size_t m_max_log_queue_size = 100;
     std::deque<std::pair<std::string, spdlog::level::level_enum>> m_log_queue;
-    std::shared_mutex m_log_queue_mutex, m_bundle_rw_mutex, m_mutex_semaphore_submit;
+    std::shared_mutex m_log_queue_mutex, m_mutex_semaphore_submit;
     std::map<std::string, std::shared_ptr<spdlog::logger>> _loggers;
 
     scene_data_t m_scene_data;
@@ -259,4 +263,6 @@ private:
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<vierkant::SceneId, std::filesystem::path> m_scene_paths;
     vierkant::SceneId m_scene_id;
+
+    material_data_t m_material_data;
 };

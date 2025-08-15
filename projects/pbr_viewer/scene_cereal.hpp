@@ -1,8 +1,8 @@
 #pragma once
 
+#include "pbr_viewer.hpp"
 #include "scene_data.hpp"
 #include "serialization.hpp"
-#include "pbr_viewer.hpp"
 
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
@@ -69,4 +69,11 @@ void serialize(Archive &ar, scene_data_t &scene_data)
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
        cereal::make_nvp("scene_roots", scene_data.scene_roots), cereal::make_nvp("cameras", scene_data.cameras),
        cereal::make_optional_nvp("materials", scene_data.materials));
+}
+
+template<class Archive>
+void serialize(Archive &ar, material_data_t &material_data)
+{
+    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
+       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
 }

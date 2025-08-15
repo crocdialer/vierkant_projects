@@ -3,6 +3,7 @@
 #include <vierkant/Mesh.hpp>
 #include <vierkant/Scene.hpp>
 #include <vierkant/animation.hpp>
+#include <vierkant/model/model_loading.hpp>
 #include <vierkant/physics_context.hpp>
 
 struct mesh_state_t
@@ -65,4 +66,16 @@ struct scene_data_t
 
     std::vector<scene_camera_t> cameras;
     std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
+};
+
+struct material_data_t
+{
+    //! common materials for all submeshes
+    std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
+
+    //! common textures for all materials
+    std::unordered_map<vierkant::TextureId, vierkant::texture_variant_t> textures;
+
+    //! texture-sample-states for all materials
+    std::unordered_map<vierkant::SamplerId, vierkant::texture_sampler_t> texture_samplers;
 };
