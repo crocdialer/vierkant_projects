@@ -117,8 +117,8 @@ void PBRViewer::create_ui()
             {
                 case vierkant::Key::_Q: m_settings.current_guizmo = vierkant::gui::GuizmoType::INACTIVE; break;
                 case vierkant::Key::_W: m_settings.current_guizmo = vierkant::gui::GuizmoType::TRANSLATE; break;
-                case vierkant::Key::_E: m_settings.current_guizmo = vierkant::gui::GuizmoType::SCALE; break;
-                case vierkant::Key::_R: m_settings.current_guizmo = vierkant::gui::GuizmoType::ROTATE; break;
+                case vierkant::Key::_E: m_settings.current_guizmo = vierkant::gui::GuizmoType::ROTATE; break;
+                case vierkant::Key::_R: m_settings.current_guizmo = vierkant::gui::GuizmoType::SCALE; break;
 
                 case vierkant::Key::_ESCAPE: running = false; break;
 
@@ -521,6 +521,12 @@ void PBRViewer::create_ui()
                             cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
                         }
                     }
+
+                    if(ImGui::Button("material"))
+                    {
+                        // add new default-material with random Id
+                        m_material_data.materials[{}] = {};
+                    }
                     ImGui::EndMenu();
                 }
 
@@ -646,7 +652,52 @@ void PBRViewer::create_ui()
         ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
         ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-        vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
+
+        ImGui::Begin("scene");
+        ImGui::BeginTabBar("scene_tabs");
+        {
+            if(ImGui::BeginTabItem("scene"))
+            {
+                vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
+                ImGui::EndTabItem();
+            }
+        }
+
+        {
+            if(ImGui::BeginTabItem("resources"))
+            {
+                ImGui::BeginTabBar("resources_tabs");
+                {
+                    if(ImGui::BeginTabItem("materials"))
+                    {
+                        for(auto &[material_id, material]: m_material_data.materials)
+                        {
+                            auto mat_name = material.name.empty() ? material_id.str() : material.name;
+                            if(ImGui::TreeNode((void *) (&material), "%s", mat_name.c_str()))
+                            {
+                                vierkant::gui::draw_material_ui(material);
+                                ImGui::Separator();
+                                ImGui::TreePop();
+                            }
+                        }
+                        ImGui::EndTabItem();
+                    }
+
+                    if(ImGui::BeginTabItem("textures"))
+                    {
+//                        for(auto &[texture_id, texture]: m_material_data.textures)
+//                        {
+//
+//                        }
+                        ImGui::EndTabItem();// textures
+                    }
+                    ImGui::EndTabBar();// resources_tabs
+                }
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
+        ImGui::End();
     };
 
     // object/view manipulation
