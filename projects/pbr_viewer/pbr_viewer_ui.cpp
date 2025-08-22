@@ -288,13 +288,8 @@ void PBRViewer::create_ui()
     m_gui_context.delegates["application"].fn = [this] {
         int corner = 0;
 
-        // const float DISTANCE = 10.0f;
-        // ImGuiIO &io = ImGui::GetIO();
-
         ImVec2 window_pos(0, 0);
-        // ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
-        // ImGui::SetNextWindowSize(io.DisplaySize);
 
         ImGui::Begin("about: blank", nullptr,
                      (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoDecoration |
@@ -685,10 +680,24 @@ void PBRViewer::create_ui()
 
                     if(ImGui::BeginTabItem("textures"))
                     {
-//                        for(auto &[texture_id, texture]: m_material_data.textures)
-//                        {
-//
-//                        }
+                        for(auto &[texture_id, texture]: m_texture_store)
+                        {
+                            if(ImGui::TreeNode(texture.get(), "%s", texture_id.str().c_str()))
+                            {
+                                constexpr uint32_t buf_size = 16;
+                                char buf[buf_size];
+                                bool is_bc7 = texture->format().format == VK_FORMAT_BC7_UNORM_BLOCK ||
+                                              texture->format().format == VK_FORMAT_BC7_SRGB_BLOCK;
+                                snprintf(buf, buf_size, "%s", is_bc7 ? " - BC7" : "");
+
+                                const float w = ImGui::GetContentRegionAvail().x;
+                                ImVec2 sz(w, w / (static_cast<float>(texture->width()) /
+                                                  static_cast<float>(texture->height())));
+                                ImGui::BulletText("%d x %d%s", texture->width(), texture->height(), buf);
+                                ImGui::Image((ImTextureID) (texture.get()), sz);
+                                ImGui::TreePop();
+                            }
+                        }
                         ImGui::EndTabItem();// textures
                     }
                     ImGui::EndTabBar();// resources_tabs

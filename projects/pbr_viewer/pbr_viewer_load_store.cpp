@@ -111,6 +111,37 @@ void PBRViewer::load_model(const load_model_params_t &params)
     background_queue().post(load_task);
 }
 
+void PBRViewer::load_texture(const std::string &path)
+{
+    auto load_img_fn = [this, path] {
+        spdlog::debug("load image: {}", path);
+        auto img = crocore::create_image_from_file(path);
+        vierkant::TextureId texture_id;
+        m_material_data.textures[texture_id] = img;
+
+        vierkant::ImagePtr texture;
+        vierkant::Image::Format fmt;
+        fmt.max_anisotropy = m_device->properties().core.limits.maxSamplerAnisotropy;
+
+        if(m_settings.texture_compression)
+        {
+            vierkant::bcn::compress_info_t compress_info = {};
+            compress_info.image = img;
+            compress_info.mode = vierkant::bcn::BC7;
+            compress_info.generate_mipmaps = true;
+            compress_info.delegate_fn = [this](auto fn) { return background_queue().post(fn); };
+            auto compressed_img = vierkant::bcn::compress(compress_info);
+            texture = vierkant::model::create_compressed_texture(m_device, compressed_img, fmt, m_queue_image_loading);
+            m_material_data.textures[texture_id] = std::move(compressed_img);
+        }
+        else { texture = vierkant::model::create_texture(m_device, img, fmt, m_queue_image_loading); }
+
+        // store gpu-texture
+        m_texture_store[texture_id] = texture;
+    };
+    background_queue().post(load_img_fn);
+}
+
 void PBRViewer::load_environment(const std::string &path)
 {
     auto load_task = [&, path]() {
@@ -285,7 +316,9 @@ void PBRViewer::load_file(const std::string &path, bool clear)
     {
         case crocore::filesystem::FileType::IMAGE:
             add_to_recent_files(path);
-            load_environment(path);
+
+            if(crocore::filesystem::get_extension(path) == ".hdr") { load_environment(path); }
+            else { load_texture(path); }
             break;
 
         case crocore::filesystem::FileType::MODEL:

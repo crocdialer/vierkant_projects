@@ -145,6 +145,8 @@ private:
     };
     void load_model(const load_model_params_t &params);
 
+    void load_texture(const std::string &path);
+    
     void load_environment(const std::string &path);
 
     void save_settings(settings_t settings, const std::filesystem::path &path = "settings.json") const;
@@ -265,4 +267,5 @@ private:
     vierkant::SceneId m_scene_id;
 
     material_data_t m_material_data;
+    std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> m_texture_store;
 };
