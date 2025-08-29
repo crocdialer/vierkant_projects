@@ -4,6 +4,7 @@
 #include <cereal/types/list.hpp>
 #include <cereal/types/memory.hpp>
 #include <vierkant/physics_context.hpp>
+#include "optional_nvp_cereal.hpp"
 
 namespace vierkant::collision
 {
@@ -52,15 +53,55 @@ void serialize(Archive &archive, vierkant::collision::mesh_t &s)
 
 }// namespace vierkant::collision
 
+namespace vierkant::constraint
+{
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint::spring_settings_t &s)
+{
+    archive(cereal::make_nvp("mode", s.mode), cereal::make_nvp("damping", s.damping),
+            cereal::make_nvp("frequency_or_stiffness", s.frequency_or_stiffness));
+}
+
+template<class Archive>
+void serialize(Archive &, vierkant::constraint::none_t &)
+{}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint::point_t &c)
+{
+    archive(cereal::make_nvp("space", c.space), cereal::make_nvp("point1", c.point1),
+            cereal::make_nvp("point2", c.point2));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint::distance_t &c)
+{
+    archive(cereal::make_nvp("space", c.space), cereal::make_nvp("point1", c.point1),
+            cereal::make_nvp("point2", c.point2), cereal::make_nvp("min_distance", c.min_distance),
+            cereal::make_nvp("max_distance", c.max_distance), cereal::make_nvp("spring_settings", c.spring_settings));
+}
+
+}// namespace vierkant::constraint
+
 namespace vierkant
 {
 template<class Archive>
 void serialize(Archive &archive, vierkant::physics_component_t &c)
 {
-    archive(cereal::make_nvp("shape", c.shape), cereal::make_nvp("shape_transform", c.shape_transform),
-            cereal::make_nvp("mass", c.mass), cereal::make_nvp("friction", c.friction),
-            cereal::make_nvp("restitution", c.restitution), cereal::make_nvp("linear_damping", c.linear_damping),
+    archive(cereal::make_optional_nvp("body_id", c.body_id), cereal::make_nvp("shape", c.shape),
+            cereal::make_nvp("shape_transform", c.shape_transform), cereal::make_nvp("mass", c.mass),
+            cereal::make_nvp("friction", c.friction), cereal::make_nvp("restitution", c.restitution),
+            cereal::make_nvp("linear_damping", c.linear_damping),
             cereal::make_nvp("angular_damping", c.angular_damping), cereal::make_nvp("kinematic", c.kinematic),
             cereal::make_nvp("sensor", c.sensor));
 }
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint_component_t &c)
+{
+    archive(cereal::make_nvp("constraint", c.constraint), cereal::make_nvp("body_id1", c.body_id1),
+            cereal::make_nvp("body_id2", c.body_id2));
+}
+
 }// namespace vierkant
