@@ -1,10 +1,10 @@
 #pragma once
 
+#include "optional_nvp_cereal.hpp"
 #include <cereal/cereal.hpp>
 #include <cereal/types/list.hpp>
 #include <cereal/types/memory.hpp>
 #include <vierkant/physics_context.hpp>
-#include "optional_nvp_cereal.hpp"
 
 namespace vierkant::collision
 {
@@ -98,10 +98,16 @@ void serialize(Archive &archive, vierkant::physics_component_t &c)
 }
 
 template<class Archive>
-void serialize(Archive &archive, vierkant::constraint_component_t &c)
+void serialize(Archive &archive, vierkant::constraint_component_t::body_constraint_t &c)
 {
     archive(cereal::make_nvp("constraint", c.constraint), cereal::make_nvp("body_id1", c.body_id1),
             cereal::make_nvp("body_id2", c.body_id2));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint_component_t &c)
+{
+    archive(cereal::make_nvp("constraints", c.constraints));
 }
 
 }// namespace vierkant
