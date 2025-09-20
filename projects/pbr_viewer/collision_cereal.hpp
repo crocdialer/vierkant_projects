@@ -107,7 +107,7 @@ void serialize(Archive &archive, vierkant::constraint_component_t::body_constrai
 template<class Archive>
 void serialize(Archive &archive, vierkant::constraint_component_t &c)
 {
-    archive(cereal::make_nvp("constraints", c.constraints));
+    archive(cereal::make_nvp("body_constraints", c.body_constraints));
 }
 
 }// namespace vierkant

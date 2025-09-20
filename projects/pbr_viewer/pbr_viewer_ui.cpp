@@ -522,6 +522,32 @@ void PBRViewer::create_ui()
                         // add new default-material with random Id
                         m_material_data.materials[{}] = {};
                     }
+
+                    if(ImGui::Button("constraint-test"))
+                    {
+                        if(!m_selected_objects.empty())
+                        {
+                            const auto &obj = *m_selected_objects.begin();
+
+                            if(auto *physics_cmp = obj->get_component_ptr<vierkant::physics_component_t>())
+                            {
+                                auto &constraint_cmp = obj->add_component<vierkant::constraint_component_t>();
+                                auto &body_constraint = constraint_cmp.body_constraints.emplace_back();
+                                body_constraint.body_id1 = physics_cmp->body_id;
+
+                                vierkant::constraint::distance_t distance_constraint;
+                                distance_constraint.space = vierkant::constraint::ConstraintSpace::LocalToBodyCOM;
+                                distance_constraint.point2 = glm::vec3(0.f, 2.f, 0.f);
+                                distance_constraint.max_distance = 0.5f;
+
+                                // frequency in Hz
+                                distance_constraint.spring_settings.frequency_or_stiffness = 2.f;
+                                distance_constraint.spring_settings.damping = 0.1f;
+
+                                body_constraint.constraint = distance_constraint;
+                            }
+                        }
+                    }
                     ImGui::EndMenu();
                 }
 

@@ -417,6 +417,11 @@ void PBRViewer::save_scene(std::filesystem::path path)
             node.physics_state = obj.get_component<vierkant::physics_component_t>();
         }
 
+        if(obj.has_component<vierkant::constraint_component_t>())
+        {
+            node.constraints = obj.get_component<vierkant::constraint_component_t>();
+        }
+
         if(obj.has_component<vierkant::mesh_component_t>())
         {
             auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
@@ -521,9 +526,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     new_scene_asset.scene_data = std::move(*sub_scene_data);
                     new_scene_asset.scene_id = id;
 
-                    for(const auto &[id, sub_scene_path]: new_scene_asset.scene_data.scene_paths)
+                    for(const auto &[sub_scene_id, sub_scene_path]: new_scene_asset.scene_data.scene_paths)
                     {
-                        sub_scene_paths.emplace_back(id, sub_scene_path);
+                        sub_scene_paths.emplace_back(sub_scene_id, sub_scene_path);
                     }
                 }
             }
@@ -606,6 +611,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     obj->transform = node.transform;
                     if(node.animation_state) { obj->add_component(*node.animation_state); }
                     if(node.physics_state) { obj->add_component(*node.physics_state); }
+                    if(node.constraints) { obj->add_component(*node.constraints); }
 
                     out_objects.push_back(obj);
                 }

@@ -38,6 +38,9 @@ struct scene_node_t
 
     //! optional physics-state
     std::optional<vierkant::physics_component_t> physics_state = {};
+
+    //! optional physics-constraints
+    std::optional<vierkant::constraint_component_t> constraints = {};
 };
 
 struct scene_camera_t
