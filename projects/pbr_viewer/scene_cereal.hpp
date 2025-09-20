@@ -50,7 +50,8 @@ void serialize(Archive &ar, scene_node_t &scene_node)
        cereal::make_optional_nvp("scene_id", scene_node.scene_id),
        cereal::make_optional_nvp("mesh_state", scene_node.mesh_state),
        cereal::make_optional_nvp("animation_state", scene_node.animation_state),
-       cereal::make_optional_nvp("physics_state", scene_node.physics_state));
+       cereal::make_optional_nvp("physics_state", scene_node.physics_state),
+       cereal::make_optional_nvp("constraints", scene_node.constraints));
 }
 
 template<class Archive>
