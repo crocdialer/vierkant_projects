@@ -536,7 +536,7 @@ void PBRViewer::create_ui()
                                 body_constraint.body_id1 = physics_cmp->body_id;
 
                                 vierkant::constraint::distance_t distance_constraint;
-                                //                                distance_constraint.space = vierkant::constraint::ConstraintSpace::LocalToBodyCOM;
+                                distance_constraint.space = vierkant::constraint::ConstraintSpace::LocalToBodyCOM;
                                 distance_constraint.point2 = glm::vec3(0.f, 2.f, 0.f);
                                 distance_constraint.max_distance = 0.5f;
 
