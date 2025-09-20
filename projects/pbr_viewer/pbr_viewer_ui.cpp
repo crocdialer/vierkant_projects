@@ -536,7 +536,7 @@ void PBRViewer::create_ui()
                                 body_constraint.body_id1 = physics_cmp->body_id;
 
                                 vierkant::constraint::distance_t distance_constraint;
-                                distance_constraint.space = vierkant::constraint::ConstraintSpace::LocalToBodyCOM;
+                                //                                distance_constraint.space = vierkant::constraint::ConstraintSpace::LocalToBodyCOM;
                                 distance_constraint.point2 = glm::vec3(0.f, 2.f, 0.f);
                                 distance_constraint.max_distance = 0.5f;
 
@@ -783,14 +783,6 @@ void PBRViewer::create_ui()
     m_window->key_delegates["gui"] = m_gui_context.key_delegate();
     m_window->mouse_delegates["gui"] = m_gui_context.mouse_delegate();
 
-    // camera
-    if(m_settings.ortho_camera) {}
-    else
-    {
-        m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
-        m_camera->name = "default";
-    }
-
     create_camera_controls();
 
     vierkant::mouse_delegate_t simple_mouse = {};
@@ -898,6 +890,10 @@ void PBRViewer::create_camera_controls()
     if(m_settings.use_fly_camera) { m_camera_control.current = m_camera_control.fly; }
     else { m_camera_control.current = m_camera_control.orbit; }
 
+    // camera
+    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+    m_camera->name = "default";
+
     // attach arcball mouse delegate
     auto arcball_delegeate = m_camera_control.orbit->mouse_delegate();
     arcball_delegeate.enabled = [this]() {
@@ -950,6 +946,9 @@ void PBRViewer::create_camera_controls()
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
+
+    // toggle ortho
+    if(m_settings.ortho_camera) { toggle_ortho_camera(); }
 
     // update camera from current
     m_camera->transform = m_camera_control.current->transform();

@@ -251,6 +251,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
+    settings.ortho_camera = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera) != nullptr;
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
@@ -589,73 +590,69 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                          const std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> &meshes,
                                          const std::shared_ptr<entt::registry> &registry,
                                          std::vector<vierkant::Object3DPtr> &out_objects) -> vierkant::Object3DPtr {
-            if(!scene_data.nodes.empty())
+            auto root = m_object_store->create_object();
+            root->name = scene_data.name;
+
+            // create objects for all nodes
+            for(const auto &node: scene_data.nodes)
             {
-                auto root = m_object_store->create_object();
-                root->name = scene_data.name;
+                vierkant::Object3DPtr obj;
 
-                // create objects for all nodes
-                for(const auto &node: scene_data.nodes)
+                if(node.mesh_state && meshes.contains(node.mesh_state->mesh_id))
                 {
-                    vierkant::Object3DPtr obj;
-
-                    if(node.mesh_state && meshes.contains(node.mesh_state->mesh_id))
-                    {
-                        const auto &mesh = meshes.at(node.mesh_state->mesh_id);
-                        obj = m_scene->create_mesh_object(
-                                {mesh, node.mesh_state->entry_indices, node.mesh_state->mesh_library});
-                    }
-                    else { obj = m_object_store->create_object(); }
-                    obj->name = node.name;
-                    obj->enabled = node.enabled;
-                    obj->transform = node.transform;
-                    if(node.animation_state) { obj->add_component(*node.animation_state); }
-                    if(node.physics_state) { obj->add_component(*node.physics_state); }
-                    if(node.constraints) { obj->add_component(*node.constraints); }
-
-                    out_objects.push_back(obj);
+                    const auto &mesh = meshes.at(node.mesh_state->mesh_id);
+                    obj = m_scene->create_mesh_object(
+                            {mesh, node.mesh_state->entry_indices, node.mesh_state->mesh_library});
                 }
+                else { obj = m_object_store->create_object(); }
+                obj->name = node.name;
+                obj->enabled = node.enabled;
+                obj->transform = node.transform;
+                if(node.animation_state) { obj->add_component(*node.animation_state); }
+                if(node.physics_state) { obj->add_component(*node.physics_state); }
+                if(node.constraints) { obj->add_component(*node.constraints); }
 
-                // recreate node-hierarchy
-                for(uint32_t i = 0; i < scene_data.nodes.size(); ++i)
-                {
-                    for(auto child_index: scene_data.nodes[i].children)
-                    {
-                        out_objects[i]->add_child(out_objects[child_index]);
-                    }
-                }
-
-                // add scene-roots
-                for(auto idx: scene_data.scene_roots) { root->add_child(out_objects[idx]); }
-
-                for(const auto &cam: scene_data.cameras)
-                {
-                    auto object = std::visit(
-                            [&registry](auto &&camera_params) -> vierkant::CameraPtr {
-                                using T = std::decay_t<decltype(camera_params)>;
-
-                                if constexpr(std::is_same_v<T, vierkant::ortho_camera_params_t>)
-                                {
-                                    return vierkant::OrthoCamera::create(registry, camera_params);
-                                }
-                                else if constexpr(std::is_same_v<T, vierkant::physical_camera_params_t>)
-                                {
-                                    return vierkant::PerspectiveCamera::create(registry, camera_params);
-                                }
-                                else
-                                    return nullptr;
-                            },
-                            cam.params);
-
-                    object->name = cam.name;
-                    object->transform = cam.transform;
-                    root->add_child(object);
-
-                    m_camera = object;
-                }
-                return root;
+                out_objects.push_back(obj);
             }
-            return nullptr;
+
+            // recreate node-hierarchy
+            for(uint32_t i = 0; i < scene_data.nodes.size(); ++i)
+            {
+                for(auto child_index: scene_data.nodes[i].children)
+                {
+                    out_objects[i]->add_child(out_objects[child_index]);
+                }
+            }
+
+            // add scene-roots
+            for(auto idx: scene_data.scene_roots) { root->add_child(out_objects[idx]); }
+
+            for(const auto &cam: scene_data.cameras)
+            {
+                auto object = std::visit(
+                        [&registry](auto &&camera_params) -> vierkant::CameraPtr {
+                            using T = std::decay_t<decltype(camera_params)>;
+
+                            if constexpr(std::is_same_v<T, vierkant::ortho_camera_params_t>)
+                            {
+                                return vierkant::OrthoCamera::create(registry, camera_params);
+                            }
+                            else if constexpr(std::is_same_v<T, vierkant::physical_camera_params_t>)
+                            {
+                                return vierkant::PerspectiveCamera::create(registry, camera_params);
+                            }
+                            else
+                                return nullptr;
+                        },
+                        cam.params);
+
+                object->name = cam.name;
+                object->transform = cam.transform;
+                root->add_child(object);
+
+                m_camera = object;
+            }
+            return root;
         };
 
         auto done_cb = [this, scene_assets = std::move(scene_assets), create_root_object, clear_scene,
