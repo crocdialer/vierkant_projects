@@ -543,7 +543,7 @@ void PBRViewer::create_ui()
 
                                 auto &constraint_cmp = obj1->add_component<vierkant::constraint_component_t>();
                                 auto &body_constraint = constraint_cmp.body_constraints.emplace_back();
-                                vierkant::constraint::distance_t distance_constraint;
+                                vierkant::constraint::distance_t distance_constraint = {};
                                 body_constraint.body_id1 = physics_cmp->body_id;
                                 body_constraint.body_id2 = body_id2;
                                 distance_constraint.point2 = body_id2 ? glm::vec3(0.f) : glm::vec3(0.f, 2.f, 0.f);
