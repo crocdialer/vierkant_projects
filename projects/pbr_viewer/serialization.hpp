@@ -64,7 +64,7 @@ std::string save_minimal(Archive const &, const crocore::NamedUUID<T> &named_id)
 template<class Archive, class T>
 void load_minimal(Archive const &, crocore::NamedUUID<T> &named_id, const std::string &uuid_str)
 {
-    named_id = crocore::NamedUUID<T>(uuid_str);
+    named_id = crocore::NamedUUID<T>::from_string(uuid_str);
 }
 
 template<class Archive, class T>
