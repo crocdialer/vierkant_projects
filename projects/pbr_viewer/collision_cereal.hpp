@@ -99,8 +99,7 @@ void serialize(Archive &archive, vierkant::constraint::slider_t &c)
 {
     archive(cereal::make_nvp("space", c.space), cereal::make_nvp("auto_detect_point", c.auto_detect_point),
             cereal::make_nvp("point1", c.point1), cereal::make_nvp("slider_axis1", c.slider_axis1),
-            cereal::make_nvp("normal_axis1", c.normal_axis1), cereal::make_nvp("point2", c.point2),
-            cereal::make_nvp("slider_axis2", c.slider_axis2), cereal::make_nvp("normal_axis2", c.normal_axis2),
+            cereal::make_nvp("point2", c.point2), cereal::make_nvp("slider_axis2", c.slider_axis2),
             cereal::make_nvp("limits_min", c.limits_min), cereal::make_nvp("limits_max", c.limits_max),
             cereal::make_nvp("limits_spring_settings", c.limits_spring_settings),
             cereal::make_nvp("max_friction_force", c.max_friction_force), cereal::make_nvp("motor", c.motor));
@@ -110,9 +109,8 @@ template<class Archive>
 void serialize(Archive &archive, vierkant::constraint::hinge_t &c)
 {
     archive(cereal::make_nvp("space", c.space), cereal::make_nvp("point1", c.point1),
-            cereal::make_nvp("hinge_axis1", c.hinge_axis1), cereal::make_nvp("normal_axis1", c.normal_axis1),
-            cereal::make_nvp("point2", c.point2), cereal::make_nvp("hinge_axis2", c.hinge_axis2),
-            cereal::make_nvp("normal_axis2", c.normal_axis2), cereal::make_nvp("limits_min", c.limits_min),
+            cereal::make_nvp("hinge_axis1", c.hinge_axis1), cereal::make_nvp("point2", c.point2),
+            cereal::make_nvp("hinge_axis2", c.hinge_axis2), cereal::make_nvp("limits_min", c.limits_min),
             cereal::make_nvp("limits_spring_settings", c.limits_spring_settings),
             cereal::make_nvp("max_friction_torque", c.max_friction_torque), cereal::make_nvp("motor", c.motor));
 }
