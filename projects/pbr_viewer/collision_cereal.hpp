@@ -115,6 +115,28 @@ void serialize(Archive &archive, vierkant::constraint::hinge_t &c)
             cereal::make_nvp("max_friction_torque", c.max_friction_torque), cereal::make_nvp("motor", c.motor));
 }
 
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint::gear_t &c)
+{
+    archive(cereal::make_nvp("space", c.space), cereal::make_nvp("hinge_axis1", c.hinge_axis1),
+            cereal::make_nvp("hinge_axis2", c.hinge_axis2), cereal::make_nvp("ratio", c.ratio));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::constraint::swing_twist_t &c)
+{
+    archive(cereal::make_nvp("space", c.space), cereal::make_nvp("position1", c.position1),
+            cereal::make_nvp("twist_axis1", c.twist_axis1), cereal::make_nvp("plane_axis1", c.plane_axis1),
+            cereal::make_nvp("position2", c.position2), cereal::make_nvp("twist_axis2", c.twist_axis2),
+            cereal::make_nvp("plane_axis2", c.plane_axis2), cereal::make_nvp("swing_type", c.swing_type),
+            cereal::make_nvp("normal_half_cone_angle", c.normal_half_cone_angle),
+            cereal::make_nvp("plane_half_cone_angle", c.plane_half_cone_angle),
+            cereal::make_nvp("twist_min_angle", c.twist_min_angle),
+            cereal::make_nvp("twist_max_angle", c.twist_max_angle),
+            cereal::make_nvp("max_friction_torque", c.max_friction_torque),
+            cereal::make_nvp("swing_motor", c.swing_motor), cereal::make_nvp("twist_motor", c.twist_motor));
+}
+
 }// namespace vierkant::constraint
 
 namespace vierkant
