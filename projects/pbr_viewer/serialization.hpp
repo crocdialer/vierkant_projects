@@ -4,6 +4,12 @@
 
 #pragma once
 
+// gcc-13 false positive warning
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-reference"
+#endif
+
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
@@ -12,9 +18,12 @@
 #include <cereal/types/unordered_set.hpp>
 #include <cereal/types/variant.hpp>
 #include <cereal/types/vector.hpp>
-
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #include "optional_nvp_cereal.hpp"
 #include "animation_cereal.hpp"
