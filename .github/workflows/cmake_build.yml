@@ -24,15 +24,15 @@ jobs:
 
     - name: install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install xorg-dev libxkbcommon-dev libwayland-dev zstd
-        
+        sudo apt-get update -y
+        sudo apt-get install -y xorg-dev libxkbcommon-dev libwayland-dev
+
     - name: Prepare Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@main
-        with:
-          vulkan-query-version: latest
-          vulkan-components: Vulkan-Headers, SPIRV-Tools, Glslang
-          vulkan-use-cache: true
+      uses: humbletim/setup-vulkan-sdk@main
+      with:
+        vulkan-query-version: latest
+        vulkan-components: Vulkan-Headers, SPIRV-Tools, Glslang
+        vulkan-use-cache: true
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
