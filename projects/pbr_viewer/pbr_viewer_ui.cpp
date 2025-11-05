@@ -875,7 +875,7 @@ void PBRViewer::create_ui()
                 glm::ivec2 tl = {std::min<int>(e.get_x(), m_ui_state->last_click.x),
                                  std::min<int>(e.get_y(), m_ui_state->last_click.y)};
                 glm::ivec2 size = glm::abs(e.position() - m_ui_state->last_click);
-                float scale = (float) m_window->framebuffer_size().x / (float) m_window->size().x;
+                float scale = m_window->content_scale().y;
                 m_selection_area = {
                         static_cast<int>(scale * tl.x),
                         static_cast<int>(scale * tl.y),
