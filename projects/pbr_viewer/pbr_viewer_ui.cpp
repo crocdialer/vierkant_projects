@@ -503,8 +503,9 @@ void PBRViewer::create_ui()
                         {
                             auto new_obj = m_scene->create_mesh_object({m_box_mesh});
                             new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
-                            new_obj->transform.translation.y = 10.f;
-                            new_obj->transform.translation += glm::ballRand(1.f);
+                            new_obj->transform.emplace();
+                            new_obj->transform->translation.y = 10.f;
+                            new_obj->transform->translation += glm::ballRand(1.f);
                             vierkant::object_component auto &cmp =
                                     new_obj->add_component<vierkant::physics_component_t>();
                             vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};

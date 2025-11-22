@@ -90,12 +90,14 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
             if(params.normalize_size)
             {
+                vierkant::transform_t transform = {};
                 // scale
-                object->transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
+                transform.scale = glm::vec3(5.f / glm::length(object->aabb().half_extents()));
 
                 // center aabb
-                auto aabb = object->aabb().transform(object->transform);
-                object->transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f);
+                auto aabb = object->aabb().transform(transform);
+                transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f);
+                object->transform = transform;
             }
 
             if(params.clear_scene) { m_scene->clear(); }
@@ -382,7 +384,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
         {
             scene_camera_t &scene_camera = data.cameras.emplace_back();
             scene_camera.name = cam->name;
-            scene_camera.transform = cam->transform;
+            scene_camera.transform = cam->global_transform();
             scene_camera.params = cam->params();
             return true;
         }
@@ -392,7 +394,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
         scene_node_t &node = data.nodes.emplace_back();
         node.name = obj.name;
         node.enabled = obj.enabled;
-        node.transform = obj.transform;
+        if(obj.transform) { node.transform = *obj.transform; }
 
         if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
         {

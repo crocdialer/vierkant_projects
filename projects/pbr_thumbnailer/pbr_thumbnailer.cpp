@@ -256,13 +256,14 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_ass
     // attach mesh to an object, insert into scene
     {
         auto object = m_scene->create_mesh_object({mesh});
+        assert(object->transform);
 
         // scale
-        object->transform.scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
+        object->transform->scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
 
         // center aabb
-        auto aabb = object->aabb().transform(object->transform);
-        object->transform.translation = -aabb.center();
+        auto aabb = object->aabb().transform(*object->transform);
+        object->transform->translation = -aabb.center();
 
         m_scene->add_object(object);
     }
