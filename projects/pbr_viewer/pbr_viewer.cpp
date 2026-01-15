@@ -43,6 +43,11 @@ protected:
     void flush_() override {}
 };
 
+// gcc15 acting up weirdly here
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : crocore::Application(create_info)
 {
     // try to read settings
@@ -63,6 +68,10 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     m_settings.use_validation = true;
 #endif
 }
+// gcc15 acting up weirdly here
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 void PBRViewer::setup()
 {
