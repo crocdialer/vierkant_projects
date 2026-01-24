@@ -1038,11 +1038,13 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     {
         m_settings.enable_ray_query_features = true;
         m_settings.enable_raytracing_pipeline_features = true;
+        m_settings.path_tracing = true;
     }
     if(result.count("no-raytracing"))
     {
         m_settings.enable_ray_query_features = false;
         m_settings.enable_raytracing_pipeline_features = false;
+        m_settings.path_tracing = false;
     }
     if(result.count("mesh-shader")) { m_settings.enable_mesh_shader_device_features = true; }
     if(result.count("no-mesh-shader")) { m_settings.enable_mesh_shader_device_features = false; }
