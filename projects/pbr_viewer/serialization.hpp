@@ -346,8 +346,10 @@ void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
 template<class Archive>
 void serialize(Archive &archive, vierkant::CameraControl &camera_control)
 {
-    archive(cereal::make_nvp("enabled", camera_control.enabled));
-    archive(cereal::make_nvp("mouse_sensitivity", camera_control.mouse_sensitivity));
+    archive(cereal::make_nvp("enabled", camera_control.enabled),
+            cereal::make_nvp("mouse_sensitivity", camera_control.mouse_sensitivity),
+            cereal::make_optional_nvp("mouse_wheel_sensitivity", camera_control.mouse_wheel_sensitivity,
+                                      glm::vec2(1.f)));
 }
 
 template<class Archive>
