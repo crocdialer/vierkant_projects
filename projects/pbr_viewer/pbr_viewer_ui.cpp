@@ -738,7 +738,7 @@ void PBRViewer::create_ui()
                                 ImVec2 sz(w, w / (static_cast<float>(texture->width()) /
                                                   static_cast<float>(texture->height())));
                                 ImGui::BulletText("%d x %d%s", texture->width(), texture->height(), buf);
-                                ImGui::Image((ImTextureID) (texture.get()), sz);
+                                ImGui::Image(reinterpret_cast<ImTextureID>(texture.get()), sz);
                                 ImGui::TreePop();
                             }
                         }

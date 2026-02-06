@@ -13,7 +13,7 @@ using double_second = std::chrono::duration<double>;
 
 constexpr char g_cache_path[] = "cache";
 constexpr char g_model_store_path[] = "models";
-constexpr char g_texture_store_path[] = "textures";
+constexpr char g_material_store_path[] = "materials";
 constexpr char g_zip_path[] = "cache.zip";
 constexpr char g_file_suffix_model[] = "4km";
 
@@ -84,7 +84,10 @@ void PBRViewer::load_model(const load_model_params_t &params)
                     object->add_child(entry_obj);
                 }
             }
-            else { object = m_scene->create_mesh_object({mesh}); }
+            else
+            {
+                object = m_scene->create_mesh_object({mesh});
+            }
 
             object->name = std::filesystem::path(params.path).filename().string();
 
@@ -136,7 +139,10 @@ void PBRViewer::load_texture(const std::string &path)
             texture = vierkant::model::create_compressed_texture(m_device, compressed_img, fmt, m_queue_image_loading);
             m_material_data.textures[texture_id] = std::move(compressed_img);
         }
-        else { texture = vierkant::model::create_texture(m_device, img, fmt, m_queue_image_loading); }
+        else
+        {
+            texture = vierkant::model::create_texture(m_device, img, fmt, m_queue_image_loading);
+        }
 
         // store gpu-texture
         m_texture_store[texture_id] = texture;
@@ -271,10 +277,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
         // write class instance to archive
         archive(settings);
 
-    } catch(std::exception &e)
-    {
-        spdlog::error(e.what());
-    }
+    } catch(std::exception &e) { spdlog::error(e.what()); }
 
     spdlog::debug("save settings: {}", path.string());
 }
@@ -300,10 +303,7 @@ std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesys
             PBRViewer::settings_t settings = {};
             archive(settings);
             return settings;
-        } catch(std::exception &e)
-        {
-            spdlog::error(e.what());
-        }
+        } catch(std::exception &e) { spdlog::error(e.what()); }
 
         spdlog::debug("loading settings: {}", path.string());
     }
@@ -321,7 +321,10 @@ void PBRViewer::load_file(const std::string &path, bool clear)
             add_to_recent_files(path);
 
             if(crocore::filesystem::get_extension(path) == ".hdr") { load_environment(path); }
-            else { load_texture(path); }
+            else
+            {
+                load_texture(path);
+            }
             break;
 
         case crocore::filesystem::FileType::MODEL:
@@ -481,10 +484,11 @@ void PBRViewer::save_scene(std::filesystem::path path)
         cereal::JSONOutputArchive archive(ofs);
         archive(data);
 
-    } catch(std::exception &e)
-    {
-        spdlog::error(e.what());
-    }
+    } catch(std::exception &e) { spdlog::error(e.what()); }
+
+    auto file_name = std::string("default.") + g_file_suffix_model;
+    auto material_path = std::filesystem::path(g_cache_path) / g_material_store_path / file_name;
+    save_material_bundle(m_material_data, material_path.string());
 }
 
 void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene,
@@ -606,7 +610,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     obj = m_scene->create_mesh_object(
                             {mesh, node.mesh_state->entry_indices, node.mesh_state->mesh_library});
                 }
-                else { obj = m_object_store->create_object(); }
+                else
+                {
+                    obj = m_object_store->create_object();
+                }
                 obj->name = node.name;
                 obj->enabled = node.enabled;
                 obj->transform = node.transform;
@@ -706,7 +713,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     for(const auto &child: children) { m_scene->add_object(child); }
                     m_scene_id = scene_assets[0].scene_id;
                 }
-                else { m_scene->add_object(root_objects[0]); }
+                else
+                {
+                    m_scene->add_object(root_objects[0]);
+                }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
@@ -743,7 +753,7 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         vierkant::hash_combine(hash_val, m_settings.texture_compression);
         std::filesystem::path bundle_path =
                 std::filesystem::path(g_cache_path) / g_model_store_path /
-                fmt::format("{}_{}.{}", std::filesystem::path(path).filename().string(), hash_val, g_file_suffix_model);
+                std::format("{}_{}.{}", std::filesystem::path(path).filename().string(), hash_val, g_file_suffix_model);
 
         auto mesh_id = vierkant::MeshId::from_name(bundle_path.string());
         bool bundle_created = false;
@@ -826,10 +836,7 @@ std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::pa
             spdlog::debug("loading scene: {}", path.string());
             archive(scene_data);
             return scene_data;
-        } catch(std::exception &e)
-        {
-            spdlog::warn(e.what());
-        }
+        } catch(std::exception &e) { spdlog::warn(e.what()); }
     }
     return {};
 }
@@ -851,10 +858,7 @@ std::optional<T> load_bundle(const std::filesystem::path &path)
                 cereal::BinaryInputArchive archive(cache_file);
                 archive(ret);
                 return ret;
-            } catch(std::exception &e)
-            {
-                spdlog::error(e.what());
-            }
+            } catch(std::exception &e) { spdlog::error(e.what()); }
         }
     }
 
@@ -872,10 +876,7 @@ std::optional<T> load_bundle(const std::filesystem::path &path)
             cereal::BinaryInputArchive archive(zipstream);
             archive(ret);
             return ret;
-        } catch(std::exception &e)
-        {
-            spdlog::error(e.what());
-        }
+        } catch(std::exception &e) { spdlog::error(e.what()); }
     }
     return {};
 }
@@ -890,7 +891,10 @@ void save_bundle(const T &data, const std::filesystem::path &path, bool compress
             spdlog::stopwatch sw;
 
             // create directory, if necessary
-            std::filesystem::create_directories(crocore::filesystem::get_directory_part(path));
+            if(auto dir = crocore::filesystem::get_directory_part(path); !dir.empty())
+            {
+                std::filesystem::create_directories(dir);
+            }
 
             // create and open a character archive for output
             std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
@@ -912,31 +916,21 @@ void save_bundle(const T &data, const std::filesystem::path &path, bool compress
             spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
             std::filesystem::remove(path);
         }
-    } catch(std::exception &e)
-    {
-        spdlog::error(e.what());
-    }
+    } catch(std::exception &e) { spdlog::error(e.what()); }
 }
 
-void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets, const std::filesystem::path &path)
-{
-    save_bundle(mesh_assets, path, m_settings.cache_zip_archive);
-}
+void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets,
+                                  const std::filesystem::path &path) const
+{ save_bundle(mesh_assets, path, m_settings.cache_zip_archive); }
 
 std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
-{
-    return load_bundle<vierkant::model::model_assets_t>(path);
-}
+{ return load_bundle<vierkant::model::model_assets_t>(path); }
 
-void PBRViewer::save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path)
-{
-    save_bundle(material_data, path, m_settings.cache_zip_archive);
-}
+void PBRViewer::save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const
+{ save_bundle(material_data, path, m_settings.cache_zip_archive); }
 
 std::optional<material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{
-    return load_bundle<material_data_t>(path);
-}
+{ return load_bundle<material_data_t>(path); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {

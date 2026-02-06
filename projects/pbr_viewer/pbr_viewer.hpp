@@ -146,20 +146,20 @@ private:
     void load_model(const load_model_params_t &params);
 
     void load_texture(const std::string &path);
-    
+
     void load_environment(const std::string &path);
 
     void save_settings(settings_t settings, const std::filesystem::path &path = "settings.json") const;
 
     static std::optional<settings_t> load_settings(const std::filesystem::path &path = "settings.json");
 
-    void save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets, const std::filesystem::path &path);
+    void save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets, const std::filesystem::path &path) const;
 
-    std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path);
+    static std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path);
 
-    void save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path);
+    void save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const;
 
-    std::optional<material_data_t> load_material_bundle(const std::filesystem::path &path);
+    static std::optional<material_data_t> load_material_bundle(const std::filesystem::path &path);
 
     vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
 
