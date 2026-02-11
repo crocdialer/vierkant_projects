@@ -10,6 +10,8 @@
 #pragma GCC diagnostic ignored "-Wdangling-reference"
 #endif
 
+#include <cereal/archives/binary.hpp>
+#include <cereal/archives/json.hpp>
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
@@ -18,17 +20,15 @@
 #include <cereal/types/unordered_set.hpp>
 #include <cereal/types/variant.hpp>
 #include <cereal/types/vector.hpp>
-#include <cereal/archives/binary.hpp>
-#include <cereal/archives/json.hpp>
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
-#include "optional_nvp_cereal.hpp"
 #include "animation_cereal.hpp"
 #include "collision_cereal.hpp"
 #include "glm_cereal.hpp"
+#include "optional_nvp_cereal.hpp"
 
 #include <crocore/NamedId.hpp>
 #include <crocore/set_lru.hpp>
@@ -231,8 +231,8 @@ void serialize(Archive &archive, vierkant::Mesh::meshlet_t &meshlet)
             cereal::make_nvp("triangle_offset", meshlet.triangle_offset),
             cereal::make_nvp("vertex_count", meshlet.vertex_count),
             cereal::make_nvp("triangle_count", meshlet.triangle_count),
-            cereal::make_nvp("bounding_sphere", meshlet.bounding_sphere),
-            cereal::make_nvp("normal_cone", meshlet.normal_cone));
+            cereal::make_nvp("cone_axis", meshlet.cone_axis), cereal::make_nvp("cone_cutoff", meshlet.cone_cutoff),
+            cereal::make_nvp("bounding_sphere", meshlet.bounding_sphere));
 }
 
 template<class Archive>
