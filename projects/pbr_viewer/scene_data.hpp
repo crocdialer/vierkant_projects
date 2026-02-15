@@ -61,6 +61,9 @@ struct scene_data_t
     //! array of file-paths, containing model-files (.gltf, .glb, .obj)
     std::unordered_map<vierkant::MeshId, std::string> model_paths;
 
+    //! optional filepath for a material-bundle (.4km)
+    std::string material_bundle_path;
+
     std::string environment_path;
     std::vector<scene_node_t> nodes;
 
@@ -68,7 +71,6 @@ struct scene_data_t
     std::vector<uint32_t> scene_roots;
 
     std::vector<scene_camera_t> cameras;
-    std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
 };
 
 struct material_data_t
