@@ -969,10 +969,10 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
 { return load_bundle<vierkant::model::model_assets_t>(path, true); }
 
 void PBRViewer::save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const
-{ save_bundle(material_data, path, m_settings.cache_zip_archive, false); }
+{ save_bundle(material_data, path, m_settings.cache_zip_archive, true); }
 
 std::optional<material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return load_bundle<material_data_t>(path, false); }
+{ return load_bundle<material_data_t>(path, true); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {
