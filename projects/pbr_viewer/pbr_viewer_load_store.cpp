@@ -109,7 +109,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
             spdlog::debug("loaded '{}' -- ({:03.2f})", params.path.string(), dur.count());
-            m_num_loading--;
+            --m_num_loading;
         };
         if(mesh) { main_queue().post(done_cb); }
     };
@@ -153,11 +153,11 @@ void PBRViewer::load_texture(const std::string &path)
 void PBRViewer::load_environment(const std::string &path)
 {
     auto load_task = [&, path]() {
-        m_num_loading++;
+        ++m_num_loading;
 
         auto start_time = std::chrono::steady_clock::now();
 
-        vierkant::ImagePtr panorama, skybox, conv_lambert, conv_ggx;
+        vierkant::ImagePtr skybox, conv_lambert, conv_ggx;
         auto img = crocore::create_image_from_file(path, 4);
 
         if(img)
@@ -172,6 +172,7 @@ void PBRViewer::load_environment(const std::string &path)
                                                               VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
             {
+                vierkant::ImagePtr panorama;
                 auto cmd_buf = vierkant::CommandBuffer(m_device, command_pool.get());
                 cmd_buf.begin();
 
@@ -230,7 +231,7 @@ void PBRViewer::load_environment(const std::string &path)
             m_scene_data.environment_path = path;
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
             spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
-            m_num_loading--;
+            --m_num_loading;
         });
     };
     background_queue().post(load_task);
