@@ -2,6 +2,7 @@
 #include <crocore/filesystem.hpp>
 #include <cxxopts.hpp>
 #include <fstream>
+#include <format>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
 
@@ -723,8 +724,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 if(clear_scene)
                 {
                     m_scene->clear();
-                    for(const auto &child: root_objects[0]->children) { m_scene->add_object(child); }
-
+                    for(const auto children = root_objects[0]->children; const auto &child: children)
+                    {
+                        m_scene->add_object(child);
+                    }
                     m_scene_id = scene_assets[0].scene_id;
                     m_material_data = scene_assets[0].material_data;
                 }
@@ -969,10 +972,10 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
 { return load_bundle<vierkant::model::model_assets_t>(path, true); }
 
 void PBRViewer::save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const
-{ save_bundle(material_data, path, m_settings.cache_zip_archive, true); }
+{ save_bundle(material_data, path, m_settings.cache_zip_archive, false); }
 
 std::optional<material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return load_bundle<material_data_t>(path, true); }
+{ return load_bundle<material_data_t>(path, false); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {
