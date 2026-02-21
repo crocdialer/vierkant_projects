@@ -1,8 +1,8 @@
 #include "pbr_viewer.hpp"
 #include <crocore/filesystem.hpp>
 #include <cxxopts.hpp>
-#include <fstream>
 #include <format>
+#include <fstream>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
 
@@ -513,6 +513,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             scene_data_t scene_data;
             vierkant::SceneId scene_id;
             material_data_t material_data;
+            std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> gpu_textures;
             std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
             std::vector<vierkant::Object3DPtr> objects;
         };
@@ -566,7 +567,31 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 // load material-bundles for scene and sub-scenes
                 if(auto material_data = load_material_bundle(asset.scene_data.material_bundle_path))
                 {
-                    asset.material_data = *material_data;
+                    asset.material_data = std::move(*material_data);
+                    for(const auto &[tex_id, tex_variant]: asset.material_data.textures)
+                    {
+                        vierkant::Image::Format fmt;
+                        fmt.max_anisotropy = m_device->properties().core.limits.maxSamplerAnisotropy;
+
+                        std::visit(
+                                [this, &asset, tex_id, fmt](auto &&img) {
+                                    using T = std::decay_t<decltype(img)>;
+
+                                    if constexpr(std::is_same_v<T, vierkant::ImagePtr>)
+                                    {
+                                        asset.gpu_textures[tex_id] = vierkant::model::create_texture(
+                                                m_device, img, fmt, m_queue_image_loading);
+                                        ;
+                                    }
+
+                                    if constexpr(std::is_same_v<T, vierkant::bcn::compress_result_t>)
+                                    {
+                                        asset.gpu_textures[tex_id] = vierkant::model::create_compressed_texture(
+                                                m_device, img, fmt, m_queue_image_loading);
+                                    }
+                                },
+                                tex_variant);
+                    }
                 }
             }
 
@@ -729,7 +754,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         m_scene->add_object(child);
                     }
                     m_scene_id = scene_assets[0].scene_id;
-                    m_material_data = scene_assets[0].material_data;
+                    m_material_data = std::move(scene_assets[0].material_data);
+                    m_texture_store = std::move(scene_assets[0].gpu_textures);
                 }
                 else
                 {
