@@ -495,42 +495,32 @@ void PBRViewer::create_ui()
 
                         if(ImGui::Button("plane"))
                         {
-                            auto geom = vierkant::Geometry::Plane();
-                            auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-                            new_object = m_scene->create_mesh_object({mesh});
+                            new_object = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::PLANE]});
+                            new_object->name = spdlog::fmt_lib::format("plane_{}", new_object->id() % 1000);
                         }
 
-                        if(ImGui::Button("box")) { new_object = m_scene->create_mesh_object({m_box_mesh}); }
+                        if(ImGui::Button("box"))
+                        {
+                            new_object = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::BOX]});
+                            new_object->name = spdlog::fmt_lib::format("box_{}", new_object->id() % 1000);
+                        }
 
                         if(ImGui::Button("sphere"))
                         {
-                            auto geom = vierkant::Geometry::UVSphere();
-                            auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-                            new_object = m_scene->create_mesh_object({mesh});
+                            new_object = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::SPHERE]});
+                            new_object->name = spdlog::fmt_lib::format("sphere{}", new_object->id() % 1000);
                         }
 
                         if(ImGui::Button("capsule"))
                         {
-                            auto geom = vierkant::Geometry::Capsule();
-                            auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-                            new_object = m_scene->create_mesh_object({mesh});
+                            new_object = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::CAPSULE]});
+                            new_object->name = spdlog::fmt_lib::format("capsule_{}", new_object->id() % 1000);
                         }
 
-                        if(new_object)
-                        {
-                            new_object->name = spdlog::fmt_lib::format("box_{}", new_object->id() % 1000);
-                            m_scene->add_object(new_object);
-                        }
+                        if(new_object) { m_scene->add_object(new_object); }
 
                         ImGui::EndMenu();
                     }
-
-                    // if(ImGui::Button("sphere"))
-                    // {
-                    //     auto new_obj = m_object_store->create_object();
-                    //     new_obj->name = spdlog::fmt_lib::format("blank_{}", new_obj->id() % 1000);
-                    //     m_scene->add_object(new_obj);
-                    // }
 
                     if(ImGui::Button("physics boxes (25)"))
                     {
@@ -545,14 +535,16 @@ void PBRViewer::create_ui()
 
                         for(uint32_t i = 0; i < 25; ++i)
                         {
-                            auto new_obj = m_scene->create_mesh_object({m_box_mesh});
+                            auto new_obj = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::BOX]});
                             new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
                             new_obj->transform.emplace();
                             new_obj->transform->translation.y = 10.f;
                             new_obj->transform->translation += glm::ballRand(1.f);
                             vierkant::object_component auto &cmp =
                                     new_obj->add_component<vierkant::physics_component_t>();
-                            vierkant::collision::box_t box = {m_box_mesh->entries.front().bounding_box.half_extents()};
+                            vierkant::collision::box_t box = {m_primitive_meshes[primitive_type::BOX]
+                                                                      ->entries.front()
+                                                                      .bounding_box.half_extents()};
                             cmp.shape = box;
                             cmp.mass = 1.f;
 

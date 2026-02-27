@@ -360,8 +360,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
     // handle empty path
     if(path.empty())
     {
-        auto it = m_scene_paths.find(m_scene_id);
-        if(it != m_scene_paths.end()) { path = it->second; }
+        if(auto it = m_scene_paths.find(m_scene_id); it != m_scene_paths.end()) { path = it->second; }
         else
         {
             spdlog::warn("{}: unable to figure out save-path", __func__);
@@ -437,14 +436,14 @@ void PBRViewer::save_scene(std::filesystem::path path)
 
         if(obj.has_component<vierkant::mesh_component_t>())
         {
-            auto mesh_component = obj.get_component<vierkant::mesh_component_t>();
+            const auto &mesh_component = obj.get_component<vierkant::mesh_component_t>();
             const auto &mesh = mesh_component.mesh;
 
             if(!mesh_ids.contains(mesh->id))
             {
-                auto path_it = m_model_paths.find(mesh->id);
-                if(path_it != m_model_paths.end())
+                if(const auto path_it = m_model_paths.find(mesh->id); path_it != m_model_paths.end())
                 {
+                    spdlog::info("POOP: {}", path_it->second.string());
                     data.model_paths[mesh->id] = path_it->second.string();
                     mesh_ids.insert(mesh->id);
                 }
@@ -782,12 +781,20 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     const auto start_time = std::chrono::steady_clock::now();
     vierkant::MeshPtr mesh;
 
-    if(path == "cube")
+    bool is_primitive = false;
+    for(const auto &[prim_type, geom_prim]: m_primitives)
     {
-        mesh = m_box_mesh;
-        mesh->id = vierkant::MeshId::from_name("cube");
+        if(path == geom_prim.name)
+        {
+            is_primitive = true;
+            mesh = m_primitive_meshes[prim_type];
+            mesh->id = vierkant::MeshId::from_name(geom_prim.name);
+            break;
+        }
     }
-    else if(!path.empty())
+
+
+    if(!is_primitive && !path.empty())
     {
         spdlog::debug("loading model '{}'", path.string());
 

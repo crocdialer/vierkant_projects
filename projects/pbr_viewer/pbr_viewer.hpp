@@ -205,7 +205,27 @@ private:
     VkBufferUsageFlags m_mesh_buffer_flags = 0;
 
     vierkant::mesh_map_t m_mesh_map;
-    vierkant::MeshPtr m_box_mesh;
+
+    enum class primitive_type
+    {
+        PLANE,
+        BOX,
+        SPHERE,
+        CAPSULE
+    };
+
+    struct primitive_t
+    {
+        std::string name;
+        vierkant::GeometryPtr geom;
+    };
+
+    const std::unordered_map<primitive_type, primitive_t> m_primitives = {
+            {primitive_type::PLANE, {"plane", vierkant::Geometry::Plane()}},
+            {primitive_type::BOX, {"cube", vierkant::Geometry::Box()}},
+            {primitive_type::SPHERE, {"sphere", vierkant::Geometry::UVSphere()}},
+            {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
+    std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
     vierkant::CollisionShapeId m_box_shape_id = vierkant::CollisionShapeId::nil();
 
     // window handle

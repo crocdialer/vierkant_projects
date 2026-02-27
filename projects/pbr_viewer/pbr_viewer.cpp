@@ -294,7 +294,10 @@ void PBRViewer::create_graphics_pipeline()
     }
 
     if(use_raytracer && m_path_tracer) { m_scene_renderer = m_path_tracer; }
-    else { m_scene_renderer = m_pbr_renderer; }
+    else
+    {
+        m_scene_renderer = m_pbr_renderer;
+    }
 
     // object-overlay assets per frame
     m_overlay_assets.resize(framebuffers.size());
@@ -350,21 +353,21 @@ void PBRViewer::create_texture_image()
             vierkant::cubemap_neutral_environment(m_device, 256, m_device->queue(), true, m_hdr_format);
     m_scene->set_environment(m_textures["environment"]);
 
-    auto box_half_extents = glm::vec3(.5f);
-    auto geom = vierkant::Geometry::Box(box_half_extents);
-    geom->colors.clear();
-
     vierkant::Mesh::create_info_t mesh_create_info = {};
     mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
     mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
-    m_box_mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
-    auto mat = vierkant::Material::create();
-    mat->m.id = vierkant::MaterialId ::from_name("cube");
-    auto it = m_textures.find("test");
-    if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
-    m_box_mesh->materials = {mat};
 
-    m_model_paths[m_box_mesh->id] = "cube";
+    for(const auto &[prim_type, prim]: m_primitives)
+    {
+        auto &mesh = m_primitive_meshes[prim_type];
+        mesh = vierkant::Mesh::create_from_geometry(m_device, prim.geom, mesh_create_info);
+        auto mat = vierkant::Material::create();
+        mat->m.id = vierkant::MaterialId ::from_name(prim.name);
+        auto it = m_textures.find("test");
+        if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
+        mesh->materials = {mat};
+        m_model_paths[mesh->id] = prim.name;
+    }
 }
 
 void PBRViewer::update(double time_delta)
@@ -553,8 +556,7 @@ void PBRViewer::init_logger()
         try
         {
             file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(m_settings.log_file);
-        } catch(spdlog::spdlog_ex &e)
-        {}
+        } catch(spdlog::spdlog_ex &e) {}
     }
 
     auto scroll_log_sink = std::make_shared<delegate_sink_t>();
