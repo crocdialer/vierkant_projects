@@ -141,7 +141,10 @@ void PBRViewer::create_ui()
                     {
                         m_camera_control.current = m_camera_control.fly;
                     }
-                    else { m_camera_control.current = m_camera_control.orbit; }
+                    else
+                    {
+                        m_camera_control.current = m_camera_control.orbit;
+                    }
                     m_camera->transform = m_camera_control.current->transform();
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
@@ -154,7 +157,10 @@ void PBRViewer::create_ui()
                     {
                         m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
                     }
-                    else { m_scene_renderer = m_pbr_renderer; }
+                    else
+                    {
+                        m_scene_renderer = m_pbr_renderer;
+                    }
                     break;
 
                 case vierkant::Key::_B: m_settings.draw_aabbs = !m_settings.draw_aabbs; break;
@@ -215,7 +221,10 @@ void PBRViewer::create_ui()
                             {
                                 m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
                             }
-                            else { m_scene_renderer = m_pbr_renderer; }
+                            else
+                            {
+                                m_scene_renderer = m_pbr_renderer;
+                            }
                             break;
 
                         case vierkant::Joystick::Input::BUTTON_A:
@@ -245,7 +254,10 @@ void PBRViewer::create_ui()
                             {
                                 m_camera_control.current = m_camera_control.fly;
                             }
-                            else { m_camera_control.current = m_camera_control.orbit; }
+                            else
+                            {
+                                m_camera_control.current = m_camera_control.orbit;
+                            }
                             m_camera->transform = m_camera_control.current->transform();
                             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
@@ -271,10 +283,7 @@ void PBRViewer::create_ui()
         try
         {
             gui_create_info.font_data = crocore::filesystem::read_binary_file(m_settings.font_url);
-        } catch(std::exception &e)
-        {
-            spdlog::warn(e.what());
-        }
+        } catch(std::exception &e) { spdlog::warn(e.what()); }
     }
     gui_create_info.font_size = m_settings.ui_font_scale;
     m_gui_context = vierkant::gui::Context(m_device, gui_create_info);
@@ -363,7 +372,10 @@ void PBRViewer::create_ui()
                     if(auto settings = load_settings()) { m_settings = std::move(*settings); }
                     create_camera_controls();
                     if(m_settings.path_tracing) { m_scene_renderer = m_path_tracer; }
-                    else { m_scene_renderer = m_pbr_renderer; }
+                    else
+                    {
+                        m_scene_renderer = m_pbr_renderer;
+                    }
                 }
                 ImGui::Separator();
                 ImGui::Spacing();
@@ -474,11 +486,43 @@ void PBRViewer::create_ui()
                         m_scene->add_object(new_obj);
                     }
 
-                    if(ImGui::Button("box"))
+                    if(ImGui::BeginMenu("primitive"))
                     {
-                        auto new_obj = m_scene->create_mesh_object({m_box_mesh});
-                        new_obj->name = spdlog::fmt_lib::format("box_{}", new_obj->id() % 1000);
-                        m_scene->add_object(new_obj);
+                        vierkant::Object3DPtr new_object;
+                        vierkant::Mesh::create_info_t mesh_create_info = {};
+                        mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
+                        mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+
+                        if(ImGui::Button("plane"))
+                        {
+                            auto geom = vierkant::Geometry::Plane();
+                            auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+                            new_object = m_scene->create_mesh_object({mesh});
+                        }
+
+                        if(ImGui::Button("box")) { new_object = m_scene->create_mesh_object({m_box_mesh}); }
+
+                        if(ImGui::Button("sphere"))
+                        {
+                            auto geom = vierkant::Geometry::UVSphere();
+                            auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+                            new_object = m_scene->create_mesh_object({mesh});
+                        }
+
+                        if(ImGui::Button("capsule"))
+                        {
+                            auto geom = vierkant::Geometry::Capsule();
+                            auto mesh = vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+                            new_object = m_scene->create_mesh_object({mesh});
+                        }
+
+                        if(new_object)
+                        {
+                            new_object->name = spdlog::fmt_lib::format("box_{}", new_object->id() % 1000);
+                            m_scene->add_object(new_object);
+                        }
+
+                        ImGui::EndMenu();
                     }
 
                     // if(ImGui::Button("sphere"))
@@ -547,7 +591,10 @@ void PBRViewer::create_ui()
                                 {
                                     constraint_cmp = &obj1->add_component<vierkant::constraint_component_t>();
                                 }
-                                else { constraint_cmp = obj1->get_component_ptr<vierkant::constraint_component_t>(); }
+                                else
+                                {
+                                    constraint_cmp = obj1->get_component_ptr<vierkant::constraint_component_t>();
+                                }
 
                                 auto &body_constraint = constraint_cmp->body_constraints.emplace_back();
                                 vierkant::constraint::distance_t distance_constraint = {};
@@ -781,7 +828,10 @@ void PBRViewer::create_ui()
                 {
                     m_camera_control.orbit->spherical_coords = pitch_yaw;
                 }
-                else { m_camera_control.fly->spherical_coords = pitch_yaw; }
+                else
+                {
+                    m_camera_control.fly->spherical_coords = pitch_yaw;
+                }
 
                 if(m_camera_control.current->transform_cb)
                 {
@@ -862,7 +912,10 @@ void PBRViewer::create_ui()
                     {
                         m_selected_objects.erase(picked_object);
                     }
-                    else { m_selected_objects.insert(picked_object); }
+                    else
+                    {
+                        m_selected_objects.insert(picked_object);
+                    }
                 }
             }
         }
@@ -907,7 +960,10 @@ void PBRViewer::create_camera_controls()
     m_camera_control.fly = m_settings.fly_camera;
 
     if(m_settings.use_fly_camera) { m_camera_control.current = m_camera_control.fly; }
-    else { m_camera_control.current = m_camera_control.orbit; }
+    else
+    {
+        m_camera_control.current = m_camera_control.orbit;
+    }
 
     // camera
     m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
