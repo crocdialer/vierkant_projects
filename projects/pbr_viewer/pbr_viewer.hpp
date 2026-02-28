@@ -211,6 +211,7 @@ private:
         PLANE,
         BOX,
         SPHERE,
+        CYLINDER,
         CAPSULE
     };
 
@@ -224,8 +225,10 @@ private:
             {primitive_type::PLANE, {"plane", vierkant::Geometry::Plane()}},
             {primitive_type::BOX, {"cube", vierkant::Geometry::Box()}},
             {primitive_type::SPHERE, {"sphere", vierkant::Geometry::UVSphere()}},
+            {primitive_type::CYLINDER, {"cylinder", vierkant::Geometry::Cylinder()}},
             {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
+    
     vierkant::CollisionShapeId m_box_shape_id = vierkant::CollisionShapeId::nil();
 
     // window handle

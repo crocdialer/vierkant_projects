@@ -511,6 +511,12 @@ void PBRViewer::create_ui()
                             new_object->name = spdlog::fmt_lib::format("sphere{}", new_object->id() % 1000);
                         }
 
+                        if(ImGui::Button("cylinder"))
+                        {
+                            new_object = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::CYLINDER]});
+                            new_object->name = spdlog::fmt_lib::format("cylinder_{}", new_object->id() % 1000);
+                        }
+
                         if(ImGui::Button("capsule"))
                         {
                             new_object = m_scene->create_mesh_object({m_primitive_meshes[primitive_type::CAPSULE]});
