@@ -126,9 +126,8 @@ template<class Archive>
 void serialize(Archive &archive, vierkant::constraint::swing_twist_t &c)
 {
     archive(cereal::make_nvp("space", c.space), cereal::make_nvp("position1", c.position1),
-            cereal::make_nvp("twist_axis1", c.twist_axis1), cereal::make_nvp("plane_axis1", c.plane_axis1),
-            cereal::make_nvp("position2", c.position2), cereal::make_nvp("twist_axis2", c.twist_axis2),
-            cereal::make_nvp("plane_axis2", c.plane_axis2), cereal::make_nvp("swing_type", c.swing_type),
+            cereal::make_nvp("twist_axis1", c.twist_axis1), cereal::make_nvp("position2", c.position2),
+            cereal::make_nvp("twist_axis2", c.twist_axis2), cereal::make_nvp("swing_type", c.swing_type),
             cereal::make_nvp("normal_half_cone_angle", c.normal_half_cone_angle),
             cereal::make_nvp("plane_half_cone_angle", c.plane_half_cone_angle),
             cereal::make_nvp("twist_min_angle", c.twist_min_angle),
