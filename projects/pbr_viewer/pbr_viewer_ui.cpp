@@ -565,52 +565,6 @@ void PBRViewer::create_ui()
                         // add new default-material with random Id
                         m_material_data.materials[{}] = {};
                     }
-
-                    if(ImGui::Button("constraint-test"))
-                    {
-                        if(!m_selected_objects.empty())
-                        {
-                            vierkant::Object3D *obj1 = m_selected_objects.begin()->get();
-
-                            if(auto *physics_cmp = obj1->get_component_ptr<vierkant::physics_component_t>())
-                            {
-                                vierkant::BodyId body_id2 = vierkant::BodyId::nil();
-                                if(m_selected_objects.size() > 1)
-                                {
-                                    const auto *obj2 = (++m_selected_objects.begin())->get();
-                                    if(auto *phy_cmp2 = obj2->get_component_ptr<vierkant::physics_component_t>())
-                                    {
-                                        body_id2 = phy_cmp2->body_id;
-                                    }
-                                }
-
-                                vierkant::constraint_component_t *constraint_cmp = nullptr;
-                                if(!obj1->has_component<vierkant::constraint_component_t>())
-                                {
-                                    constraint_cmp = &obj1->add_component<vierkant::constraint_component_t>();
-                                }
-                                else
-                                {
-                                    constraint_cmp = obj1->get_component_ptr<vierkant::constraint_component_t>();
-                                }
-
-                                auto &body_constraint = constraint_cmp->body_constraints.emplace_back();
-                                vierkant::constraint::distance_t distance_constraint = {};
-                                body_constraint.body_id1 = physics_cmp->body_id;
-                                body_constraint.body_id2 = body_id2;
-                                distance_constraint.point2 = body_id2 ? glm::vec3(0.f) : glm::vec3(0.f, 2.f, 0.f);
-                                distance_constraint.space = vierkant::constraint::ConstraintSpace::LocalToBodyCOM;
-                                distance_constraint.max_distance = 0.5f;
-
-                                // frequency in Hz
-                                distance_constraint.spring_settings.frequency_or_stiffness = 2.f;
-                                distance_constraint.spring_settings.damping = 0.1f;
-
-                                body_constraint.constraint = distance_constraint;
-                                physics_cmp->mode = vierkant::physics_component_t::Mode::UPDATE;
-                            }
-                        }
-                    }
                     ImGui::EndMenu();
                 }
 
