@@ -15,33 +15,23 @@ void serialize(Archive &, vierkant::collision::none_t &)
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::plane_t &s)
-{
-    archive(cereal::make_nvp("coefficients", s.coefficients), cereal::make_nvp("half_extents", s.half_extent));
-}
+{ archive(cereal::make_nvp("coefficients", s.coefficients), cereal::make_nvp("half_extents", s.half_extent)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::box_t &s)
-{
-    archive(cereal::make_nvp("half_extents", s.half_extents));
-}
+{ archive(cereal::make_nvp("half_extents", s.half_extents)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::sphere_t &s)
-{
-    archive(cereal::make_nvp("normal", s.radius));
-}
+{ archive(cereal::make_nvp("normal", s.radius)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::cylinder_t &s)
-{
-    archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height));
-}
+{ archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::capsule_t &s)
-{
-    archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height));
-}
+{ archive(cereal::make_nvp("radius", s.radius), cereal::make_nvp("height", s.height)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::collision::mesh_t &s)
@@ -123,6 +113,14 @@ void serialize(Archive &archive, vierkant::constraint::gear_t &c)
 }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::constraint::cone_t &c)
+{
+    archive(cereal::make_nvp("space", c.space), cereal::make_nvp("point1", c.point1),
+            cereal::make_nvp("twist_axis1", c.twist_axis1), cereal::make_nvp("point2", c.point2),
+            cereal::make_nvp("twist_axis2", c.twist_axis2), cereal::make_nvp("half_cone_angle", c.half_cone_angle));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::constraint::swing_twist_t &c)
 {
     archive(cereal::make_nvp("space", c.space), cereal::make_nvp("position1", c.position1),
@@ -160,8 +158,6 @@ void serialize(Archive &archive, vierkant::constraint_component_t::body_constrai
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::constraint_component_t &c)
-{
-    archive(cereal::make_nvp("body_constraints", c.body_constraints));
-}
+{ archive(cereal::make_nvp("body_constraints", c.body_constraints)); }
 
 }// namespace vierkant
