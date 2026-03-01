@@ -696,6 +696,12 @@ void PBRViewer::create_ui()
         {
             if(ImGui::BeginTabItem("scene"))
             {
+                ImGui::SliderFloat("playback speed", &m_settings.playback_speed, 0.f, 10.f);
+                ImGui::SameLine();
+                ImGui::Checkbox("playing", &m_settings.animation_playback);
+                ImGui::BulletText("%s", std::format("frame: {}", m_scene->current_frame()).c_str());
+                ImGui::Spacing();
+
                 vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
                 ImGui::EndTabItem();
             }

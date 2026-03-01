@@ -32,7 +32,9 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("ortho_camera", settings.ortho_camera),
        cereal::make_nvp("current_guizmo", settings.current_guizmo),
        cereal::make_nvp("object_overlay_mode", settings.object_overlay_mode),
-       cereal::make_nvp("target_fps", settings.target_fps));
+       cereal::make_nvp("target_fps", settings.target_fps),
+       cereal::make_optional_nvp("playback_speed", settings.playback_speed, 1.f),
+       cereal::make_optional_nvp("animation_playback", settings.animation_playback, true));
 }
 
 template<class Archive>

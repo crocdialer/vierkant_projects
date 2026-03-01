@@ -91,6 +91,9 @@ public:
 
         //! desired fps, default: 0.f (disable throttling)
         float target_fps = 60.f;
+
+        float playback_speed = 1.f;
+        bool animation_playback = true;
     };
 
     static constexpr char s_default_scene_path[] = "scene.json";
@@ -228,7 +231,7 @@ private:
             {primitive_type::CYLINDER, {"cylinder", vierkant::Geometry::Cylinder()}},
             {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
-    
+
     vierkant::CollisionShapeId m_box_shape_id = vierkant::CollisionShapeId::nil();
 
     // window handle

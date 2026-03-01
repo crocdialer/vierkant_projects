@@ -443,7 +443,6 @@ void PBRViewer::save_scene(std::filesystem::path path)
             {
                 if(const auto path_it = m_model_paths.find(mesh->id); path_it != m_model_paths.end())
                 {
-                    spdlog::info("POOP: {}", path_it->second.string());
                     data.model_paths[mesh->id] = path_it->second.string();
                     mesh_ids.insert(mesh->id);
                 }

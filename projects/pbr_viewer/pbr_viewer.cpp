@@ -373,7 +373,7 @@ void PBRViewer::create_texture_image()
 void PBRViewer::update(double time_delta)
 {
     // update animated objects, clear flags
-    m_scene->update(time_delta);
+    m_scene->update(m_settings.animation_playback ? m_settings.playback_speed * time_delta : 0.0);
 
     if(m_settings.draw_ui) { m_gui_context.update(time_delta, m_window->size(), m_window->framebuffer_size()); }
     m_camera_control.current->update(time_delta);
