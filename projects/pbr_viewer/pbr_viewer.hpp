@@ -225,7 +225,7 @@ private:
     };
 
     const std::unordered_map<primitive_type, primitive_t> m_primitives = {
-            {primitive_type::PLANE, {"plane", vierkant::Geometry::Plane()}},
+            {primitive_type::PLANE, {"plane", vierkant::Geometry::Plane(1.f, 1.f, 4, 4)}},
             {primitive_type::BOX, {"cube", vierkant::Geometry::Box()}},
             {primitive_type::SPHERE, {"sphere", vierkant::Geometry::UVSphere()}},
             {primitive_type::CYLINDER, {"cylinder", vierkant::Geometry::Cylinder()}},
