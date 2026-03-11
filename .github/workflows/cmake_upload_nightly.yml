@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Download linux artifacts
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v6
         with:
           workflow: cmake_build.yml
           workflow_conclusion: success
@@ -39,7 +39,7 @@ jobs:
           skip_unpack: false
 
       - name: Download windows artifacts
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v6
         with:
           workflow: cmake_build_windows.yml
           workflow_conclusion: success
