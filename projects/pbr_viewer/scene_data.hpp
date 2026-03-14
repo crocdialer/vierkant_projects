@@ -41,13 +41,9 @@ struct scene_node_t
 
     //! optional physics-constraints
     std::optional<vierkant::constraint_component_t> constraints = {};
-};
 
-struct scene_camera_t
-{
-    std::string name;
-    vierkant::transform_t transform = {};
-    vierkant::camera_params_variant_t params = {};
+    //! optional camera-state
+    std::optional<vierkant::camera_component_t> camera_state = {};
 };
 
 struct scene_data_t
@@ -69,8 +65,6 @@ struct scene_data_t
 
     //! indices into scene_data_t::nodes
     std::vector<uint32_t> scene_roots;
-
-    std::vector<scene_camera_t> cameras;
 };
 
 struct material_data_t

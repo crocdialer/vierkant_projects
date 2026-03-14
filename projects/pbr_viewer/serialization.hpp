@@ -47,9 +47,7 @@ namespace cereal
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::bcn::block_t &block)
-{
-    archive(cereal::make_nvp("value", block.value));
-}
+{ archive(cereal::make_nvp("value", block.value)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::bcn::compress_result_t &compress_result)
@@ -66,15 +64,11 @@ namespace crocore
 
 template<class Archive, class T>
 std::string save_minimal(Archive const &, const crocore::NamedUUID<T> &named_id)
-{
-    return named_id.str();
-}
+{ return named_id.str(); }
 
 template<class Archive, class T>
 void load_minimal(Archive const &, crocore::NamedUUID<T> &named_id, const std::string &uuid_str)
-{
-    named_id = crocore::NamedUUID<T>::from_string(uuid_str);
-}
+{ named_id = crocore::NamedUUID<T>::from_string(uuid_str); }
 
 template<class Archive, class T>
 void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
@@ -86,9 +80,7 @@ void serialize(Archive &archive, crocore::set_lru<T> &set_lru)
 
 template<class Archive>
 void save(Archive &archive, const crocore::Image_<unsigned char> &img)
-{
-    archive(crocore::encode_png(img));
-}
+{ archive(crocore::encode_png(img)); }
 
 template<class Archive>
 void load(Archive &archive, crocore::Image_<unsigned char> &img)
@@ -125,21 +117,15 @@ void serialize(Archive &archive, vierkant::transform_t_<T> &t)
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::AABB &aabb)
-{
-    archive(cereal::make_nvp("min", aabb.min), cereal::make_nvp("max", aabb.max));
-}
+{ archive(cereal::make_nvp("min", aabb.min), cereal::make_nvp("max", aabb.max)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Sphere &sphere)
-{
-    archive(cereal::make_nvp("center", sphere.center), cereal::make_nvp("radius", sphere.radius));
-}
+{ archive(cereal::make_nvp("center", sphere.center), cereal::make_nvp("radius", sphere.radius)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::Cone &cone)
-{
-    archive(cereal::make_nvp("axis", cone.axis), cereal::make_nvp("cutoff", cone.cutoff));
-}
+{ archive(cereal::make_nvp("axis", cone.axis), cereal::make_nvp("cutoff", cone.cutoff)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::texture_data_t &tex_data)
@@ -342,6 +328,10 @@ void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
             cereal::make_nvp("clipping_distances", params.clipping_distances),
             cereal::make_nvp("focal_distance", params.focal_distance), cereal::make_nvp("fstop", params.fstop));
 }
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::camera_component_t &c)
+{ archive(cereal::make_nvp("params", c.params)); }
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::CameraControl &camera_control)

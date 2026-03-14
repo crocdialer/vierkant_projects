@@ -24,13 +24,18 @@ struct ui_state_t
 
 void PBRViewer::toggle_ortho_camera()
 {
-    bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+    bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&m_camera->params()));
 
     if(!ortho)
     {
         vierkant::ortho_camera_params_t params = {};
         params.near_ = 0.f;
         params.far_ = 10000.f;
+
+        // TODO: switch to this, ditch OrthoCamera type
+        // auto cam_obj = m_object_store->create_object();
+        // cam_obj->name = "ortho_camera";
+        // cam_obj->add_component<vierkant::camera_component_t>({params});
         m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
         m_camera->name = "ortho";
     }
@@ -461,7 +466,7 @@ void PBRViewer::create_ui()
                         refresh = true;
                     }
                     ImGui::SameLine();
-                    bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+                    bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&m_camera->params()));
 
                     if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
 
@@ -964,18 +969,18 @@ void PBRViewer::create_camera_controls()
 
         if(m_camera_control.current == m_camera_control.orbit)
         {
-            if(auto ortho_cam = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera))
+            if(auto *ortho_params = std::get_if<vierkant::ortho_camera_params_t>(&m_camera->params()))
             {
                 // default horizontal fov of perspective-view
                 constexpr float default_hfov = 0.6912f;
                 float aspect = m_window->aspect_ratio();
                 float size = m_camera_control.orbit->distance * std::tan(0.5f * default_hfov / aspect);
 
-                auto &ortho_params = std::get<vierkant::ortho_camera_params_t>(ortho_cam->params());
-                ortho_params.top = size;
-                ortho_params.bottom = -size;
-                ortho_params.left = -size * aspect;
-                ortho_params.right = size * aspect;
+                // auto &ortho_params = std::get<vierkant::ortho_camera_params_t>(ortho_cam->params());
+                ortho_params->top = size;
+                ortho_params->bottom = -size;
+                ortho_params->left = -size * aspect;
+                ortho_params->right = size * aspect;
             }
         }
     };
