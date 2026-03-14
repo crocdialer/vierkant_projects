@@ -117,7 +117,7 @@ private:
 
     vierkant::ScenePtr m_scene = vierkant::Scene::create();
 
-    vierkant::CameraPtr m_camera;
+    vierkant::Object3DPtr m_camera;
 
     settings_t m_settings;
 };

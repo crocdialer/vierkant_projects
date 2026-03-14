@@ -53,14 +53,8 @@ void serialize(Archive &ar, scene_node_t &scene_node)
        cereal::make_optional_nvp("mesh_state", scene_node.mesh_state),
        cereal::make_optional_nvp("animation_state", scene_node.animation_state),
        cereal::make_optional_nvp("physics_state", scene_node.physics_state),
-       cereal::make_optional_nvp("constraints", scene_node.constraints));
-}
-
-template<class Archive>
-void serialize(Archive &ar, scene_camera_t &camera)
-{
-    ar(cereal::make_nvp("name", camera.name), cereal::make_nvp("transform", camera.transform),
-       cereal::make_nvp("params", camera.params));
+       cereal::make_optional_nvp("constraints", scene_node.constraints),
+       cereal::make_optional_nvp("camera_state", scene_node.camera_state));
 }
 
 template<class Archive>
@@ -70,7 +64,7 @@ void serialize(Archive &ar, scene_data_t &scene_data)
        cereal::make_optional_nvp("environment_path", scene_data.environment_path),
        cereal::make_optional_nvp("scene_paths", scene_data.scene_paths),
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
-       cereal::make_nvp("scene_roots", scene_data.scene_roots), cereal::make_nvp("cameras", scene_data.cameras),
+       cereal::make_nvp("scene_roots", scene_data.scene_roots),
        cereal::make_optional_nvp("material_bundle_path", scene_data.material_bundle_path));
 }
 

@@ -244,7 +244,7 @@ private:
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store);
     vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
-    vierkant::CameraPtr m_camera;
+    vierkant::Object3DPtr m_camera;
 
     struct camera_control_t
     {

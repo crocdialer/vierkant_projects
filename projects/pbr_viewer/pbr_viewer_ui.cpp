@@ -24,19 +24,24 @@ struct ui_state_t
 
 void PBRViewer::toggle_ortho_camera()
 {
-    bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+    assert(cam_cmp);
+
+    bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
 
     if(!ortho)
     {
         vierkant::ortho_camera_params_t params = {};
         params.near_ = 0.f;
         params.far_ = 10000.f;
-        m_camera = vierkant::OrthoCamera::create(m_scene->registry(), params);
-        m_camera->name = "ortho";
+
+        m_camera->name = "ortho_camera";
+        m_camera->add_component<vierkant::camera_component_t>({params});
     }
     else
     {
-        m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+        vierkant::physical_camera_params_t params = {};
+        m_camera->add_component<vierkant::camera_component_t>({params});
         m_camera->name = "default";
     }
     m_camera_control.current->transform_cb(m_camera_control.current->transform());
@@ -461,7 +466,10 @@ void PBRViewer::create_ui()
                         refresh = true;
                     }
                     ImGui::SameLine();
-                    bool ortho = static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera));
+
+                    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+                    assert(cam_cmp);
+                    bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
 
                     if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
 
@@ -767,7 +775,7 @@ void PBRViewer::create_ui()
 
         if(m_settings.ui_draw_view_controls)
         {
-            auto view = vierkant::mat4_cast(m_camera->view_transform());
+            auto view = vierkant::mat4_cast(vierkant::camera::view_transform(m_camera.get()));
             const glm::vec2 sz = {150, 150};
             glm::vec2 pos = {(static_cast<float>(m_window->size().x) - sz.x) / 2.f, 0.f};
             if(ImGuizmo::ViewManipulate(glm::value_ptr(view), 1.f, {pos.x, pos.y}, {sz.x, sz.y}, 0x00000000))
@@ -924,7 +932,9 @@ void PBRViewer::create_camera_controls()
     }
 
     // camera
-    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), {});
+    m_camera = m_object_store->create_object();
+    vierkant::physical_camera_params_t params = {};
+    m_camera->add_component<vierkant::camera_component_t>({params});
     m_camera->name = "default";
 
     // attach arcball mouse delegate
@@ -964,16 +974,21 @@ void PBRViewer::create_camera_controls()
 
         if(m_camera_control.current == m_camera_control.orbit)
         {
-            if(auto ortho_cam = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera))
+            auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+            assert(cam_cmp);
+
+            if(auto *ortho_params = std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params))
             {
                 // default horizontal fov of perspective-view
                 constexpr float default_hfov = 0.6912f;
                 float aspect = m_window->aspect_ratio();
                 float size = m_camera_control.orbit->distance * std::tan(0.5f * default_hfov / aspect);
-                ortho_cam->ortho_params.top = size;
-                ortho_cam->ortho_params.bottom = -size;
-                ortho_cam->ortho_params.left = -size * aspect;
-                ortho_cam->ortho_params.right = size * aspect;
+
+                // auto &ortho_params = std::get<vierkant::ortho_camera_params_t>(ortho_cam->params());
+                ortho_params->top = size;
+                ortho_params->bottom = -size;
+                ortho_params->left = -size * aspect;
+                ortho_params->right = size * aspect;
             }
         }
     };

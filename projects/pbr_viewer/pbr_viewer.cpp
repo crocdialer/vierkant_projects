@@ -196,9 +196,12 @@ void PBRViewer::create_context_and_window()
                 m_window->swapchain().sample_count();
         m_camera_control.current->screen_size = {w, h};
 
-        if(auto cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera))
+        auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+        assert(cam_cmp);
+
+        if(auto *perspective_params = std::get_if<vierkant::physical_camera_params_t>(&cam_cmp->params))
         {
-            cam->perspective_params.aspect = m_window->aspect_ratio();
+            perspective_params->aspect = m_window->aspect_ratio();
         }
     };
     window_delegate.close_fn = [this]() { running = false; };
@@ -418,20 +421,22 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                                    render_result.semaphore_infos.end());
         }
 
+        auto view_transform = vierkant::camera::view_transform(m_camera.get());
+        auto cam_projection = vierkant::camera::projection_matrix(m_camera.get());
+
         for(const auto &obj: selected_objects)
         {
-            auto modelview = m_camera->view_transform() * obj->global_transform();
+            auto modelview = view_transform * obj->global_transform();
 
             if(m_settings.draw_aabbs)
             {
-                m_draw_context.draw_boundingbox(m_renderer_overlay, obj->aabb(), modelview,
-                                                m_camera->projection_matrix());
+                m_draw_context.draw_boundingbox(m_renderer_overlay, obj->aabb(), modelview, cam_projection);
 
                 auto sub_aabbs = obj->sub_aabbs();
 
                 for(const auto &aabb: sub_aabbs)
                 {
-                    m_draw_context.draw_boundingbox(m_renderer_overlay, aabb, modelview, m_camera->projection_matrix());
+                    m_draw_context.draw_boundingbox(m_renderer_overlay, aabb, modelview, cam_projection);
                 }
             }
 
@@ -448,16 +453,18 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
                     auto node = mesh->root_bone ? mesh->root_bone : mesh->root_node;
                     m_draw_context.draw_node_hierarchy(m_renderer_overlay, node, animation,
                                                        static_cast<float>(animation_state.current_time), modelview,
-                                                       m_camera->projection_matrix());
+                                                       cam_projection);
                 }
             }
         }
 
         if(m_settings.draw_grid)
         {
+            const auto &cam_cmp = m_camera->get_component<vierkant::camera_component_t>();
+            bool is_ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp.params));
+
             m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8f), 1.f), 1.f, glm::vec2(0.05f),
-                                     static_cast<bool>(std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera)),
-                                     true, m_camera->view_transform(), m_camera->projection_matrix());
+                                     is_ortho, true, view_transform, cam_projection);
         }
 
         if(m_selection_area)

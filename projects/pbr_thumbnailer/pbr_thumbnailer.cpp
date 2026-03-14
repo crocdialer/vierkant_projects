@@ -288,7 +288,7 @@ void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_a
     model_camera.params.aspect =
             static_cast<float>(m_settings.result_image_size.x) / static_cast<float>(m_settings.result_image_size.y);
 
-    m_camera = vierkant::PerspectiveCamera::create(m_scene->registry(), model_camera.params);
+    m_camera = m_scene->create_camera(model_camera.params);
     m_camera->transform = model_camera.transform;
 }
 

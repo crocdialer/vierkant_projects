@@ -261,7 +261,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
-    settings.ortho_camera = std::dynamic_pointer_cast<vierkant::OrthoCamera>(m_camera) != nullptr;
+
+    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+    settings.ortho_camera = cam_cmp && std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params) != nullptr;
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
@@ -388,16 +390,6 @@ void PBRViewer::save_scene(std::filesystem::path path)
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(&obj == m_scene->root().get()) { return true; }
 
-        // skip cameras
-        if(auto *cam = dynamic_cast<vierkant::Camera *>(&obj))
-        {
-            scene_camera_t &scene_camera = data.cameras.emplace_back();
-            scene_camera.name = cam->name;
-            scene_camera.transform = cam->global_transform();
-            scene_camera.params = cam->params();
-            return true;
-        }
-
         obj_to_node_index[&obj] = data.nodes.size();
 
         scene_node_t &node = data.nodes.emplace_back();
@@ -432,6 +424,11 @@ void PBRViewer::save_scene(std::filesystem::path path)
         if(obj.has_component<vierkant::constraint_component_t>())
         {
             node.constraints = obj.get_component<vierkant::constraint_component_t>();
+        }
+
+        if(obj.has_component<vierkant::camera_component_t>())
+        {
+            node.camera_state = obj.get_component<vierkant::camera_component_t>();
         }
 
         if(obj.has_component<vierkant::mesh_component_t>())
@@ -632,7 +629,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
         auto create_root_object = [this](const scene_data_t &scene_data,
                                          const std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> &meshes,
-                                         const std::shared_ptr<entt::registry> &registry,
                                          std::vector<vierkant::Object3DPtr> &out_objects) -> vierkant::Object3DPtr {
             auto root = m_object_store->create_object();
             root->name = scene_data.name;
@@ -658,6 +654,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 if(node.animation_state) { obj->add_component(*node.animation_state); }
                 if(node.physics_state) { obj->add_component(*node.physics_state); }
                 if(node.constraints) { obj->add_component(*node.constraints); }
+                if(node.camera_state) { obj->add_component(*node.camera_state); }
 
                 out_objects.push_back(obj);
             }
@@ -673,32 +670,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
             // add scene-roots
             for(auto idx: scene_data.scene_roots) { root->add_child(out_objects[idx]); }
-
-            for(const auto &cam: scene_data.cameras)
-            {
-                auto object = std::visit(
-                        [&registry](auto &&camera_params) -> vierkant::CameraPtr {
-                            using T = std::decay_t<decltype(camera_params)>;
-
-                            if constexpr(std::is_same_v<T, vierkant::ortho_camera_params_t>)
-                            {
-                                return vierkant::OrthoCamera::create(registry, camera_params);
-                            }
-                            else if constexpr(std::is_same_v<T, vierkant::physical_camera_params_t>)
-                            {
-                                return vierkant::PerspectiveCamera::create(registry, camera_params);
-                            }
-                            else
-                                return nullptr;
-                        },
-                        cam.params);
-
-                object->name = cam.name;
-                object->transform = cam.transform;
-                root->add_child(object);
-
-                m_camera = object;
-            }
             return root;
         };
 
@@ -712,8 +683,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
             for(uint32_t i = 0; i < scene_assets.size(); ++i)
             {
-                root_objects[i] = create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes,
-                                                     m_scene->registry(), scene_assets[i].objects);
+                root_objects[i] =
+                        create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes, scene_assets[i].objects);
                 scene_root_map[scene_assets[i].scene_id] = root_objects[i];
                 auto &cmp = root_objects[i]->add_component<object_flags_component_t>();
                 cmp.scene_id = scene_assets[i].scene_id;
