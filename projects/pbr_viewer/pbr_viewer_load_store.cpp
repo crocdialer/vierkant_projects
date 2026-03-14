@@ -389,12 +389,12 @@ void PBRViewer::save_scene(std::filesystem::path path)
         if(&obj == m_scene->root().get()) { return true; }
 
         // skip cameras
-        if(auto *cam = dynamic_cast<vierkant::Camera *>(&obj))
+        if(auto *cam_component = obj.get_component_ptr<vierkant::camera_component_t>())
         {
             scene_camera_t &scene_camera = data.cameras.emplace_back();
-            scene_camera.name = cam->name;
-            scene_camera.transform = cam->global_transform();
-            scene_camera.params = cam->params();
+            scene_camera.name = obj.name;
+            scene_camera.transform = obj.global_transform();
+            scene_camera.params = cam_component->params;
             return true;
         }
 

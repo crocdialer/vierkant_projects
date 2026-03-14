@@ -970,10 +970,12 @@ void PBRViewer::create_camera_controls()
                 constexpr float default_hfov = 0.6912f;
                 float aspect = m_window->aspect_ratio();
                 float size = m_camera_control.orbit->distance * std::tan(0.5f * default_hfov / aspect);
-                ortho_cam->ortho_params.top = size;
-                ortho_cam->ortho_params.bottom = -size;
-                ortho_cam->ortho_params.left = -size * aspect;
-                ortho_cam->ortho_params.right = size * aspect;
+
+                auto &ortho_params = std::get<vierkant::ortho_camera_params_t>(ortho_cam->params());
+                ortho_params.top = size;
+                ortho_params.bottom = -size;
+                ortho_params.left = -size * aspect;
+                ortho_params.right = size * aspect;
             }
         }
     };

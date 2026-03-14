@@ -198,7 +198,8 @@ void PBRViewer::create_context_and_window()
 
         if(auto cam = std::dynamic_pointer_cast<vierkant::PerspectiveCamera>(m_camera))
         {
-            cam->perspective_params.aspect = m_window->aspect_ratio();
+            auto &perspective_params = std::get<vierkant::physical_camera_params_t>(cam->params());
+            perspective_params.aspect = m_window->aspect_ratio();
         }
     };
     window_delegate.close_fn = [this]() { running = false; };
