@@ -261,7 +261,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
-    settings.ortho_camera = std::get_if<vierkant::ortho_camera_params_t>(&m_camera->params()) != nullptr;
+
+    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+    settings.ortho_camera = cam_cmp && std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params) != nullptr;
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;
