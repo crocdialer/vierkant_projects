@@ -428,6 +428,21 @@ void PBRViewer::create_ui()
                     ImGui::Separator();
                     ImGui::Spacing();
 
+                    ImGui::Text("transform-space");
+                    ImGui::SameLine();
+                    if(ImGui::RadioButton("world", m_settings.guizmo_space == vierkant::gui::GuizmoSpace::WORLD))
+                    {
+                        m_settings.guizmo_space = vierkant::gui::GuizmoSpace::WORLD;
+                    }
+                    ImGui::SameLine();
+
+                    if(ImGui::RadioButton("local", m_settings.guizmo_space == vierkant::gui::GuizmoSpace::LOCAL))
+                    {
+                        m_settings.guizmo_space = vierkant::gui::GuizmoSpace::LOCAL;
+                    }
+
+                    ImGui::Separator();
+                    ImGui::Spacing();
 
                     if(ImGui::RadioButton("none", m_settings.object_overlay_mode == vierkant::ObjectOverlayMode::None))
                     {
@@ -704,7 +719,10 @@ void PBRViewer::create_ui()
         {
             if(ImGui::BeginTabItem("scene"))
             {
-                ImGui::SliderFloat("playback speed", &m_settings.playback_speed, 0.f, 10.f);
+                if(ImGui::InputFloat("playback speed", &m_settings.playback_speed, 0.05f, .25f))
+                {
+                    m_settings.playback_speed = std::max(0.f, m_settings.playback_speed);
+                }
                 ImGui::SameLine();
                 ImGui::Checkbox("playing", &m_settings.animation_playback);
                 ImGui::BulletText("%s", std::format("frame: {}", m_scene->current_frame()).c_str());
@@ -770,7 +788,8 @@ void PBRViewer::create_ui()
     m_gui_context.delegates["guizmo"].fn = [this] {
         if(!m_selected_objects.empty())
         {
-            vierkant::gui::draw_transform_guizmo(m_selected_objects, m_camera, m_settings.current_guizmo);
+            vierkant::gui::draw_transform_guizmo(m_selected_objects, m_camera, m_settings.current_guizmo,
+                                                 m_settings.guizmo_space);
         }
 
         if(m_settings.ui_draw_view_controls)

@@ -86,6 +86,7 @@ public:
         bool ortho_camera = false;
 
         vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
+        vierkant::gui::GuizmoSpace guizmo_space = vierkant::gui::GuizmoSpace::WORLD;
 
         vierkant::ObjectOverlayMode object_overlay_mode = vierkant::ObjectOverlayMode::Mask;
 
