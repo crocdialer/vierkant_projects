@@ -669,7 +669,14 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             }
 
             // add scene-roots
-            for(auto idx: scene_data.scene_roots) { root->add_child(out_objects[idx]); }
+            for(auto idx: scene_data.scene_roots)
+            {
+                if(idx < out_objects.size()) { root->add_child(out_objects[idx]); }
+                else
+                {
+                    spdlog::error("scene_data corrupted: index {}", idx);
+                }
+            }
             return root;
         };
 
