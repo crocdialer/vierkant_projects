@@ -233,8 +233,6 @@ private:
             {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
 
-    vierkant::CollisionShapeId m_box_shape_id = vierkant::CollisionShapeId::nil();
-
     // window handle
     vierkant::WindowPtr m_window;
 
