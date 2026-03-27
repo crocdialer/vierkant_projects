@@ -5,6 +5,8 @@
 #include "pbr_viewer.hpp"
 
 #include "ImGuiFileDialog.h"
+#include "vierkant/Visitor.hpp"
+
 #include <crocore/filesystem.hpp>
 #include <glm/gtc/random.hpp>
 #include <vierkant/imgui/imgui_util.h>
@@ -89,7 +91,48 @@ void PBRViewer::create_ui()
                     case vierkant::Key::_V:
                     {
                         auto copy_dst = m_selected_objects.empty() ? m_scene->root() : *m_selected_objects.begin();
-                        for(const auto &obj: m_copy_objects) { copy_dst->add_child(m_object_store->clone(obj.get())); }
+                        for(const auto &obj: m_copy_objects)
+                        {
+                            auto cloned_obj = m_object_store->clone(obj.get());
+
+                            std::unordered_map<vierkant::BodyId, vierkant::BodyId> body_id_map = {
+                                    {vierkant::BodyId::nil(), vierkant::BodyId::nil()}};
+
+                            auto remap_id = [&body_id_map](vierkant::BodyId &body_id) {
+                                if(auto it = body_id_map.find(body_id); it != body_id_map.end())
+                                {
+                                    body_id = it->second;
+                                }
+                            };
+
+                            vierkant::LambdaVisitor visitor;
+                            visitor.traverse(*cloned_obj, [&body_id_map](auto &obj) -> bool {
+                                if(auto phy_cmp_ptr = obj.template get_component_ptr<vierkant::physics_component_t>())
+                                {
+                                    phy_cmp_ptr->mode = vierkant::physics_component_t::INACTIVE;
+
+                                    // assign new body id
+                                    auto new_body_id = vierkant::BodyId::random();
+                                    body_id_map[phy_cmp_ptr->body_id] = new_body_id;
+                                    phy_cmp_ptr->body_id = new_body_id;
+                                }
+                                return true;
+                            });
+                            visitor.traverse(*cloned_obj, [&remap_id](auto &obj) -> bool {
+                                // remap body-ids for constraints
+                                if(auto constraint_cmp =
+                                           obj.template get_component_ptr<vierkant::constraint_component_t>())
+                                {
+                                    for(auto &body_constraint: constraint_cmp->body_constraints)
+                                    {
+                                        remap_id(body_constraint.body_id1);
+                                        remap_id(body_constraint.body_id2);
+                                    }
+                                }
+                                return true;
+                            });
+                            copy_dst->add_child(cloned_obj);
+                        }
                         break;
                     }
 
