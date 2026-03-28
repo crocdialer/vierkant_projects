@@ -707,8 +707,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     if(node.scene_id)
                     {
                         assert(scene_root_map.contains(*node.scene_id));
-                        auto children = scene_root_map[*node.scene_id]->children;
-                        for(const auto &child: children)
+                        const auto &children = scene_root_map[*node.scene_id]->children;
+
+                        // sanitize potentially duplicated body-ids
+                        auto clones = clone_objects({children.begin(), children.end()});
+
+                        for(const auto &child: clones)
                         {
                             scene_asset.objects[j]->add_child(m_object_store->clone(child.get()));
                         }
@@ -750,6 +754,59 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
         main_queue().post(done_cb);
     };
     background_queue().post(load_task);
+}
+
+std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierkant::Object3DPtr> &objects)
+{
+    std::unordered_map<vierkant::BodyId, vierkant::BodyId> body_id_map = {
+            {vierkant::BodyId::nil(), vierkant::BodyId::nil()}};
+
+    auto remap_id = [&body_id_map](vierkant::BodyId &body_id) {
+        if(auto it = body_id_map.find(body_id); it != body_id_map.end()) { body_id = it->second; }
+    };
+
+    std::vector<vierkant::Object3DPtr> clones;
+    clones.reserve(objects.size());
+
+    // 1st pass, generate clones + new body-ids and init map
+    for(const auto &obj: objects)
+    {
+        auto cloned_obj = m_object_store->clone(obj.get());
+        clones.push_back(cloned_obj);
+
+        vierkant::LambdaVisitor visitor;
+        visitor.traverse(*cloned_obj, [&body_id_map](auto &obj) -> bool {
+            if(auto *phy_cmp_ptr = obj.template get_component_ptr<vierkant::physics_component_t>())
+            {
+                phy_cmp_ptr->mode = vierkant::physics_component_t::INACTIVE;
+
+                // assign new body id
+                auto new_body_id = vierkant::BodyId::random();
+                body_id_map[phy_cmp_ptr->body_id] = new_body_id;
+                phy_cmp_ptr->body_id = new_body_id;
+            }
+            return true;
+        });
+    }
+
+    // 2nd pass: adjust body-ids in constriants
+    for(const auto &cloned_obj: clones)
+    {
+        vierkant::LambdaVisitor visitor;
+        visitor.traverse(*cloned_obj, [&remap_id](auto &obj) -> bool {
+            // remap body-ids for constraints
+            if(auto *constraint_cmp = obj.template get_component_ptr<vierkant::constraint_component_t>())
+            {
+                for(auto &body_constraint: constraint_cmp->body_constraints)
+                {
+                    remap_id(body_constraint.body_id1);
+                    remap_id(body_constraint.body_id2);
+                }
+            }
+            return true;
+        });
+    }
+    return clones;
 }
 
 vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
