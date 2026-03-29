@@ -375,4 +375,11 @@ void serialize(Archive &archive, vierkant::model::model_assets_t &mesh_assets)
             cereal::make_nvp("node_animations", mesh_assets.node_animations));
 }
 
+template<class Archive>
+void serialize(Archive &ar, material_data_t &material_data)
+{
+    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
+       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
+}
+
 }// namespace vierkant::model

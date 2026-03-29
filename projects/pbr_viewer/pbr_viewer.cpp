@@ -1,5 +1,4 @@
 #include <crocore/Image.hpp>
-#include <crocore/filesystem.hpp>
 
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/Visitor.hpp>
@@ -362,15 +361,20 @@ void PBRViewer::create_texture_image()
     mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
     mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
 
+    auto test_tex_id = vierkant::TextureId::from_name("test");
+    if(auto it = m_textures.find("test"); it != m_textures.end()) { m_scene->add_texture(test_tex_id, it->second); }
+
     for(const auto &[prim_type, prim]: m_primitives)
     {
         auto &mesh = m_primitive_meshes[prim_type];
         mesh = vierkant::Mesh::create_from_geometry(m_device, prim.geom, mesh_create_info);
-        auto mat = vierkant::Material::create();
-        mat->m.id = vierkant::MaterialId ::from_name(prim.name);
-        auto it = m_textures.find("test");
-        if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
-        mesh->materials = {mat};
+
+        vierkant::material_t mat = {};
+        mat.id = vierkant::MaterialId::from_name(prim.name);
+        mat.texture_data[vierkant::TextureType::Color].texture_id = test_tex_id;
+        m_scene->add_material(mat);
+
+        mesh->material_ids = {mat.id};
         m_model_paths[mesh->id] = prim.name;
     }
 }

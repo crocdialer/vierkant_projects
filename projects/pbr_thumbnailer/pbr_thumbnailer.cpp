@@ -29,6 +29,8 @@
 
 #include "pbr_thumbnailer.h"
 
+#include <ranges>
+
 using double_second = std::chrono::duration<double>;
 
 void PBRThumbnailer::setup()
@@ -251,14 +253,17 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_ass
     load_params.device = m_context.device;
     load_params.buffer_flags = buffer_flags;
     load_params.mesh_buffers_params.pack_vertices = true;
-    auto [mesh, textures, samplers] = vierkant::model::load_mesh(load_params, mesh_assets);
 
     // attach mesh to an object, insert into scene
     {
+        auto [mesh, materials, textures, samplers] = vierkant::model::load_mesh(load_params, mesh_assets);
         auto object = m_scene->create_mesh_object({mesh});
         assert(object->transform);
 
-        // scale
+        for(auto &mat: materials | std::views::values) { m_scene->add_material(std::move(mat)); }
+        for(auto &[tex_id, tex]: textures) { m_scene->add_texture(tex_id, tex); }
+
+        // scale (problematic since sclaing changes thickness/transmission and thus visual appearence)
         object->transform->scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
 
         // center aabb
@@ -376,5 +381,8 @@ int main(int argc, char *argv[])
         auto app = PBRThumbnailer(create_info, *settings);
         return app.run();
     }
-    else { return EXIT_FAILURE; }
+    else
+    {
+        return EXIT_FAILURE;
+    }
 }

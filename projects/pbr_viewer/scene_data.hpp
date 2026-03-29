@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vierkant/Camera.hpp>
 #include <vierkant/Mesh.hpp>
 #include <vierkant/Scene.hpp>
 #include <vierkant/animation.hpp>
@@ -65,16 +66,4 @@ struct scene_data_t
 
     //! indices into scene_data_t::nodes
     std::vector<uint32_t> scene_roots;
-};
-
-struct material_data_t
-{
-    //! common materials for all submeshes
-    std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
-
-    //! common textures for all materials
-    std::unordered_map<vierkant::TextureId, vierkant::texture_variant_t> textures;
-
-    //! texture-sample-states for all materials
-    std::unordered_map<vierkant::SamplerId, vierkant::texture_sampler_t> texture_samplers;
 };

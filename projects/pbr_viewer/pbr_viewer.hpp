@@ -161,9 +161,10 @@ private:
 
     static std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path);
 
-    void save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const;
+    void save_material_bundle(const vierkant::model::material_data_t &material_data,
+                              const std::filesystem::path &path) const;
 
-    static std::optional<material_data_t> load_material_bundle(const std::filesystem::path &path);
+    static std::optional<vierkant::model::material_data_t> load_material_bundle(const std::filesystem::path &path);
 
     vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
 
@@ -293,6 +294,6 @@ private:
     std::map<vierkant::SceneId, std::filesystem::path> m_scene_paths;
     vierkant::SceneId m_scene_id;
 
-    material_data_t m_material_data;
-    std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> m_texture_store;
+    // vierkant::model::material_data_t m_material_data;
+    // std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> m_texture_store;
 };

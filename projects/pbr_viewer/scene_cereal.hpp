@@ -68,10 +68,3 @@ void serialize(Archive &ar, scene_data_t &scene_data)
        cereal::make_nvp("scene_roots", scene_data.scene_roots),
        cereal::make_optional_nvp("material_bundle_path", scene_data.material_bundle_path));
 }
-
-template<class Archive>
-void serialize(Archive &ar, material_data_t &material_data)
-{
-    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
-       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
-}

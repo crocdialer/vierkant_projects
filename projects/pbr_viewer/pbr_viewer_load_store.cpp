@@ -10,6 +10,8 @@
 #include "serialization.hpp"
 #include "ziparchive.h"
 
+#include <ranges>
+
 using double_second = std::chrono::duration<double>;
 
 constexpr char g_cache_path[] = "cache";
@@ -123,7 +125,9 @@ void PBRViewer::load_texture(const std::string &path)
         spdlog::debug("load image: {}", path);
         auto img = crocore::create_image_from_file(path);
         vierkant::TextureId texture_id;
-        m_material_data.textures[texture_id] = img;
+
+        // TODO: check when/if this makes sense
+        m_scene->m_material_data.textures[texture_id] = img;
 
         vierkant::ImagePtr texture;
         vierkant::Image::Format fmt;
@@ -138,7 +142,9 @@ void PBRViewer::load_texture(const std::string &path)
             compress_info.delegate_fn = [this](const auto &fn) { return background_queue().post(fn); };
             auto compressed_img = vierkant::bcn::compress(compress_info);
             texture = vierkant::model::create_compressed_texture(m_device, compressed_img, fmt, m_queue_image_loading);
-            m_material_data.textures[texture_id] = std::move(compressed_img);
+
+            // TODO: check when/if this makes sense
+            m_scene->m_material_data.textures[texture_id] = std::move(compressed_img);
         }
         else
         {
@@ -146,7 +152,7 @@ void PBRViewer::load_texture(const std::string &path)
         }
 
         // store gpu-texture
-        m_texture_store[texture_id] = texture;
+        m_scene->m_texture_store[texture_id] = texture;
     };
     background_queue().post(load_img_fn);
 }
@@ -451,6 +457,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
     // add top-lvl scenegraph-nodes
     for(const auto &child: m_scene->root()->children) { data.scene_roots.push_back(obj_to_node_index[child.get()]); }
 
+    // store materials with dirty hashes
+    vierkant::model::material_data_t material_data;
+
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(!obj_to_node_index.contains(&obj)) { return true; }
 
@@ -469,11 +478,17 @@ void PBRViewer::save_scene(std::filesystem::path path)
             node.mesh_state = mesh_state;
 
             // store materials with dirty hashes
-            for(const auto &mat: mesh_component->mesh->materials)
+            for(const auto &mat_id: mesh_component->mesh->material_ids)
             {
-                if(mat->hash != std::hash<vierkant::material_t>()(mat->m))
+                if(const auto *material = m_scene->material(mat_id))
                 {
-                    m_material_data.materials[mat->m.id] = mat->m;
+                    uint64_t current_hash = std::hash<vierkant::material_t>()(*material);
+
+                    if(m_scene->material_hash(mat_id) != current_hash)
+                    {
+                        spdlog::debug("OVERRIDE: {}", material->name);
+                        material_data.materials[mat_id] = *material;
+                    }
                 }
             }
         }
@@ -491,7 +506,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
 
     } catch(std::exception &e) { spdlog::error(e.what()); }
 
-    save_material_bundle(m_material_data, material_path.string());
+    save_material_bundle(material_data, material_path.string());
 }
 
 void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene,
@@ -507,7 +522,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
         {
             scene_data_t scene_data;
             vierkant::SceneId scene_id;
-            material_data_t material_data;
+            vierkant::model::material_data_t material_data;
             std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> gpu_textures;
             std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
             std::vector<vierkant::Object3DPtr> objects;
@@ -562,7 +577,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 // load material-bundles for scene and sub-scenes
                 if(auto material_data = load_material_bundle(asset.scene_data.material_bundle_path))
                 {
+                    assert(asset.material_data.materials.empty());
                     asset.material_data = std::move(*material_data);
+
                     for(const auto &[tex_id, tex_variant]: asset.material_data.textures)
                     {
                         vierkant::Image::Format fmt;
@@ -576,7 +593,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                     {
                                         asset.gpu_textures[tex_id] = vierkant::model::create_texture(
                                                 m_device, img, fmt, m_queue_image_loading);
-                                        ;
                                     }
 
                                     if constexpr(std::is_same_v<T, vierkant::bcn::compress_result_t>)
@@ -598,15 +614,17 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     // sync and check
                     if(auto mesh = mesh_future_cache[path].get())
                     {
-                        // optional material override(s)
-                        for(const auto &mat: mesh->materials)
-                        {
-                            const auto &materials = asset.material_data.materials;
+                        const auto &materials = asset.material_data.materials;
 
-                            if(auto it = materials.find(mat->m.id); it != materials.end())
+                        // optional material override(s)
+                        for(const auto &mat_id: mesh->material_ids)
+                        {
+                            if(auto it = materials.find(mat_id); it != materials.end())
                             {
-                                mat->m = it->second;
-                                spdlog::trace("overriding material: {}", mat->m.name);
+                                // TODO: will be voerwritten later
+                                m_scene->add_material(it->second);
+
+                                spdlog::warn("overriding material (unhandled!): {}", it->second.name);
                             }
                         }
                         asset.meshes[mesh_id] = mesh;
@@ -734,12 +752,26 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         m_scene->add_object(child);
                     }
                     m_scene_id = scene_assets[0].scene_id;
-                    m_material_data = std::move(scene_assets[0].material_data);
-                    m_texture_store = std::move(scene_assets[0].gpu_textures);
+                    // m_scene->m_material_data = std::move(scene_assets[0].material_data);
+                    // m_scene->m_texture_store = std::move(scene_assets[0].gpu_textures);
+                    m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
+                                                              scene_assets[0].material_data.materials.end());
+                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
+                                                    scene_assets[0].gpu_textures.end());
                 }
                 else
                 {
                     m_scene->add_object(root_objects[0]);
+                    m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
+                                                              scene_assets[0].material_data.materials.end());
+                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
+                                                    scene_assets[0].gpu_textures.end());
+                }
+
+                // reset material-hashes
+                for(const auto &[mat_id, mat]: m_scene->m_material_data.materials)
+                {
+                    m_scene->m_material_hashes[mat_id] = std::hash<vierkant::material_t>()(mat);
                 }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
@@ -883,9 +915,12 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.load_queue = m_queue_model_loading;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = m_mesh_buffer_flags;
-        auto [m, textures, samplers] = vierkant::model::load_mesh(load_params, *model_assets);
+        auto [m, materials, textures, samplers] = vierkant::model::load_mesh(load_params, *model_assets);
         mesh = m;
         mesh->id = mesh_id;
+
+        for(auto &mat: materials | std::views::values) { m_scene->add_material(mat); }
+        for(auto &[tex_id, tex]: textures) { m_scene->add_texture(tex_id, tex); }
 
         m_num_loading--;
 
@@ -1038,11 +1073,12 @@ void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_as
 std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
 { return load_bundle<vierkant::model::model_assets_t>(path, true); }
 
-void PBRViewer::save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const
+void PBRViewer::save_material_bundle(const vierkant::model::material_data_t &material_data,
+                                     const std::filesystem::path &path) const
 { save_bundle(material_data, path, m_settings.cache_zip_archive, false); }
 
-std::optional<material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return load_bundle<material_data_t>(path, false); }
+std::optional<vierkant::model::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
+{ return load_bundle<vierkant::model::material_data_t>(path, false); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {

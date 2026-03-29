@@ -589,7 +589,7 @@ void PBRViewer::create_ui()
                     if(ImGui::Button("material"))
                     {
                         // add new default-material with random Id
-                        m_material_data.materials[{}] = {};
+                        m_scene->m_material_data.materials[{}] = {};
                     }
                     ImGui::EndMenu();
                 }
@@ -743,7 +743,7 @@ void PBRViewer::create_ui()
                 {
                     if(ImGui::BeginTabItem("materials"))
                     {
-                        for(auto &[material_id, material]: m_material_data.materials)
+                        for(auto &[material_id, material]: m_scene->m_material_data.materials)
                         {
                             auto mat_name = material.name.empty() ? material_id.str() : material.name;
                             if(ImGui::TreeNode((void *) (&material), "%s", mat_name.c_str()))
@@ -758,7 +758,7 @@ void PBRViewer::create_ui()
 
                     if(ImGui::BeginTabItem("textures"))
                     {
-                        for(auto &[texture_id, texture]: m_texture_store)
+                        for(auto &[texture_id, texture]: m_scene->m_texture_store)
                         {
                             if(ImGui::TreeNode(texture.get(), "%s", texture_id.str().c_str()))
                             {
