@@ -458,7 +458,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
     for(const auto &child: m_scene->root()->children) { data.scene_roots.push_back(obj_to_node_index[child.get()]); }
 
     // store materials with dirty hashes
-    vierkant::model::material_data_t material_data;
+    vierkant::material_data_t material_data;
 
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(!obj_to_node_index.contains(&obj)) { return true; }
@@ -486,7 +486,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
 
                     if(m_scene->material_hash(mat_id) != current_hash)
                     {
-                        spdlog::debug("OVERRIDE: {}", material->name);
+                        spdlog::debug("storing material (dirty hash): {}", material->name);
                         material_data.materials[mat_id] = *material;
                     }
                 }
@@ -522,7 +522,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
         {
             scene_data_t scene_data;
             vierkant::SceneId scene_id;
-            vierkant::model::material_data_t material_data;
+            vierkant::material_data_t material_data;
             std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> gpu_textures;
             std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
             std::vector<vierkant::Object3DPtr> objects;
@@ -621,10 +621,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         {
                             if(auto it = materials.find(mat_id); it != materials.end())
                             {
-                                // TODO: will be voerwritten later
+                                // TODO: wonky
+                                spdlog::debug("overriding material: {}", it->second.name);
                                 m_scene->add_material(it->second);
-
-                                spdlog::warn("overriding material (unhandled!): {}", it->second.name);
                             }
                         }
                         asset.meshes[mesh_id] = mesh;
@@ -1073,12 +1072,12 @@ void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_as
 std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
 { return load_bundle<vierkant::model::model_assets_t>(path, true); }
 
-void PBRViewer::save_material_bundle(const vierkant::model::material_data_t &material_data,
+void PBRViewer::save_material_bundle(const vierkant::material_data_t &material_data,
                                      const std::filesystem::path &path) const
 { save_bundle(material_data, path, m_settings.cache_zip_archive, false); }
 
-std::optional<vierkant::model::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return load_bundle<vierkant::model::material_data_t>(path, false); }
+std::optional<vierkant::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
+{ return load_bundle<vierkant::material_data_t>(path, false); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {

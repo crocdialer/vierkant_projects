@@ -171,6 +171,13 @@ void serialize(Archive &archive, vierkant::texture_sampler_t &state)
 }
 
 template<class Archive>
+void serialize(Archive &ar, material_data_t &material_data)
+{
+    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
+       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::vertex_attrib_t &vertex_attrib)
 {
     archive(cereal::make_nvp("buffer_offset", vertex_attrib.buffer_offset),
@@ -373,13 +380,6 @@ void serialize(Archive &archive, vierkant::model::model_assets_t &mesh_assets)
             //            cereal::make_nvp("cameras", mesh_assets.cameras),
             cereal::make_nvp("root_node", mesh_assets.root_node), cereal::make_nvp("root_bone", mesh_assets.root_bone),
             cereal::make_nvp("node_animations", mesh_assets.node_animations));
-}
-
-template<class Archive>
-void serialize(Archive &ar, material_data_t &material_data)
-{
-    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
-       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
 }
 
 }// namespace vierkant::model
