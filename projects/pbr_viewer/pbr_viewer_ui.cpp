@@ -393,12 +393,15 @@ void PBRViewer::create_ui()
                     for(const auto &f: m_settings.recent_files)
                     {
                         auto file_name = crocore::filesystem::get_filename_part(f);
+                        ImGui::PushID(f.c_str());
                         if(ImGui::MenuItem(file_name.c_str()))
                         {
+                            ImGui::PopID();
                             spdlog::debug("menu: open recent file -> {}", f);
                             load_file(f, false);
                             break;
                         }
+                        ImGui::PopID();
                     }
                     ImGui::EndMenu();
                 }
@@ -412,7 +415,7 @@ void PBRViewer::create_ui()
 
                     if(ImGui::Combo("log level", &log_level, log_items, IM_ARRAYSIZE(log_items)))
                     {
-                        spdlog::set_level(spdlog::level::level_enum(log_level));
+                        spdlog::set_level(static_cast<spdlog::level::level_enum>(log_level));
                     }
 
                     ImGui::Checkbox("draw grid", &m_settings.draw_grid);
@@ -589,7 +592,9 @@ void PBRViewer::create_ui()
                     if(ImGui::Button("material"))
                     {
                         // add new default-material with random Id
-                        m_scene->m_material_data.materials[{}] = {};
+                        vierkant::material_t new_material{};
+                        new_material.name = "blank material";
+                        m_scene->m_material_data.materials[{}] = new_material;
                     }
                     ImGui::EndMenu();
                 }
@@ -748,6 +753,11 @@ void PBRViewer::create_ui()
                             auto mat_name = material.name.empty() ? material_id.str() : material.name;
                             if(ImGui::TreeNode((void *) (&material), "%s", mat_name.c_str()))
                             {
+                                constexpr uint32_t buf_size = 64;
+                                char buf[buf_size];
+                                strcpy(buf, material_id.str().c_str());
+                                ImGui::InputText("material-id", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
+
                                 vierkant::gui::draw_material_ui(material);
                                 ImGui::Separator();
                                 ImGui::TreePop();
@@ -762,7 +772,7 @@ void PBRViewer::create_ui()
                         {
                             if(ImGui::TreeNode(texture.get(), "%s", texture_id.str().c_str()))
                             {
-                                constexpr uint32_t buf_size = 16;
+                                constexpr uint32_t buf_size = 64;
                                 char buf[buf_size];
                                 bool is_bc7 = texture->format().format == VK_FORMAT_BC7_UNORM_BLOCK ||
                                               texture->format().format == VK_FORMAT_BC7_SRGB_BLOCK;
@@ -772,6 +782,8 @@ void PBRViewer::create_ui()
                                 ImVec2 sz(w, w / (static_cast<float>(texture->width()) /
                                                   static_cast<float>(texture->height())));
                                 ImGui::BulletText("%d x %d%s", texture->width(), texture->height(), buf);
+                                strcpy(buf, texture_id.str().c_str());
+                                ImGui::InputText("texture-id", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
                                 ImGui::Image(reinterpret_cast<ImTextureID>(texture.get()), sz);
                                 ImGui::TreePop();
                             }
@@ -873,14 +885,13 @@ void PBRViewer::create_ui()
                         m_scene_renderer->pick(tl / glm::vec2(m_window->size()), size / glm::vec2(m_window->size()));
 
                 std::unordered_set<vierkant::Object3D *> picked_objects;
-                spdlog::stopwatch sw;
 
                 for(uint32_t i = 0; i < picked_ids.size(); ++i)
                 {
                     auto draw_idx = picked_ids[i];
                     vierkant::Object3D *picked_object = nullptr;
-                    const auto &overlay_asset = m_overlay_assets[m_window->swapchain().image_index()];
-                    if(overlay_asset.object_by_index_fn)
+                    if(const auto &overlay_asset = m_overlay_assets[m_window->swapchain().image_index()];
+                       overlay_asset.object_by_index_fn)
                     {
                         auto [object_id, sub_entry] = overlay_asset.object_by_index_fn(draw_idx);
                         picked_object = m_scene->object_by_id(object_id);

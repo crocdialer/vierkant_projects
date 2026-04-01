@@ -22,6 +22,14 @@ constexpr char g_file_suffix_model[] = "4km";
 
 std::shared_mutex g_bundle_rw_mutex;
 
+std::string material_bundle_path(const std::string &scene_path)
+{
+    auto file_name = std::format(
+            "{}.{}", crocore::filesystem::remove_extension(crocore::filesystem::get_filename_part(scene_path)),
+            g_file_suffix_model);
+    return std::filesystem::path(g_cache_path) / g_material_store_path / file_name;
+}
+
 //! define a custom object-component, used to help with (sub)scene serialization
 struct object_flags_component_t
 {
@@ -383,10 +391,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
     data.name = m_scene->root()->name;
     data.environment_path = m_scene_data.environment_path;
 
-    // tmp
-    auto file_name = std::string("default.") + g_file_suffix_model;
-    auto material_path = std::filesystem::path(g_cache_path) / g_material_store_path / file_name;
-    data.material_bundle_path = material_path.string();
+    // material-bundle savepath
+    auto material_path = material_bundle_path(path);
+    data.material_bundle_path = material_path;
 
     // set of mesh-ids
     std::unordered_set<vierkant::MeshId> mesh_ids;
@@ -457,9 +464,6 @@ void PBRViewer::save_scene(std::filesystem::path path)
     // add top-lvl scenegraph-nodes
     for(const auto &child: m_scene->root()->children) { data.scene_roots.push_back(obj_to_node_index[child.get()]); }
 
-    // store materials with dirty hashes
-    vierkant::material_data_t material_data;
-
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(!obj_to_node_index.contains(&obj)) { return true; }
 
@@ -476,24 +480,6 @@ void PBRViewer::save_scene(std::filesystem::path path)
             mesh_state_t mesh_state = {mesh_component->mesh->id, mesh_component->entry_indices,
                                        mesh_component->material_ids, mesh_component->library};
             node.mesh_state = mesh_state;
-
-            // store materials with dirty hashes
-            const auto &material_ids =
-                    mesh_component->material_ids ? *mesh_component->material_ids : mesh_component->mesh->material_ids;
-
-            for(const auto &mat_id: material_ids)
-            {
-                if(const auto *material = m_scene->material(mat_id))
-                {
-                    uint64_t current_hash = std::hash<vierkant::material_t>()(*material);
-
-                    if(m_scene->material_hash(mat_id) != current_hash)
-                    {
-                        spdlog::debug("storing material (dirty hash): {}", material->name);
-                        material_data.materials[mat_id] = *material;
-                    }
-                }
-            }
         }
         return true;
     });
@@ -509,7 +495,8 @@ void PBRViewer::save_scene(std::filesystem::path path)
 
     } catch(std::exception &e) { spdlog::error(e.what()); }
 
-    save_material_bundle(material_data, material_path.string());
+    // store all scene-materials
+    save_material_bundle(m_scene->m_material_data, material_path);
 }
 
 void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene,
@@ -624,8 +611,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         {
                             if(auto it = materials.find(mat_id); it != materials.end())
                             {
-                                // TODO: wonky
-                                spdlog::debug("overriding material: {}", it->second.name);
+                                // TODO: test if this makes sense
+                                spdlog::trace("material found in cache: {}", it->second.name);
                                 m_scene->add_material(it->second);
                             }
                         }
@@ -756,20 +743,24 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     m_scene_id = scene_assets[0].scene_id;
                     // m_scene->m_material_data = std::move(scene_assets[0].material_data);
                     // m_scene->m_texture_store = std::move(scene_assets[0].gpu_textures);
-                    m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
-                                                              scene_assets[0].material_data.materials.end());
-                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
-                                                    scene_assets[0].gpu_textures.end());
                 }
                 else
                 {
                     m_scene->add_object(root_objects[0]);
-                    m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
-                                                              scene_assets[0].material_data.materials.end());
-                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
-                                                    scene_assets[0].gpu_textures.end());
                 }
 
+                // TODO: not very elegant
+                // manually add material-data here
+                m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
+                                                          scene_assets[0].material_data.materials.end());
+                m_scene->m_material_data.textures.insert(scene_assets[0].material_data.textures.begin(),
+                                                         scene_assets[0].material_data.textures.end());
+                m_scene->m_material_data.texture_samplers.insert(scene_assets[0].material_data.texture_samplers.begin(),
+                                                                 scene_assets[0].material_data.texture_samplers.end());
+                m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
+                                                scene_assets[0].gpu_textures.end());
+
+                // TODO: still required?
                 // reset material-hashes
                 for(const auto &[mat_id, mat]: m_scene->m_material_data.materials)
                 {
@@ -1077,10 +1068,10 @@ std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(cons
 
 void PBRViewer::save_material_bundle(const vierkant::material_data_t &material_data,
                                      const std::filesystem::path &path) const
-{ save_bundle(material_data, path, m_settings.cache_zip_archive, false); }
+{ save_bundle(material_data, path, m_settings.cache_zip_archive, true); }
 
 std::optional<vierkant::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return load_bundle<vierkant::material_data_t>(path, false); }
+{ return load_bundle<vierkant::material_data_t>(path, true); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {
