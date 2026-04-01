@@ -236,11 +236,10 @@ private:
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
     vierkant::material_t m_primitive_material;
     const vierkant::TextureId m_primitive_texture_id = vierkant::TextureId::from_name("primitive_texture");
+    vierkant::ImagePtr m_primitive_texture, m_environment_texture;
 
     // window handle
     vierkant::WindowPtr m_window;
-
-    std::map<std::string, vierkant::ImagePtr> m_textures;
 
     // init a scene with physics-support on application-threadpool
     std::shared_ptr<vierkant::ObjectStore> m_object_store = vierkant::create_object_store(1 << 20);

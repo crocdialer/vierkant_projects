@@ -754,7 +754,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
                     // hack primitive data back
                     m_scene->add_material(m_primitive_material);
-                    m_scene->add_texture(m_primitive_texture_id, m_textures["test"]);
+                    m_scene->add_texture(m_primitive_texture_id, m_primitive_texture);
                 }
                 else
                 {
