@@ -52,12 +52,13 @@ void PBRViewer::load_model(const load_model_params_t &params)
     auto load_task = [this, params]() {
         m_num_loading++;
         auto start_time = std::chrono::steady_clock::now();
-        auto mesh = load_mesh(params.path);
+        auto load_mesh_result = load_mesh(params.path);
 
-        auto done_cb = [this, mesh, start_time, params]() {
+        auto done_cb = [this, load_mesh_result = std::move(load_mesh_result), start_time, params]() {
             m_selected_objects.clear();
 
             vierkant::Object3DPtr object;
+            auto mesh = load_mesh_result.mesh;
 
             if(params.mesh_library)
             {
@@ -122,7 +123,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
             spdlog::debug("loaded '{}' -- ({:03.2f})", params.path.string(), dur.count());
             --m_num_loading;
         };
-        if(mesh) { main_queue().post(done_cb); }
+        if(load_mesh_result.mesh) { main_queue().post(done_cb); }
     };
     background_queue().post(load_task);
 }
@@ -549,15 +550,14 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 }
             }
             // std::unordered_map<std::string, vierkant::MeshPtr> mesh_cache;
-            std::unordered_map<std::string, std::future<vierkant::MeshPtr>> mesh_future_cache;
+            std::unordered_map<std::string, std::future<vierkant::model::load_mesh_result_t>> mesh_future_cache;
 
             // schedule background creation of meshes
             for(auto &asset: scene_assets)
             {
-                for(const auto &[mesh_id, path]: asset.scene_data.model_paths)
+                for(const auto &path: asset.scene_data.model_paths | std::views::values)
                 {
-                    auto cache_it = mesh_future_cache.find(path);
-                    if(cache_it != mesh_future_cache.end()) {}
+                    if(auto cache_it = mesh_future_cache.find(path); cache_it != mesh_future_cache.end()) {}
                     else
                     {
                         mesh_future_cache[path] = background_queue().post([this, path] { return load_mesh(path); });
@@ -602,12 +602,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 for(const auto &[mesh_id, path]: asset.scene_data.model_paths)
                 {
                     // sync and check
-                    if(auto mesh = mesh_future_cache[path].get())
+                    if(auto load_mesh_result = mesh_future_cache[path].get(); load_mesh_result.mesh)
                     {
                         const auto &materials = asset.material_data.materials;
 
                         // optional material override(s)
-                        for(const auto &mat_id: mesh->material_ids)
+                        for(const auto &mat_id: load_mesh_result.mesh->material_ids)
                         {
                             if(auto it = materials.find(mat_id); it != materials.end())
                             {
@@ -616,15 +616,20 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                 m_scene->add_material(it->second);
                             }
                         }
-                        asset.meshes[mesh_id] = mesh;
+                        asset.meshes[mesh_id] = load_mesh_result.mesh;
+
+                        asset.material_data.materials.insert(
+                                std::make_move_iterator(load_mesh_result.materials.begin()),
+                                std::make_move_iterator(load_mesh_result.materials.end()));
                     }
                 }
             }
         }
         else
         {
-            auto cube_mesh = load_mesh("cube");
-            scene_assets[0].meshes[cube_mesh->id] = cube_mesh;
+            auto cube_result = load_mesh("cube");
+            scene_assets[0].meshes[cube_result.mesh->id] = cube_result.mesh;
+            scene_assets[0].material_data.materials[m_primitive_material.id] = m_primitive_material;
             scene_node_t node = {};
             node.name = "cube";
             node.mesh_state = {vierkant::MeshId::from_name(node.name)};
@@ -741,31 +746,34 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         m_scene->add_object(child);
                     }
                     m_scene_id = scene_assets[0].scene_id;
-                    // m_scene->m_material_data = std::move(scene_assets[0].material_data);
+                    m_scene->m_material_data = std::move(scene_assets[0].material_data);
                     // m_scene->m_texture_store = std::move(scene_assets[0].gpu_textures);
+                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
+                                                    scene_assets[0].gpu_textures.end());
                 }
                 else
                 {
                     m_scene->add_object(root_objects[0]);
+
+                    // TODO: not very elegant
+                    // manually add material-data here
+                    m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
+                                                              scene_assets[0].material_data.materials.end());
+                    m_scene->m_material_data.textures.insert(scene_assets[0].material_data.textures.begin(),
+                                                             scene_assets[0].material_data.textures.end());
+                    m_scene->m_material_data.texture_samplers.insert(
+                            scene_assets[0].material_data.texture_samplers.begin(),
+                            scene_assets[0].material_data.texture_samplers.end());
+                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
+                                                    scene_assets[0].gpu_textures.end());
                 }
 
-                // TODO: not very elegant
-                // manually add material-data here
-                m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
-                                                          scene_assets[0].material_data.materials.end());
-                m_scene->m_material_data.textures.insert(scene_assets[0].material_data.textures.begin(),
-                                                         scene_assets[0].material_data.textures.end());
-                m_scene->m_material_data.texture_samplers.insert(scene_assets[0].material_data.texture_samplers.begin(),
-                                                                 scene_assets[0].material_data.texture_samplers.end());
-                m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
-                                                scene_assets[0].gpu_textures.end());
-
-                // TODO: still required?
-                // reset material-hashes
-                for(const auto &[mat_id, mat]: m_scene->m_material_data.materials)
-                {
-                    m_scene->m_material_hashes[mat_id] = std::hash<vierkant::material_t>()(mat);
-                }
+                // // TODO: still required?
+                // // reset material-hashes
+                // for(const auto &[mat_id, mat]: m_scene->m_material_data.materials)
+                // {
+                //     m_scene->m_material_hashes[mat_id] = std::hash<vierkant::material_t>()(mat);
+                // }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
@@ -834,11 +842,11 @@ std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierk
     return clones;
 }
 
-vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
+vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::path &path)
 {
     ++m_num_loading;
     const auto start_time = std::chrono::steady_clock::now();
-    vierkant::MeshPtr mesh;
+    vierkant::model::load_mesh_result_t result;
 
     bool is_primitive = false;
     for(const auto &[prim_type, geom_prim]: m_primitives)
@@ -846,8 +854,9 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         if(path == geom_prim.name)
         {
             is_primitive = true;
-            mesh = m_primitive_meshes[prim_type];
-            mesh->id = vierkant::MeshId::from_name(geom_prim.name);
+            result.mesh = m_primitive_meshes[prim_type];
+            result.mesh->id = vierkant::MeshId::from_name(geom_prim.name);
+            result.materials = {{m_primitive_material.id, m_primitive_material}};
             break;
         }
     }
@@ -908,17 +917,18 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
         load_params.load_queue = m_queue_model_loading;
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = m_mesh_buffer_flags;
-        auto [m, materials, textures, samplers] = vierkant::model::load_mesh(load_params, *model_assets);
-        mesh = m;
-        mesh->id = mesh_id;
 
-        for(auto &mat: materials | std::views::values) { m_scene->add_material(mat); }
-        for(auto &[tex_id, tex]: textures) { m_scene->add_texture(tex_id, tex); }
+        result = vierkant::model::load_mesh(load_params, *model_assets);
+        result.mesh->id = mesh_id;
+
+        // TODO: this needs to pass down the materials/textures
+        for(auto &mat: result.materials | std::views::values) { m_scene->add_material(mat); }
+        for(auto &[tex_id, tex]: result.textures) { m_scene->add_texture(tex_id, tex); }
 
         m_num_loading--;
 
         // store in application mesh-lut
-        m_mesh_map[mesh_id] = {.mesh = mesh,
+        m_mesh_map[mesh_id] = {.mesh = result.mesh,
                                .bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)};
 
         if(bundle_created && m_settings.cache_mesh_bundles)
@@ -930,8 +940,8 @@ vierkant::MeshPtr PBRViewer::load_mesh(const std::filesystem::path &path)
     }
 
     // store mesh/path
-    m_model_paths[mesh->id] = path;
-    return mesh;
+    m_model_paths[result.mesh->id] = path;
+    return result;
 }
 
 std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::path &path)

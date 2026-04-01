@@ -165,7 +165,7 @@ private:
 
     static std::optional<vierkant::material_data_t> load_material_bundle(const std::filesystem::path &path);
 
-    vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
+    vierkant::model::load_mesh_result_t load_mesh(const std::filesystem::path &path);
 
     void save_scene(std::filesystem::path path = {});
 
@@ -234,6 +234,7 @@ private:
             {primitive_type::CYLINDER, {"cylinder", vierkant::Geometry::Cylinder()}},
             {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
+    vierkant::material_t m_primitive_material;
 
     // window handle
     vierkant::WindowPtr m_window;

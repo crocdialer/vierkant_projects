@@ -768,7 +768,7 @@ void PBRViewer::create_ui()
 
                     if(ImGui::BeginTabItem("textures"))
                     {
-                        for(auto &[texture_id, texture]: m_scene->m_texture_store)
+                        for(const auto &[texture_id, texture]: m_scene->m_texture_store)
                         {
                             if(ImGui::TreeNode(texture.get(), "%s", texture_id.str().c_str()))
                             {
