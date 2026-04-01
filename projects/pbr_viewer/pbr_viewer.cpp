@@ -1,5 +1,4 @@
 #include <crocore/Image.hpp>
-#include <crocore/filesystem.hpp>
 
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/Visitor.hpp>
@@ -10,6 +9,8 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 #include "pbr_viewer.hpp"
+
+#include <ranges>
 
 using log_delegate_fn_t = std::function<void(const std::string &msg, spdlog::level::level_enum log_level,
                                              const std::string &logger_name)>;
@@ -267,7 +268,7 @@ void PBRViewer::create_graphics_pipeline()
         pbr_render_info.brdf_lut = prev_images.bsdf_lut;
         pbr_render_info.settings = m_pbr_renderer->settings;
     }
-    const auto &fallback_env = m_textures["environment"];
+    const auto &fallback_env = m_environment_texture;
 
     if(!pbr_render_info.conv_lambert)
     {
@@ -353,24 +354,24 @@ void PBRViewer::create_texture_image()
     }
     fmt.extent = {img->width(), img->height(), 1};
     fmt.use_mipmap = true;
-    m_textures["test"] = vierkant::Image::create(m_device, img->data(), fmt);
-    m_textures["environment"] =
-            vierkant::cubemap_neutral_environment(m_device, 256, m_device->queue(), true, m_hdr_format);
-    m_scene->set_environment(m_textures["environment"]);
+    m_primitive_texture = vierkant::Image::create(m_device, img->data(), fmt);
+    m_environment_texture = vierkant::cubemap_neutral_environment(m_device, 256, m_device->queue(), true, m_hdr_format);
+    m_scene->set_environment(m_environment_texture);
 
     vierkant::Mesh::create_info_t mesh_create_info = {};
     mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
     mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+    m_scene->add_texture(m_primitive_texture_id, m_environment_texture);
+
+    m_primitive_material.name = "primitive_material";
+    m_primitive_material.id = vierkant::MaterialId::from_name(m_primitive_material.name);
+    m_primitive_material.texture_data[vierkant::TextureType::Color].texture_id = m_primitive_texture_id;
 
     for(const auto &[prim_type, prim]: m_primitives)
     {
         auto &mesh = m_primitive_meshes[prim_type];
         mesh = vierkant::Mesh::create_from_geometry(m_device, prim.geom, mesh_create_info);
-        auto mat = vierkant::Material::create();
-        mat->m.id = vierkant::MaterialId ::from_name(prim.name);
-        auto it = m_textures.find("test");
-        if(it != m_textures.end()) { mat->textures[vierkant::TextureType::Color] = it->second; }
-        mesh->materials = {mat};
+        mesh->material_ids = {m_primitive_material.id};
         m_model_paths[mesh->id] = prim.name;
     }
 }
@@ -575,7 +576,7 @@ void PBRViewer::init_logger()
         m_log_queue.emplace_back(msg, log_level);
         while(m_log_queue.size() > m_max_log_queue_size) { m_log_queue.pop_front(); }
     };
-    for(auto &[name, logger]: _loggers)
+    for(auto &logger: _loggers | std::views::values)
     {
         logger->sinks().push_back(scroll_log_sink);
         if(file_sink) { logger->sinks().push_back(file_sink); }

@@ -161,11 +161,11 @@ private:
 
     static std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path);
 
-    void save_material_bundle(const material_data_t &material_data, const std::filesystem::path &path) const;
+    void save_material_bundle(const vierkant::material_data_t &material_data, const std::filesystem::path &path) const;
 
-    static std::optional<material_data_t> load_material_bundle(const std::filesystem::path &path);
+    static std::optional<vierkant::material_data_t> load_material_bundle(const std::filesystem::path &path);
 
-    vierkant::MeshPtr load_mesh(const std::filesystem::path &path);
+    vierkant::model::load_mesh_result_t load_mesh(const std::filesystem::path &path);
 
     void save_scene(std::filesystem::path path = {});
 
@@ -234,11 +234,12 @@ private:
             {primitive_type::CYLINDER, {"cylinder", vierkant::Geometry::Cylinder()}},
             {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
+    vierkant::material_t m_primitive_material;
+    const vierkant::TextureId m_primitive_texture_id = vierkant::TextureId::from_name("primitive_texture");
+    vierkant::ImagePtr m_primitive_texture, m_environment_texture;
 
     // window handle
     vierkant::WindowPtr m_window;
-
-    std::map<std::string, vierkant::ImagePtr> m_textures;
 
     // init a scene with physics-support on application-threadpool
     std::shared_ptr<vierkant::ObjectStore> m_object_store = vierkant::create_object_store(1 << 20);
@@ -292,7 +293,4 @@ private:
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<vierkant::SceneId, std::filesystem::path> m_scene_paths;
     vierkant::SceneId m_scene_id;
-
-    material_data_t m_material_data;
-    std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> m_texture_store;
 };

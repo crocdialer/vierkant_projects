@@ -171,6 +171,13 @@ void serialize(Archive &archive, vierkant::texture_sampler_t &state)
 }
 
 template<class Archive>
+void serialize(Archive &ar, material_data_t &material_data)
+{
+    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
+       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::vertex_attrib_t &vertex_attrib)
 {
     archive(cereal::make_nvp("buffer_offset", vertex_attrib.buffer_offset),

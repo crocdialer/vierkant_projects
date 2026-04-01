@@ -41,8 +41,10 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 template<class Archive>
 void serialize(Archive &ar, mesh_state_t &mesh_state)
 {
-    ar(cereal::make_nvp("mesh_id", mesh_state.mesh_id), cereal::make_nvp("mesh_library", mesh_state.mesh_library),
-       cereal::make_nvp("entry_indices", mesh_state.entry_indices));
+    ar(cereal::make_nvp("mesh_id", mesh_state.mesh_id),
+       cereal::make_optional_nvp("mesh_library", mesh_state.mesh_library),
+       cereal::make_optional_nvp("entry_indices", mesh_state.entry_indices),
+       cereal::make_optional_nvp("material_ids", mesh_state.material_ids));
 }
 
 template<class Archive>
@@ -67,11 +69,4 @@ void serialize(Archive &ar, scene_data_t &scene_data)
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
        cereal::make_nvp("scene_roots", scene_data.scene_roots),
        cereal::make_optional_nvp("material_bundle_path", scene_data.material_bundle_path));
-}
-
-template<class Archive>
-void serialize(Archive &ar, material_data_t &material_data)
-{
-    ar(cereal::make_nvp("materials", material_data.materials), cereal::make_nvp("textures", material_data.textures),
-       cereal::make_nvp("texture_samplers", material_data.texture_samplers));
 }
