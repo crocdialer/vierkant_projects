@@ -361,12 +361,14 @@ void PBRViewer::create_texture_image()
     mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
     mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
 
-    auto test_tex_id = vierkant::TextureId::from_name("test");
-    if(auto it = m_textures.find("test"); it != m_textures.end()) { m_scene->add_texture(test_tex_id, it->second); }
+    if(auto it = m_textures.find("test"); it != m_textures.end())
+    {
+        m_scene->add_texture(m_primitive_texture_id, it->second);
+    }
 
     m_primitive_material.name = "primitive_material";
     m_primitive_material.id = vierkant::MaterialId::from_name(m_primitive_material.name);
-    m_primitive_material.texture_data[vierkant::TextureType::Color].texture_id = test_tex_id;
+    m_primitive_material.texture_data[vierkant::TextureType::Color].texture_id = m_primitive_texture_id;
 
     for(const auto &[prim_type, prim]: m_primitives)
     {

@@ -621,6 +621,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         asset.material_data.materials.insert(
                                 std::make_move_iterator(load_mesh_result.materials.begin()),
                                 std::make_move_iterator(load_mesh_result.materials.end()));
+
+                        asset.gpu_textures.insert(std::make_move_iterator(load_mesh_result.textures.begin()),
+                                                  std::make_move_iterator(load_mesh_result.textures.end()));
                     }
                 }
             }
@@ -747,15 +750,16 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     }
                     m_scene_id = scene_assets[0].scene_id;
                     m_scene->m_material_data = std::move(scene_assets[0].material_data);
-                    // m_scene->m_texture_store = std::move(scene_assets[0].gpu_textures);
-                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
-                                                    scene_assets[0].gpu_textures.end());
+                    m_scene->m_texture_store = std::move(scene_assets[0].gpu_textures);
+
+                    // hack primitive data back
+                    m_scene->add_material(m_primitive_material);
+                    m_scene->add_texture(m_primitive_texture_id, m_textures["test"]);
                 }
                 else
                 {
                     m_scene->add_object(root_objects[0]);
 
-                    // TODO: not very elegant
                     // manually add material-data here
                     m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
                                                               scene_assets[0].material_data.materials.end());
@@ -767,13 +771,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
                                                     scene_assets[0].gpu_textures.end());
                 }
-
-                // // TODO: still required?
-                // // reset material-hashes
-                // for(const auto &[mat_id, mat]: m_scene->m_material_data.materials)
-                // {
-                //     m_scene->m_material_hashes[mat_id] = std::hash<vierkant::material_t>()(mat);
-                // }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 

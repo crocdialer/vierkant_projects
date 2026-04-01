@@ -235,6 +235,7 @@ private:
             {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
     vierkant::material_t m_primitive_material;
+    const vierkant::TextureId m_primitive_texture_id = vierkant::TextureId::from_name("primitive_texture");
 
     // window handle
     vierkant::WindowPtr m_window;
