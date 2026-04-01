@@ -27,7 +27,7 @@ std::string material_bundle_path(const std::string &scene_path)
     auto file_name = std::format(
             "{}.{}", crocore::filesystem::remove_extension(crocore::filesystem::get_filename_part(scene_path)),
             g_file_suffix_model);
-    return std::filesystem::path(g_cache_path) / g_material_store_path / file_name;
+    return (std::filesystem::path(g_cache_path) / g_material_store_path / file_name).string();
 }
 
 //! define a custom object-component, used to help with (sub)scene serialization
@@ -393,7 +393,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
     data.environment_path = m_scene_data.environment_path;
 
     // material-bundle savepath
-    auto material_path = material_bundle_path(path);
+    auto material_path = material_bundle_path(path.string());
     data.material_bundle_path = material_path;
 
     // set of mesh-ids
