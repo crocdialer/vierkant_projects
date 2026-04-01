@@ -41,8 +41,10 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
 template<class Archive>
 void serialize(Archive &ar, mesh_state_t &mesh_state)
 {
-    ar(cereal::make_nvp("mesh_id", mesh_state.mesh_id), cereal::make_nvp("mesh_library", mesh_state.mesh_library),
-       cereal::make_nvp("entry_indices", mesh_state.entry_indices));
+    ar(cereal::make_nvp("mesh_id", mesh_state.mesh_id),
+       cereal::make_optional_nvp("mesh_library", mesh_state.mesh_library),
+       cereal::make_optional_nvp("entry_indices", mesh_state.entry_indices),
+       cereal::make_optional_nvp("material_ids", mesh_state.material_ids));
 }
 
 template<class Archive>

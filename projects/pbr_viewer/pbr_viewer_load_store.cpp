@@ -474,11 +474,14 @@ void PBRViewer::save_scene(std::filesystem::path path)
         if(auto *mesh_component = obj.get_component_ptr<vierkant::mesh_component_t>())
         {
             mesh_state_t mesh_state = {mesh_component->mesh->id, mesh_component->entry_indices,
-                                       mesh_component->library};
+                                       mesh_component->material_ids, mesh_component->library};
             node.mesh_state = mesh_state;
 
             // store materials with dirty hashes
-            for(const auto &mat_id: mesh_component->mesh->material_ids)
+            const auto &material_ids =
+                    mesh_component->material_ids ? *mesh_component->material_ids : mesh_component->mesh->material_ids;
+
+            for(const auto &mat_id: material_ids)
             {
                 if(const auto *material = m_scene->material(mat_id))
                 {
@@ -658,8 +661,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 if(node.mesh_state && meshes.contains(node.mesh_state->mesh_id))
                 {
                     const auto &mesh = meshes.at(node.mesh_state->mesh_id);
-                    obj = m_scene->create_mesh_object(
-                            {mesh, node.mesh_state->entry_indices, node.mesh_state->mesh_library});
+                    obj = m_scene->create_mesh_object({mesh, node.mesh_state->entry_indices,
+                                                       node.mesh_state->material_ids, node.mesh_state->mesh_library});
                 }
                 else
                 {

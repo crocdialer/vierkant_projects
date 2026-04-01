@@ -7,10 +7,12 @@
 #include <vierkant/model/model_loading.hpp>
 #include <vierkant/physics_context.hpp>
 
+// TODO: this should simply be vierkant::mesh_component, once that uses IDs
 struct mesh_state_t
 {
     vierkant::MeshId mesh_id = vierkant::MeshId::nil();
     std::optional<std::unordered_set<uint32_t>> entry_indices = {};
+    std::optional<std::vector<vierkant::MaterialId>> material_ids = {};
     bool mesh_library = false;
 };
 
