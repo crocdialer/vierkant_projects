@@ -53,6 +53,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
         m_num_loading++;
         auto start_time = std::chrono::steady_clock::now();
         auto load_mesh_result = load_mesh(params.path);
+        bool success = static_cast<bool>(load_mesh_result.mesh);
 
         auto done_cb = [this, load_mesh_result = std::move(load_mesh_result), start_time, params]() {
             m_selected_objects.clear();
@@ -123,7 +124,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
             spdlog::debug("loaded '{}' -- ({:03.2f})", params.path.string(), dur.count());
             --m_num_loading;
         };
-        if(load_mesh_result.mesh) { main_queue().post(done_cb); }
+        if(success) { main_queue().post(done_cb); }
     };
     background_queue().post(load_task);
 }
