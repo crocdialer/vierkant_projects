@@ -550,7 +550,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     }
                 }
             }
-            // std::unordered_map<std::string, vierkant::MeshPtr> mesh_cache;
             std::unordered_map<std::string, std::future<vierkant::model::load_mesh_result_t>> mesh_future_cache;
 
             // schedule background creation of meshes

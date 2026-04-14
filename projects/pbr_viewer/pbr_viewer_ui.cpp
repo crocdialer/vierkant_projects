@@ -722,81 +722,20 @@ void PBRViewer::create_ui()
         ImGui::SetNextWindowSize(ImVec2(440, 650), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 
-        ImGui::Begin("scene");
-        ImGui::BeginTabBar("scene_tabs");
         {
-            if(ImGui::BeginTabItem("scene"))
+            ImGui::Begin("scene");
+            if(ImGui::InputFloat("playback speed", &m_settings.playback_speed, 0.05f, .25f))
             {
-                if(ImGui::InputFloat("playback speed", &m_settings.playback_speed, 0.05f, .25f))
-                {
-                    m_settings.playback_speed = std::max(0.f, m_settings.playback_speed);
-                }
-                ImGui::SameLine();
-                ImGui::Checkbox("playing", &m_settings.animation_playback);
-                ImGui::BulletText("%s", std::format("frame: {}", m_scene->current_frame()).c_str());
-                ImGui::Spacing();
-
-                vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
-                ImGui::EndTabItem();
+                m_settings.playback_speed = std::max(0.f, m_settings.playback_speed);
             }
+            ImGui::SameLine();
+            ImGui::Checkbox("playing", &m_settings.animation_playback);
+            ImGui::BulletText("%s", std::format("frame: {}", m_scene->current_frame()).c_str());
+            ImGui::Spacing();
+
+            vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
+            ImGui::End();
         }
-
-        {
-            if(ImGui::BeginTabItem("resources"))
-            {
-                ImGui::BeginTabBar("resources_tabs");
-                {
-                    if(ImGui::BeginTabItem("materials"))
-                    {
-                        for(auto &[material_id, material]: m_scene->m_material_data.materials)
-                        {
-                            auto mat_name = material.name.empty() ? material_id.str() : material.name;
-                            if(ImGui::TreeNode((void *) (&material), "%s", mat_name.c_str()))
-                            {
-                                constexpr uint32_t buf_size = 64;
-                                char buf[buf_size];
-                                strcpy(buf, material_id.str().c_str());
-                                ImGui::InputText("material-id", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                                vierkant::gui::draw_material_ui(material);
-                                ImGui::Separator();
-                                ImGui::TreePop();
-                            }
-                        }
-                        ImGui::EndTabItem();
-                    }
-
-                    if(ImGui::BeginTabItem("textures"))
-                    {
-                        for(const auto &[texture_id, texture]: m_scene->m_texture_store)
-                        {
-                            if(ImGui::TreeNode(texture.get(), "%s", texture_id.str().c_str()))
-                            {
-                                constexpr uint32_t buf_size = 64;
-                                char buf[buf_size];
-                                bool is_bc7 = texture->format().format == VK_FORMAT_BC7_UNORM_BLOCK ||
-                                              texture->format().format == VK_FORMAT_BC7_SRGB_BLOCK;
-                                snprintf(buf, buf_size, "%s", is_bc7 ? " - BC7" : "");
-
-                                const float w = ImGui::GetContentRegionAvail().x;
-                                ImVec2 sz(w, w / (static_cast<float>(texture->width()) /
-                                                  static_cast<float>(texture->height())));
-                                ImGui::BulletText("%d x %d%s", texture->width(), texture->height(), buf);
-                                strcpy(buf, texture_id.str().c_str());
-                                ImGui::InputText("texture-id", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-                                ImGui::Image(reinterpret_cast<ImTextureID>(texture.get()), sz);
-                                ImGui::TreePop();
-                            }
-                        }
-                        ImGui::EndTabItem();// textures
-                    }
-                    ImGui::EndTabBar();// resources_tabs
-                }
-                ImGui::EndTabItem();
-            }
-        }
-        ImGui::EndTabBar();
-        ImGui::End();
     };
 
     // object/view manipulation
