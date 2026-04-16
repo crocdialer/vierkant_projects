@@ -62,9 +62,7 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
-    m_scene->physics_context().mesh_provider = [&mesh_map = m_mesh_map](const auto &mesh_id) {
-        return mesh_map[mesh_id];
-    };
+    m_scene->physics_context().mesh_provider = [this](const auto &mesh_id) { return m_scene->mesh_asset(mesh_id); };
 #ifndef NDEBUG
     m_settings.use_validation = true;
 #endif

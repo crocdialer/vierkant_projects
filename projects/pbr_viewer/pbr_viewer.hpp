@@ -210,8 +210,6 @@ private:
 
     VkBufferUsageFlags m_mesh_buffer_flags = 0;
 
-    vierkant::mesh_map_t m_mesh_map;
-
     enum class primitive_type
     {
         PLANE,

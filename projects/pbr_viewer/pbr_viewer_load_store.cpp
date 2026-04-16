@@ -925,8 +925,9 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
         m_num_loading--;
 
         // store in application mesh-lut
-        m_mesh_map[mesh_id] = {.mesh = result.mesh,
-                               .bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)};
+        m_scene->m_mesh_map[mesh_id] = {.mesh = result.mesh,
+                                        .bundle =
+                                                std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)};
 
         if(bundle_created && m_settings.cache_mesh_bundles)
         {
