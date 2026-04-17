@@ -750,7 +750,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     }
                     m_scene_id = scene_assets[0].scene_id;
 
-                    m_scene->m_material_data.materials.clear();
+                    m_scene->m_material_data = {};
                     m_scene->m_texture_store.clear();
 
                     // hack primitive data back
