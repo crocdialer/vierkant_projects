@@ -749,6 +749,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         m_scene->add_object(child);
                     }
                     m_scene_id = scene_assets[0].scene_id;
+                    m_scene->root()->name = root_objects[0]->name;
 
                     m_scene->m_material_data = {};
                     m_scene->m_texture_store.clear();
