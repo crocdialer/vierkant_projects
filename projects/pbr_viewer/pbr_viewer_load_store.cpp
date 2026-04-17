@@ -596,35 +596,35 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 }
             }
 
+            std::unordered_map<std::string, vierkant::model::load_mesh_result_t> mesh_cache;
+            for(auto &[path, mesh_future]: mesh_future_cache) { mesh_cache[path] = mesh_future.get(); }
+
             // load meshes for scene and sub-scenes
             for(auto &asset: scene_assets)
             {
                 for(const auto &[mesh_id, path]: asset.scene_data.model_paths)
                 {
                     // sync and check
-                    if(auto load_mesh_result = mesh_future_cache[path].get(); load_mesh_result.mesh)
+                    const auto &load_mesh_result = mesh_cache[path];
+                    const auto &materials = asset.material_data.materials;
+
+                    // optional material override(s)
+                    for(const auto &mat_id: load_mesh_result.mesh->material_ids)
                     {
-                        const auto &materials = asset.material_data.materials;
-
-                        // optional material override(s)
-                        for(const auto &mat_id: load_mesh_result.mesh->material_ids)
+                        if(auto it = materials.find(mat_id); it != materials.end())
                         {
-                            if(auto it = materials.find(mat_id); it != materials.end())
-                            {
-                                // TODO: test if this makes sense
-                                spdlog::trace("material found in cache: {}", it->second.name);
-                                m_scene->add_material(it->second);
-                            }
+                            // TODO: test if this makes sense
+                            spdlog::trace("material found in cache: {}", it->second.name);
+                            m_scene->add_material(it->second);
                         }
-                        asset.meshes[mesh_id] = load_mesh_result.mesh;
-
-                        asset.material_data.materials.insert(
-                                std::make_move_iterator(load_mesh_result.materials.begin()),
-                                std::make_move_iterator(load_mesh_result.materials.end()));
-
-                        asset.gpu_textures.insert(std::make_move_iterator(load_mesh_result.textures.begin()),
-                                                  std::make_move_iterator(load_mesh_result.textures.end()));
                     }
+                    asset.meshes[mesh_id] = load_mesh_result.mesh;
+
+                    asset.material_data.materials.insert(std::make_move_iterator(load_mesh_result.materials.begin()),
+                                                         std::make_move_iterator(load_mesh_result.materials.end()));
+
+                    asset.gpu_textures.insert(std::make_move_iterator(load_mesh_result.textures.begin()),
+                                              std::make_move_iterator(load_mesh_result.textures.end()));
                 }
             }
         }
