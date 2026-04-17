@@ -364,7 +364,7 @@ void PBRViewer::load_file(const std::string &path, bool clear)
                     if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
                     vierkant::SceneId scene_id;
-                    m_scene_paths[scene_id] = path;
+                    m_scene_paths = {{scene_id, path}};
                     build_scene(loaded_scene, clear, scene_id);
                 }
             }
@@ -749,8 +749,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         m_scene->add_object(child);
                     }
                     m_scene_id = scene_assets[0].scene_id;
-                    m_scene->m_material_data = std::move(scene_assets[0].material_data);
-                    m_scene->m_texture_store = std::move(scene_assets[0].gpu_textures);
+
+                    m_scene->m_material_data.materials.clear();
+                    m_scene->m_texture_store.clear();
 
                     // hack primitive data back
                     m_scene->add_material(m_primitive_material);
@@ -759,17 +760,18 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 else
                 {
                     m_scene->add_object(root_objects[0]);
+                }
 
+                for(const auto &scene_asset: scene_assets)
+                {
                     // manually add material-data here
-                    m_scene->m_material_data.materials.insert(scene_assets[0].material_data.materials.begin(),
-                                                              scene_assets[0].material_data.materials.end());
-                    m_scene->m_material_data.textures.insert(scene_assets[0].material_data.textures.begin(),
-                                                             scene_assets[0].material_data.textures.end());
-                    m_scene->m_material_data.texture_samplers.insert(
-                            scene_assets[0].material_data.texture_samplers.begin(),
-                            scene_assets[0].material_data.texture_samplers.end());
-                    m_scene->m_texture_store.insert(scene_assets[0].gpu_textures.begin(),
-                                                    scene_assets[0].gpu_textures.end());
+                    m_scene->m_material_data.materials.insert(scene_asset.material_data.materials.begin(),
+                                                              scene_asset.material_data.materials.end());
+                    m_scene->m_material_data.textures.insert(scene_asset.material_data.textures.begin(),
+                                                             scene_asset.material_data.textures.end());
+                    m_scene->m_material_data.texture_samplers.insert(scene_asset.material_data.texture_samplers.begin(),
+                                                                     scene_asset.material_data.texture_samplers.end());
+                    m_scene->m_texture_store.insert(scene_asset.gpu_textures.begin(), scene_asset.gpu_textures.end());
                 }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
