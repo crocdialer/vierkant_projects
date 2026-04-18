@@ -364,7 +364,7 @@ void PBRViewer::load_file(const std::string &path, bool clear)
                     if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
                     vierkant::SceneId scene_id;
-                    m_scene_paths = {{scene_id, path}};
+                    m_scene_paths[scene_id] = path;
                     build_scene(loaded_scene, clear, scene_id);
                 }
             }
