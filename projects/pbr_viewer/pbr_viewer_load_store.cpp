@@ -579,7 +579,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                 [this, &asset, tex_id, fmt](auto &&img) {
                                     using T = std::decay_t<decltype(img)>;
 
-                                    if constexpr(std::is_same_v<T, vierkant::ImagePtr>)
+                                    if constexpr(std::is_same_v<T, crocore::ImagePtr>)
                                     {
                                         asset.gpu_textures[tex_id] = vierkant::model::create_texture(
                                                 m_device, img, fmt, m_queue_image_loading);
