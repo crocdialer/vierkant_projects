@@ -96,6 +96,10 @@ void PBRViewer::teardown()
     spdlog::debug("joining background tasks ...");
     background_queue().join_all();
     main_queue().poll();
+
+    // clear scene, free referenced gpu-resources
+    m_scene.reset();
+
     m_device->wait_idle();
     spdlog::info("ciao {}", name());
 }
