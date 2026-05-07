@@ -133,7 +133,7 @@ void PBRViewer::load_texture(const std::string &path)
 {
     auto load_img_fn = [this, path] {
         spdlog::debug("load image: {}", path);
-        auto img = crocore::create_image_from_file(path);
+        auto img = crocore::create_image_from_file(path, m_settings.texture_compression ? 0 : 4);
         vierkant::TextureId texture_id;
 
         // TODO: check when/if this makes sense
