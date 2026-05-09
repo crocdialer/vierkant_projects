@@ -677,7 +677,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             // recreate node-hierarchy
             for(uint32_t i = 0; i < scene_data.nodes.size(); ++i)
             {
-                for(auto child_index: scene_data.nodes[i].children)
+                for(const auto child_index: scene_data.nodes[i].children)
                 {
                     out_objects[i]->add_child(out_objects[child_index]);
                 }
@@ -725,11 +725,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         const auto &children = scene_root_map[*node.scene_id]->children;
 
                         // sanitize potentially duplicated body-ids
-                        auto clones = clone_objects({children.begin(), children.end()});
-
-                        for(const auto &child: clones)
+                        for(auto clones = clone_objects({children.begin(), children.end()}); const auto &child: clones)
                         {
-                            scene_asset.objects[j]->add_child(m_object_store->clone(child.get()));
+                            scene_asset.objects[j]->add_child(child);
                         }
 
                         // flag object to contain a sub-scene
@@ -789,7 +787,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
     background_queue().post(load_task);
 }
 
-std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierkant::Object3DPtr> &objects)
+std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierkant::Object3DPtr> &objects) const
 {
     std::unordered_map<vierkant::BodyId, vierkant::BodyId> body_id_map = {
             {vierkant::BodyId::nil(), vierkant::BodyId::nil()}};
@@ -822,7 +820,7 @@ std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierk
         });
     }
 
-    // 2nd pass: adjust body-ids in constriants
+    // 2nd pass: adjust body-ids in constraints
     for(const auto &cloned_obj: clones)
     {
         vierkant::LambdaVisitor visitor;

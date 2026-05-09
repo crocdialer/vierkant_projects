@@ -174,7 +174,7 @@ private:
     void build_scene(const std::optional<scene_data_t> &scene_data, bool import = false,
                      vierkant::SceneId scene_id = {});
 
-    std::vector<vierkant::Object3DPtr> clone_objects(const std::set<vierkant::Object3DPtr> &objects);
+    std::vector<vierkant::Object3DPtr> clone_objects(const std::set<vierkant::Object3DPtr> &objects) const;
 
     struct overlay_assets_t
     {
