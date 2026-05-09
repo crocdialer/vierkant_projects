@@ -234,7 +234,8 @@ private:
     std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
     vierkant::material_t m_primitive_material;
     const vierkant::TextureId m_primitive_texture_id = vierkant::TextureId::from_name("primitive_texture");
-    vierkant::ImagePtr m_primitive_texture, m_environment_texture;
+    const vierkant::TextureId m_noise_texture_id = vierkant::TextureId::from_name("noise_texture");
+    vierkant::ImagePtr m_primitive_texture, m_environment_texture, m_noise_texture;
 
     // window handle
     vierkant::WindowPtr m_window;

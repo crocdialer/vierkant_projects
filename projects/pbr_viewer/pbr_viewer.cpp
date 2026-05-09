@@ -1,5 +1,6 @@
 #include <crocore/Image.hpp>
 
+#include <vierkant/NoiseGenerator.hpp>
 #include <vierkant/PBRDeferred.hpp>
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
@@ -359,15 +360,15 @@ void PBRViewer::create_texture_image()
     m_primitive_texture = vierkant::Image::create(m_device, img->data(), fmt);
     m_environment_texture = vierkant::cubemap_neutral_environment(m_device, 256, m_device->queue(), true, m_hdr_format);
     m_scene->set_environment(m_environment_texture);
-
-    vierkant::Mesh::create_info_t mesh_create_info = {};
-    mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
-    mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
-    m_scene->add_texture(m_primitive_texture_id, m_environment_texture);
+    m_scene->add_texture(m_primitive_texture_id, m_primitive_texture);
 
     m_primitive_material.name = "primitive_material";
     m_primitive_material.id = vierkant::MaterialId::from_name(m_primitive_material.name);
     m_primitive_material.texture_data[vierkant::TextureType::Color].texture_id = m_primitive_texture_id;
+
+    vierkant::Mesh::create_info_t mesh_create_info = {};
+    mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
+    mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
 
     for(const auto &[prim_type, prim]: m_primitives)
     {
@@ -376,6 +377,14 @@ void PBRViewer::create_texture_image()
         mesh->material_ids = {m_primitive_material.id};
         m_model_paths[mesh->id] = prim.name;
     }
+
+    // test noise-gen
+    auto noisegen = vierkant::NoiseGenerator::create(m_device, {.size = {1024, 1024, 1}});
+    vierkant::CommandBuffer cmd_buf(m_device, m_device->command_pool_transient());
+    cmd_buf.begin();
+    m_noise_texture = noisegen->generate(cmd_buf.handle(), glm::vec2(2.f), 0.f);
+    cmd_buf.submit(m_queue_image_loading, true);
+    m_scene->add_texture(m_noise_texture_id, m_noise_texture);
 }
 
 void PBRViewer::update(double time_delta)
