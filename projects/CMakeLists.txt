@@ -47,6 +47,8 @@ FOREACH(folderItem ${FOLDER_CONTENT})
                     target_compile_options(${itemName} PRIVATE /W2 /bigobj) #TODO /W4 /WX (warnings as errors)
                 else()
                     target_compile_options(${itemName} PRIVATE -Wall -Wextra -Werror) # -Wpedantic
+                    # strip debug sections in Release (GCC 15/16 LTO emits DWARF at link-time by default)
+                    target_link_options(${itemName} PRIVATE $<$<CONFIG:Release>:-s>)
                 endif()
 
                 if(SHADERS)
