@@ -4,6 +4,14 @@
 
 #pragma once
 
+// GCC 13 false-positive -Wdangling-reference (gcc.gnu.org/bugzilla/show_bug.cgi?id=107488):
+// cereal's polymorphic_impl.hpp lookup() returns a stored ref, not a ref-to-temporary;
+// the declaration-only heuristic in do_warn_dangling_reference() misfires here, fixed in GCC 14
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ == 13)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-reference"
+#endif
+
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/cereal.hpp>
@@ -374,3 +382,7 @@ void serialize(Archive &archive, vierkant::model::model_assets_t &mesh_assets)
 }
 
 }// namespace vierkant::model
+
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ == 13)
+#pragma GCC diagnostic pop
+#endif
