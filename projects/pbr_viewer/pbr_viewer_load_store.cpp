@@ -6,8 +6,9 @@
 #include <vierkant/Visitor.hpp>
 #include <vierkant/cubemap_utils.hpp>
 
-#include "scene_cereal.hpp"
+#include "pbr_viewer_serialization.hpp"
 #include "ziparchive.h"
+#include <vierkant_cereal/vierkant_cereal.hpp>
 
 #include <ranges>
 
@@ -285,18 +286,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     if(m_path_tracer) { settings.path_tracer_settings = m_path_tracer->settings; }
     settings.path_tracing = m_scene_renderer == m_path_tracer;
 
-    // create and open a character archive for output
     std::ofstream ofs(path.string());
-
-    // save data to archive
-    try
-    {
-        cereal::JSONOutputArchive archive(ofs);
-
-        // write class instance to archive
-        archive(settings);
-
-    } catch(std::exception &e) { spdlog::error(e.what()); }
+    try { pbr_viewer::save_settings(ofs, settings); }
+    catch(std::exception &e) { spdlog::error(e.what()); }
 
     spdlog::debug("save settings: {}", path.string());
 }
@@ -311,20 +303,10 @@ std::optional<PBRViewer::settings_t> PBRViewer::load_settings(const std::filesys
     // create and open a character archive for input
     std::ifstream file_stream(path.string());
 
-    // load data from archive
     if(file_stream.is_open())
     {
-        try
-        {
-            cereal::JSONInputArchive archive(file_stream);
-
-            // read class instance from archive
-            PBRViewer::settings_t settings = {};
-            archive(settings);
-            return settings;
-        } catch(std::exception &e) { spdlog::error(e.what()); }
-
         spdlog::debug("loading settings: {}", path.string());
+        return pbr_viewer::load_settings(file_stream);
     }
     return {};
 }
@@ -485,16 +467,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
         return true;
     });
 
-    // save scene_data
     std::ofstream ofs(path.string());
-
-    // save data to archive
-    try
-    {
-        cereal::JSONOutputArchive archive(ofs);
-        archive(data);
-
-    } catch(std::exception &e) { spdlog::error(e.what()); }
+    try { pbr_viewer::save_scene_data(ofs, data); }
+    catch(std::exception &e) { spdlog::error(e.what()); }
 
     // store all scene-materials
     save_material_bundle(m_scene->m_material_data, material_path);
@@ -948,111 +923,57 @@ std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::pa
     // create and open a character archive for input
     std::ifstream file_stream(path.string());
 
-    // load data from archive
     if(file_stream.is_open())
     {
-        try
-        {
-            cereal::JSONInputArchive archive(file_stream);
-            scene_data_t scene_data;
-            spdlog::debug("loading scene: {}", path.string());
-            archive(scene_data);
-            return scene_data;
-        } catch(std::exception &e) { spdlog::warn(e.what()); }
+        spdlog::debug("loading scene: {}", path.string());
+        return pbr_viewer::load_scene_data(file_stream);
     }
     return {};
 }
 
-template<typename T>
-std::optional<T> load_bundle(const std::filesystem::path &path, bool binary)
+template<typename T, typename Reader>
+static std::optional<T> load_from_stream(const std::filesystem::path &path, Reader &&reader)
 {
     {
-        std::ifstream cache_file(path);
-
-        if(cache_file.is_open())
+        std::ifstream f(path);
+        if(f.is_open())
         {
             try
             {
                 spdlog::debug("loading bundle '{}'", path.string());
-                T ret;
-
                 std::shared_lock lock(g_bundle_rw_mutex);
-
-                if(binary)
-                {
-                    cereal::BinaryInputArchive archive(cache_file);
-                    archive(ret);
-                }
-                else
-                {
-                    cereal::JSONInputArchive archive(cache_file);
-                    archive(ret);
-                }
-                return ret;
+                return reader(f);
             } catch(std::exception &e) { spdlog::error(e.what()); }
         }
     }
-
     vierkant::ziparchive zip(g_zip_path);
-
     if(zip.has_file(path))
     {
         try
         {
             spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
-            T ret;
-
             std::shared_lock lock(g_bundle_rw_mutex);
             auto zipstream = zip.open_file(path);
-            if(binary)
-            {
-                cereal::BinaryInputArchive archive(zipstream);
-                archive(ret);
-            }
-            else
-            {
-                cereal::JSONInputArchive archive(zipstream);
-                archive(ret);
-            }
-            return ret;
+            return reader(zipstream);
         } catch(std::exception &e) { spdlog::error(e.what()); }
     }
     return {};
 }
 
-template<typename T>
-void save_bundle(const T &data, const std::filesystem::path &path, bool compress, bool binary)
+template<typename Writer>
+static void save_to_stream(const std::filesystem::path &path, bool compress, Writer &&writer)
 {
-    // save data to archive
     try
     {
         {
             spdlog::stopwatch sw;
-
-            // create directory, if necessary
             if(auto dir = crocore::filesystem::get_directory_part(path); !dir.empty())
-            {
                 std::filesystem::create_directories(dir);
-            }
-
-            // create and open a character archive for output
             std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
             spdlog::debug("serializing/writing bundle: {}", path.string());
-
-            if(binary)
-            {
-                cereal::BinaryOutputArchive archive(ofs);
-                archive(data);
-            }
-            else
-            {
-                cereal::JSONOutputArchive archive(ofs);
-                archive(data);
-            }
-
+            writer(ofs);
             spdlog::debug("done serializing/writing bundle: {} ({})", path.string(), sw.elapsed());
         }
-
         if(compress)
         {
             spdlog::stopwatch sw;
@@ -1070,17 +991,29 @@ void save_bundle(const T &data, const std::filesystem::path &path, bool compress
 
 void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets,
                                   const std::filesystem::path &path) const
-{ save_bundle(mesh_assets, path, m_settings.cache_zip_archive, true); }
+{
+    save_to_stream(path, m_settings.cache_zip_archive,
+                   [&mesh_assets](std::ostream &os) { vierkant_cereal::save(os, mesh_assets); });
+}
 
 std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
-{ return load_bundle<vierkant::model::model_assets_t>(path, true); }
+{
+    return load_from_stream<vierkant::model::model_assets_t>(
+            path, [](std::istream &is) { return vierkant_cereal::load_model_assets(is); });
+}
 
 void PBRViewer::save_material_bundle(const vierkant::material_data_t &material_data,
                                      const std::filesystem::path &path) const
-{ save_bundle(material_data, path, m_settings.cache_zip_archive, true); }
+{
+    save_to_stream(path, m_settings.cache_zip_archive,
+                   [&material_data](std::ostream &os) { vierkant_cereal::save(os, material_data); });
+}
 
 std::optional<vierkant::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return load_bundle<vierkant::material_data_t>(path, true); }
+{
+    return load_from_stream<vierkant::material_data_t>(
+            path, [](std::istream &is) { return vierkant_cereal::load_material_data(is); });
+}
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {
