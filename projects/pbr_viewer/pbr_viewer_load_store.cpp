@@ -7,7 +7,6 @@
 #include <vierkant/cubemap_utils.hpp>
 
 #include "scene_cereal.hpp"
-#include "serialization.hpp"
 #include "ziparchive.h"
 
 #include <ranges>

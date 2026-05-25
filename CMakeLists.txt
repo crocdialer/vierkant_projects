@@ -32,8 +32,9 @@ set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 #set(LIBS ${LIBS} ${netzer_LIBRARIES})
 #include_directories(${netzer_INCLUDE_DIRS})
 
-# cereal
-include_directories("extern/cereal/include")
+# vierkant_cereal
+add_subdirectory("vierkant_cereal")
+set(LIBS ${LIBS} vierkant_cereal)
 
 # cxxopts
 include_directories("extern/cxxopts/include")

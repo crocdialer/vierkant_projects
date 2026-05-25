@@ -2,7 +2,7 @@
 
 #include "pbr_viewer.hpp"
 #include "scene_data.hpp"
-#include "serialization.hpp"
+#include <vierkant_cereal/serialization.hpp>
 
 template<class Archive>
 void serialize(Archive &ar, PBRViewer::settings_t &settings)
