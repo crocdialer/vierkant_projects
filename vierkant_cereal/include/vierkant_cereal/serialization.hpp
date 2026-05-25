@@ -4,12 +4,6 @@
 
 #pragma once
 
-// gcc-13 false positive warning
-#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 13)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdangling-reference"
-#endif
-
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/cereal.hpp>
@@ -20,10 +14,6 @@
 #include <cereal/types/unordered_set.hpp>
 #include <cereal/types/variant.hpp>
 #include <cereal/types/vector.hpp>
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
 #include "animation_cereal.hpp"
 #include "collision_cereal.hpp"
