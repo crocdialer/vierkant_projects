@@ -30,13 +30,6 @@ std::string material_bundle_path(const std::string &scene_path)
     return (std::filesystem::path(g_cache_path) / g_material_store_path / file_name).string();
 }
 
-//! define a custom object-component, used to help with (sub)scene serialization
-struct object_flags_component_t
-{
-    VIERKANT_ENABLE_AS_COMPONENT();
-    vierkant::SceneId scene_id = vierkant::SceneId::nil();
-};
-
 void PBRViewer::add_to_recent_files(const std::filesystem::path &f)
 {
     main_queue().post([this, f] {
@@ -287,8 +280,10 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.path_tracing = m_scene_renderer == m_path_tracer;
 
     std::ofstream ofs(path.string());
-    try { pbr_viewer::save_settings(ofs, settings); }
-    catch(std::exception &e) { spdlog::error(e.what()); }
+    try
+    {
+        pbr_viewer::save_settings(ofs, settings);
+    } catch(std::exception &e) { spdlog::error(e.what()); }
 
     spdlog::debug("save settings: {}", path.string());
 }
@@ -393,7 +388,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
         node.enabled = obj.enabled;
         if(obj.transform) { node.transform = *obj.transform; }
 
-        if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
+        if(auto *flags_cmp = obj.get_component_ptr<vierkant::subscene_component_t>())
         {
             if(flags_cmp->scene_id)
             {
@@ -451,7 +446,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
         if(!obj_to_node_index.contains(&obj)) { return true; }
 
         // skip object from sub-scenes
-        if(auto *flags_cmp = obj.get_component_ptr<object_flags_component_t>())
+        if(auto *flags_cmp = obj.get_component_ptr<vierkant::subscene_component_t>())
         {
             if(flags_cmp->scene_id) { return false; }
         }
@@ -468,8 +463,10 @@ void PBRViewer::save_scene(std::filesystem::path path)
     });
 
     std::ofstream ofs(path.string());
-    try { pbr_viewer::save_scene_data(ofs, data); }
-    catch(std::exception &e) { spdlog::error(e.what()); }
+    try
+    {
+        pbr_viewer::save_scene_data(ofs, data);
+    } catch(std::exception &e) { spdlog::error(e.what()); }
 
     // store all scene-materials
     save_material_bundle(m_scene->m_material_data, material_path);
@@ -682,7 +679,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 root_objects[i] =
                         create_root_object(scene_assets[i].scene_data, scene_assets[i].meshes, scene_assets[i].objects);
                 scene_root_map[scene_assets[i].scene_id] = root_objects[i];
-                auto &cmp = root_objects[i]->add_component<object_flags_component_t>();
+                auto &cmp = root_objects[i]->add_component<vierkant::subscene_component_t>();
                 cmp.scene_id = scene_assets[i].scene_id;
             }
 
@@ -705,7 +702,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         }
 
                         // flag object to contain a sub-scene
-                        auto &cmp = scene_asset.objects[j]->add_component<object_flags_component_t>();
+                        auto &cmp = scene_asset.objects[j]->add_component<vierkant::subscene_component_t>();
                         cmp.scene_id = *node.scene_id;
                     }
                 }
