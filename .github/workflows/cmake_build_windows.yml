@@ -34,7 +34,7 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           # set sdk-version, avoid slang-bug introduced in 1.4.350
-          vulkan_version: 1.4.341.1
+          #vulkan_version: 1.4.341.1
           # optional_components: com.lunarg.vulkan.vma
           # install_runtime: true
           cache: true
