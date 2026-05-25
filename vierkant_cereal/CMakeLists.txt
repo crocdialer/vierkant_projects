@@ -1,5 +1,6 @@
 if(NOT TARGET cereal::cereal)
     set(SKIP_PERFORMANCE_COMPARISON ON CACHE BOOL "" FORCE)
+    set(JUST_INSTALL_CEREAL ON CACHE BOOL "" FORCE)
     add_subdirectory("${CMAKE_SOURCE_DIR}/extern/cereal" "${CMAKE_BINARY_DIR}/extern/cereal")
 endif()
 
