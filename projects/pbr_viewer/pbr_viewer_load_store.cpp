@@ -844,7 +844,7 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
                 std::filesystem::path(g_cache_path) / g_model_store_path /
                 std::format("{}_{}.{}", std::filesystem::path(path).filename().string(), hash_val, g_file_suffix_model);
 
-        auto mesh_id = vierkant::MeshId::from_name(bundle_path.string());
+        auto mesh_id = vierkant::MeshId::from_name(path.string());
         bool bundle_created = false;
         auto model_assets = load_asset_bundle(bundle_path);
 
