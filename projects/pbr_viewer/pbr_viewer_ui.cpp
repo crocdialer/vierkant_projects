@@ -275,6 +275,7 @@ void PBRViewer::create_ui()
                 }
             }
         }
+        if(vierkant::joystick_active(joysticks)) { m_window->set_cursor_visible(false); }
     };
     m_window->joystick_delegates[name()] = joystick_delegate;
 
@@ -858,6 +859,8 @@ void PBRViewer::create_ui()
             }
         }
     };
+
+    simple_mouse.mouse_move = [this](const vierkant::MouseEvent &) { m_window->set_cursor_visible(true); };
 
     simple_mouse.mouse_drag = [this](const vierkant::MouseEvent &e) {
         if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
