@@ -940,7 +940,15 @@ void PBRViewer::create_camera_controls()
         return is_active && !ui_captured;
     };
     m_window->key_delegates["flycamera"] = std::move(fly_key_delegeate);
-    m_window->joystick_delegates["flycamera"] = m_camera_control.fly->joystick_delegate();
+    {
+        auto fly_js = m_camera_control.fly->joystick_delegate();
+        vierkant::joystick_delegate_t custom_fly_js = {};
+        custom_fly_js.joystick_cb = [this, fly_cb = fly_js.joystick_cb](const auto &joysticks) {
+            m_fly_joystick_states = joysticks;
+            if(fly_cb) { fly_cb(joysticks); }
+        };
+        m_window->joystick_delegates["flycamera"] = std::move(custom_fly_js);
+    }
 
     // update camera with arcball
     auto transform_cb = [this](const vierkant::transform_t &transform) {
@@ -975,4 +983,27 @@ void PBRViewer::create_camera_controls()
 
     // update camera from current
     m_camera->transform = m_camera_control.current->transform();
+}
+
+void PBRViewer::update_js(double time_delta)
+{
+    if(m_camera_control.current == m_camera_control.fly && !m_fly_joystick_states.empty())
+    {
+        const auto &js_state = m_fly_joystick_states.front();
+        constexpr float deadzone_thresh = 0.008f;
+        auto trigger = js_state.trigger();
+        float throttle = trigger.y - trigger.x;
+        if(std::abs(throttle) > deadzone_thresh)
+        {
+            auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+            if(auto *params = std::get_if<vierkant::physical_camera_params_t>(&cam_cmp->params))
+            {
+                constexpr float focus_sensitivity = 2.f;
+                params->focal_distance = std::clamp(
+                        params->focal_distance * std::exp(static_cast<float>(time_delta) * focus_sensitivity * throttle),
+                        params->clipping_distances.x, params->clipping_distances.y);
+                if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+            }
+        }
+    }
 }

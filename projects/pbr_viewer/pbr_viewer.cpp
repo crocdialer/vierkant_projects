@@ -395,6 +395,8 @@ void PBRViewer::update(double time_delta)
     if(m_settings.draw_ui) { m_gui_context.update(time_delta, m_window->size(), m_window->framebuffer_size()); }
     m_camera_control.current->update(time_delta);
 
+    update_js(time_delta);
+
     // issue top-level draw-command
     m_window->draw();
 }

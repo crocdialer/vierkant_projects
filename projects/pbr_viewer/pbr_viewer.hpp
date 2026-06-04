@@ -126,6 +126,8 @@ private:
 
     void create_camera_controls();
 
+    void update_js(double time_delta);
+
     void create_texture_image();
 
     void add_to_recent_files(const std::filesystem::path &f);
@@ -253,6 +255,8 @@ private:
         vierkant::FlyCameraPtr fly = vierkant::FlyCamera::create();
         vierkant::CameraControlPtr current = orbit;
     } m_camera_control;
+
+    std::vector<vierkant::Joystick> m_fly_joystick_states;
 
     // object-selection / copy/paste
     std::set<vierkant::Object3DPtr> m_selected_objects;
