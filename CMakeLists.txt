@@ -32,29 +32,12 @@ set(LIBS ${LIBS} ${vierkant_LIBRARIES})
 #set(LIBS ${LIBS} ${netzer_LIBRARIES})
 #include_directories(${netzer_INCLUDE_DIRS})
 
-# vierkant_cereal
+# vierkant_cereal (owns its cereal + libzip deps; pulls in `zip` transitively)
 add_subdirectory("vierkant_cereal")
 set(LIBS ${LIBS} vierkant_cereal)
 
 # cxxopts
 include_directories("extern/cxxopts/include")
-
-# libzip
-set(BUILD_TOOLS OFF)
-set(BUILD_REGRESS OFF)
-set(BUILD_EXAMPLES OFF)
-set(BUILD_DOC OFF)
-set(ENABLE_BZIP2 OFF)
-#set(ENABLE_COMMONCRYPTO OFF)
-set(ENABLE_GNUTLS OFF)
-set(ENABLE_MBEDTLS OFF)
-set(ENABLE_OPENSSL OFF)
-set(ENABLE_WINDOWS_CRYPTO OFF)
-set(ENABLE_ZSTD ON)
-set(CMAKE_POLICY_DEFAULT_CMP0063 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-add_subdirectory(extern/libzip EXCLUDE_FROM_ALL)
-set(LIBS ${LIBS} zip)
 
 # projects
 add_subdirectory("projects")

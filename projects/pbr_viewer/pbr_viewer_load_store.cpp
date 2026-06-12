@@ -7,7 +7,6 @@
 #include <vierkant/cubemap_utils.hpp>
 
 #include "pbr_viewer_serialization.hpp"
-#include "ziparchive.h"
 #include <vierkant_cereal/vierkant_cereal.hpp>
 
 #include <ranges>
@@ -19,8 +18,6 @@ constexpr char g_model_store_path[] = "models";
 constexpr char g_material_store_path[] = "materials";
 constexpr char g_zip_path[] = "cache.zip";
 constexpr char g_file_suffix_model[] = "4km";
-
-std::shared_mutex g_bundle_rw_mutex;
 
 std::string material_bundle_path(const std::string &scene_path)
 {
@@ -465,7 +462,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
     std::ofstream ofs(path.string());
     try
     {
-        pbr_viewer::save_scene_data(ofs, data);
+        vierkant_cereal::save_scene_data(ofs, data);
     } catch(std::exception &e) { spdlog::error(e.what()); }
 
     // store all scene-materials
@@ -815,7 +812,6 @@ std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierk
 vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::path &path)
 {
     ++m_num_loading;
-    const auto start_time = std::chrono::steady_clock::now();
     vierkant::model::load_mesh_result_t result;
 
     bool is_primitive = false;
@@ -836,13 +832,10 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
     {
         spdlog::debug("loading model '{}'", path.string());
 
-        // create hash of filename+params, search existing bundle
-        size_t hash_val = std::hash<std::string>()(path.filename().string());
-        vierkant::hash_combine(hash_val, m_settings.mesh_buffer_params);
-        vierkant::hash_combine(hash_val, m_settings.texture_compression);
-        std::filesystem::path bundle_path =
-                std::filesystem::path(g_cache_path) / g_model_store_path /
-                std::format("{}_{}.{}", std::filesystem::path(path).filename().string(), hash_val, g_file_suffix_model);
+        // canonical cache-path for filename+params, search existing bundle
+        std::filesystem::path bundle_path = std::filesystem::path(g_cache_path) / g_model_store_path /
+                                            vierkant_cereal::model_bundle_filename(path, m_settings.mesh_buffer_params,
+                                                                                   m_settings.texture_compression);
 
         auto mesh_id = vierkant::MeshId::from_name(path.string());
         bool bundle_created = false;
@@ -850,35 +843,13 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
 
         if(!model_assets)
         {
-            // tinygltf
-            model_assets = vierkant::model::load_model(path, &background_queue());
-            spdlog::debug("loaded model '{}' ({})", path.string(),
-                          double_second(std::chrono::steady_clock::now() - start_time));
+            // load model-file and bake a self-contained asset-bundle (lods/meshlets/texture-compression)
+            vierkant_cereal::bundle_params_t bundle_params = {.mesh_buffer_params = m_settings.mesh_buffer_params,
+                                                              .compress_textures = m_settings.texture_compression,
+                                                              .pool = &background_queue()};
+            model_assets = vierkant_cereal::create_model_bundle(path, bundle_params);
 
-            if(!model_assets)
-            {
-                spdlog::warn("could not load file: {}", path.string());
-                return {};
-            }
-
-            spdlog::stopwatch sw;
-
-            spdlog::debug("creating asset-bundle '{}' - lod: {} - meshlets: {} - bc7-compression: {}",
-                          bundle_path.string(), m_settings.mesh_buffer_params.generate_lods,
-                          m_settings.mesh_buffer_params.generate_meshlets, m_settings.texture_compression);
-
-            // run compression of geometries, creation of meshlets, lods, etc.
-            model_assets->geometry_data = vierkant::create_mesh_buffers(
-                    std::get<std::vector<vierkant::Mesh::entry_create_info_t>>(model_assets->geometry_data),
-                    m_settings.mesh_buffer_params);
-
-            // run in-place compression on all textures, store compressed textures in bundle
-            if(m_settings.texture_compression)
-            {
-                vierkant::model::compress_textures(*model_assets, &background_queue());
-            }
-
-            spdlog::debug("asset-bundle '{}' done -> {}", bundle_path.string(), sw.elapsed());
+            if(!model_assets) { return {}; }
             bundle_created = true;
         }
 
@@ -923,94 +894,31 @@ std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::pa
     if(file_stream.is_open())
     {
         spdlog::debug("loading scene: {}", path.string());
-        return pbr_viewer::load_scene_data(file_stream);
+        return vierkant_cereal::load_scene_data(file_stream);
     }
     return {};
 }
 
-template<typename T, typename Reader>
-static std::optional<T> load_from_stream(const std::filesystem::path &path, Reader &&reader)
+//! optional zip-archive path, depending on the cache_zip_archive setting.
+static std::optional<std::filesystem::path> zip_archive_path(bool cache_zip_archive)
 {
-    {
-        std::ifstream f(path);
-        if(f.is_open())
-        {
-            try
-            {
-                spdlog::debug("loading bundle '{}'", path.string());
-                std::shared_lock lock(g_bundle_rw_mutex);
-                return reader(f);
-            } catch(std::exception &e) { spdlog::error(e.what()); }
-        }
-    }
-    vierkant::ziparchive zip(g_zip_path);
-    if(zip.has_file(path))
-    {
-        try
-        {
-            spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), g_zip_path);
-            std::shared_lock lock(g_bundle_rw_mutex);
-            auto zipstream = zip.open_file(path);
-            return reader(zipstream);
-        } catch(std::exception &e) { spdlog::error(e.what()); }
-    }
+    if(cache_zip_archive) { return std::filesystem::path(g_zip_path); }
     return {};
-}
-
-template<typename Writer>
-static void save_to_stream(const std::filesystem::path &path, bool compress, Writer &&writer)
-{
-    try
-    {
-        {
-            spdlog::stopwatch sw;
-            if(auto dir = crocore::filesystem::get_directory_part(path); !dir.empty())
-                std::filesystem::create_directories(dir);
-            std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
-            spdlog::debug("serializing/writing bundle: {}", path.string());
-            writer(ofs);
-            spdlog::debug("done serializing/writing bundle: {} ({})", path.string(), sw.elapsed());
-        }
-        if(compress)
-        {
-            spdlog::stopwatch sw;
-            {
-                std::unique_lock lock(g_bundle_rw_mutex);
-                spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), g_zip_path);
-                vierkant::ziparchive zipstream(g_zip_path);
-                zipstream.add_file(path);
-            }
-            spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), g_zip_path, sw.elapsed());
-            std::filesystem::remove(path);
-        }
-    } catch(std::exception &e) { spdlog::error(e.what()); }
 }
 
 void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets,
                                   const std::filesystem::path &path) const
-{
-    save_to_stream(path, m_settings.cache_zip_archive,
-                   [&mesh_assets](std::ostream &os) { vierkant_cereal::save(os, mesh_assets); });
-}
+{ vierkant_cereal::save_bundle_file(mesh_assets, path, zip_archive_path(m_settings.cache_zip_archive)); }
 
 std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
-{
-    return load_from_stream<vierkant::model::model_assets_t>(
-            path, [](std::istream &is) { return vierkant_cereal::load_model_assets(is); });
-}
+{ return vierkant_cereal::load_model_bundle_file(path, std::filesystem::path(g_zip_path)); }
 
 void PBRViewer::save_material_bundle(const vierkant::material_data_t &material_data,
                                      const std::filesystem::path &path) const
-{
-    save_to_stream(path, m_settings.cache_zip_archive,
-                   [&material_data](std::ostream &os) { vierkant_cereal::save(os, material_data); });
-}
+{ vierkant_cereal::save_bundle_file(material_data, path, zip_archive_path(m_settings.cache_zip_archive)); }
 
 std::optional<vierkant::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{
-    return load_from_stream<vierkant::material_data_t>(
-            path, [](std::istream &is) { return vierkant_cereal::load_material_data(is); });
-}
+{ return vierkant_cereal::load_material_bundle_file(path, std::filesystem::path(g_zip_path)); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {
