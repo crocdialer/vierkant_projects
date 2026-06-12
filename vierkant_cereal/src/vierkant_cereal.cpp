@@ -1,8 +1,87 @@
-#include <vierkant_cereal/vierkant_cereal.hpp>
+#include <format>
+#include <fstream>
+#include <shared_mutex>
+
+#include <crocore/filesystem.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/stopwatch.h>
+
+#include <vierkant/hash.hpp>
+
+#include <vierkant_cereal/scene_cereal.hpp>
 #include <vierkant_cereal/serialization.hpp>
+#include <vierkant_cereal/vierkant_cereal.hpp>
+#include <vierkant_cereal/ziparchive.h>
 
 namespace vierkant_cereal
 {
+
+//! guards concurrent access to the shared zip-archive(s) used for bundle storage.
+static std::shared_mutex g_bundle_rw_mutex;
+
+template<typename T, typename Reader>
+static std::optional<T> load_from_stream(const std::filesystem::path &path,
+                                         const std::optional<std::filesystem::path> &zip_archive, Reader &&reader)
+{
+    {
+        std::ifstream f(path);
+        if(f.is_open())
+        {
+            try
+            {
+                spdlog::debug("loading bundle '{}'", path.string());
+                std::shared_lock lock(g_bundle_rw_mutex);
+                return reader(f);
+            } catch(std::exception &e) { spdlog::error(e.what()); }
+        }
+    }
+    if(zip_archive)
+    {
+        vierkant::ziparchive zip(*zip_archive);
+        if(zip.has_file(path))
+        {
+            try
+            {
+                spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), zip_archive->string());
+                std::shared_lock lock(g_bundle_rw_mutex);
+                auto zipstream = zip.open_file(path);
+                return reader(zipstream);
+            } catch(std::exception &e) { spdlog::error(e.what()); }
+        }
+    }
+    return {};
+}
+
+template<typename Writer>
+static void save_to_stream(const std::filesystem::path &path, const std::optional<std::filesystem::path> &zip_archive,
+                           Writer &&writer)
+{
+    try
+    {
+        {
+            spdlog::stopwatch sw;
+            if(auto dir = crocore::filesystem::get_directory_part(path); !dir.empty())
+                std::filesystem::create_directories(dir);
+            std::ofstream ofs(path.string(), std::ios_base::out | std::ios_base::binary);
+            spdlog::debug("serializing/writing bundle: {}", path.string());
+            writer(ofs);
+            spdlog::debug("done serializing/writing bundle: {} ({})", path.string(), sw.elapsed());
+        }
+        if(zip_archive)
+        {
+            spdlog::stopwatch sw;
+            {
+                std::unique_lock lock(g_bundle_rw_mutex);
+                spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), zip_archive->string());
+                vierkant::ziparchive zipstream(*zip_archive);
+                zipstream.add_file(path);
+            }
+            spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), zip_archive->string(), sw.elapsed());
+            std::filesystem::remove(path);
+        }
+    } catch(std::exception &e) { spdlog::error(e.what()); }
+}
+
 
 void save(std::ostream &os, const vierkant::model::model_assets_t &assets)
 {
@@ -36,6 +115,87 @@ std::optional<vierkant::material_data_t> load_material_data(std::istream &is)
         archive(ret);
         return ret;
     } catch(const std::exception &) { return {}; }
+}
+
+void save_scene_data(std::ostream &os, const scene_data_t &data)
+{
+    cereal::JSONOutputArchive archive(os);
+    archive(data);
+}
+
+std::optional<scene_data_t> load_scene_data(std::istream &is)
+{
+    try
+    {
+        scene_data_t scene_data;
+        cereal::JSONInputArchive archive(is);
+        archive(scene_data);
+        return scene_data;
+    } catch(const std::exception &) { return {}; }
+}
+
+std::string model_bundle_filename(const std::filesystem::path &model_path,
+                                  const vierkant::mesh_buffer_params_t &mesh_buffer_params, bool compress_textures)
+{
+    size_t hash_val = std::hash<std::string>()(model_path.filename().string());
+    vierkant::hash_combine(hash_val, mesh_buffer_params);
+    vierkant::hash_combine(hash_val, compress_textures);
+    return std::format("{}_{}.{}", model_path.filename().string(), hash_val, bundle_file_suffix);
+}
+
+std::optional<vierkant::model::model_assets_t> create_model_bundle(const std::filesystem::path &model_path,
+                                                                   const bundle_params_t &params)
+{
+    spdlog::stopwatch sw;
+    auto model_assets = vierkant::model::load_model(model_path, params.pool);
+
+    if(!model_assets)
+    {
+        spdlog::warn("could not load file: {}", model_path.string());
+        return {};
+    }
+    spdlog::debug("loaded model '{}' ({})", model_path.string(), sw.elapsed());
+
+    spdlog::debug("baking asset-bundle '{}' - lods: {} - meshlets: {} - bc7-compression: {}", model_path.string(),
+                  params.mesh_buffer_params.generate_lods, params.mesh_buffer_params.generate_meshlets,
+                  params.compress_textures);
+
+    // run compression of geometries, creation of meshlets, lods, etc.
+    model_assets->geometry_data = vierkant::create_mesh_buffers(
+            std::get<std::vector<vierkant::Mesh::entry_create_info_t>>(model_assets->geometry_data),
+            params.mesh_buffer_params);
+
+    // run in-place block-compression on all textures, store compressed textures in bundle
+    if(params.compress_textures) { vierkant::model::compress_textures(*model_assets, params.pool); }
+
+    spdlog::debug("asset-bundle '{}' done -> {}", model_path.string(), sw.elapsed());
+    return model_assets;
+}
+
+void save_bundle_file(const vierkant::model::model_assets_t &assets, const std::filesystem::path &path,
+                      const std::optional<std::filesystem::path> &zip_archive)
+{
+    save_to_stream(path, zip_archive, [&assets](std::ostream &os) { save(os, assets); });
+}
+
+std::optional<vierkant::model::model_assets_t>
+load_model_bundle_file(const std::filesystem::path &path, const std::optional<std::filesystem::path> &zip_archive)
+{
+    return load_from_stream<vierkant::model::model_assets_t>(path, zip_archive,
+                                                             [](std::istream &is) { return load_model_assets(is); });
+}
+
+void save_bundle_file(const vierkant::material_data_t &material_data, const std::filesystem::path &path,
+                      const std::optional<std::filesystem::path> &zip_archive)
+{
+    save_to_stream(path, zip_archive, [&material_data](std::ostream &os) { save(os, material_data); });
+}
+
+std::optional<vierkant::material_data_t>
+load_material_bundle_file(const std::filesystem::path &path, const std::optional<std::filesystem::path> &zip_archive)
+{
+    return load_from_stream<vierkant::material_data_t>(path, zip_archive,
+                                                       [](std::istream &is) { return load_material_data(is); });
 }
 
 }// namespace vierkant_cereal

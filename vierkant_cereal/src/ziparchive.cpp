@@ -6,7 +6,7 @@
 #include <functional>
 #include <zip.h>
 
-#include "ziparchive.h"
+#include <vierkant_cereal/ziparchive.h>
 
 namespace vierkant
 {
