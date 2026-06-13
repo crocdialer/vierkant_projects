@@ -58,7 +58,7 @@ public:
         uint32_t num_samples = 1024;
 
         //! maximum number of samples-per-pixel (spp), per frame (applies only to path-tracer)
-        uint32_t max_samples_per_frame = 2;
+        uint32_t max_samples_per_frame = 8;
 
         //! maximum path-length (applies only to path-tracer)
         uint32_t max_path_length = 8;
@@ -108,9 +108,9 @@ private:
 
     bool create_graphics_context();
 
-    bool create_mesh(const vierkant::model::model_assets_t &mesh_assets);
+    vierkant::AABB create_mesh(const vierkant::model::model_assets_t &mesh_assets);
 
-    void create_camera(const vierkant::model::model_assets_t &mesh_assets);
+    void create_camera(const vierkant::model::model_assets_t &mesh_assets, const vierkant::AABB &model_aabb);
 
     graphics_context_t m_context;
 

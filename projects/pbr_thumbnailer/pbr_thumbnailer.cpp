@@ -52,11 +52,18 @@ void PBRThumbnailer::setup()
 
     auto scene_data = scene_future.get();
 
-    // create camera
-    if(scene_data) { create_camera(*scene_data); }
+    // load model first — AABB is required to position the camera
+    vierkant::AABB model_aabb;
+    bool success = false;
+    if(scene_data)
+    {
+        model_aabb = create_mesh(*scene_data);
+        success = model_aabb.valid();
+    }
 
-    // load model
-    bool success = scene_data && create_mesh(*scene_data);
+    // create camera, fitting frustum to model's native AABB
+    if(scene_data) { create_camera(*scene_data, model_aabb); }
+
     this->running = success;
     if(!success) { return_type = EXIT_FAILURE; }
 }
@@ -260,7 +267,7 @@ bool PBRThumbnailer::create_graphics_context()
     return true;
 }
 
-bool PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_assets)
+vierkant::AABB PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_assets)
 {
     // additionally required buffer-flags for raytracing/compute/mesh-shading
     VkBufferUsageFlags buffer_flags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -277,26 +284,21 @@ bool PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t &mesh_ass
     load_params.mesh_buffers_params.pack_vertices = true;
 
     // attach mesh to an object, insert into scene
-    {
-        auto [mesh, materials, textures, samplers] = vierkant::model::load_mesh(load_params, mesh_assets);
-        auto object = m_scene->create_mesh_object({mesh});
-        assert(object->transform);
+    auto [mesh, materials, textures, samplers] = vierkant::model::load_mesh(load_params, mesh_assets);
+    auto object = m_scene->create_mesh_object({mesh});
+    assert(object->transform);
 
-        for(auto &mat: materials | std::views::values) { m_scene->add_material(std::move(mat)); }
-        for(auto &[tex_id, tex]: textures) { m_scene->add_texture(tex_id, tex); }
+    for(auto &mat: materials | std::views::values) { m_scene->add_material(std::move(mat)); }
+    for(auto &[tex_id, tex]: textures) { m_scene->add_texture(tex_id, tex); }
 
-        // scale (problematic since sclaing changes thickness/transmission and thus visual appearence)
-        object->transform->scale = glm::vec3(1.f / glm::length(object->aabb().half_extents()));
+    // keep native scale — only center the AABB at the origin
+    auto local_aabb = object->aabb();
+    object->transform->translation = -local_aabb.center();
 
-        // center aabb
-        auto aabb = object->aabb().transform(*object->transform);
-        object->transform->translation = -aabb.center();
-
-        m_scene->add_object(object);
-    }
-    return true;
+    m_scene->add_object(object);
+    return local_aabb;
 }
-void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_assets)
+void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_assets, const vierkant::AABB &model_aabb)
 {
     vierkant::model::camera_t model_camera = {};
 
@@ -304,10 +306,23 @@ void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_a
     if(m_settings.use_model_camera && !mesh_assets.cameras.empty()) { model_camera = mesh_assets.cameras.front(); }
     else
     {
-        // set camera-position
+        const float aspect = static_cast<float>(m_settings.result_image_size.x) /
+                             static_cast<float>(m_settings.result_image_size.y);
+        model_camera.params.aspect = aspect;
+
+        // bounding-sphere radius of the (unscaled) model
+        const float r = glm::length(model_aabb.half_extents());
+
+        // tightest half-FOV angle: use the smaller of the two to guarantee the sphere fits both axes
+        const float min_half_fov = std::min(model_camera.params.fovx(), model_camera.params.fovy()) * 0.5f;
+        const float d = r / std::tan(min_half_fov);
+
+        // clipping planes scaled to model size so near/far work for any scale
+        model_camera.params.clipping_distances = {std::max(1e-4f, (d - r) * 0.1f), (d + r) * 10.0f};
+
         auto orbit_cam_controller = vierkant::OrbitCamera();
         orbit_cam_controller.spherical_coords = m_settings.cam_spherical_coords;
-        orbit_cam_controller.distance = 2.5f;
+        orbit_cam_controller.distance = d;
         model_camera.transform = orbit_cam_controller.transform();
     }
 
