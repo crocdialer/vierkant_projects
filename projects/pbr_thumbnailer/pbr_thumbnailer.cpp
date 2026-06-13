@@ -69,14 +69,27 @@ void PBRThumbnailer::update(double /*time_delta*/)
 
         uint32_t num_passes = m_settings.num_samples / m_settings.max_samples_per_frame;
 
+        const auto render_start = std::chrono::steady_clock::now();
+        const std::chrono::seconds halving_interval{5};
+        auto next_halving = render_start + halving_interval;
+
         for(uint32_t i = 0; i < num_passes; ++i)
         {
             auto render_result = m_context.scene_renderer->render_scene(m_context.renderer, m_scene, m_camera, {});
             auto cmd_buffer = m_context.renderer.render(m_context.framebuffer);
             m_context.framebuffer.submit({cmd_buffer}, m_context.device->queue(), render_result.semaphore_infos);
             m_context.framebuffer.wait_fence();
+
+            // if rendering is slow, halve remaining passes every 5s to produce output in reasonable time
+            while(std::chrono::steady_clock::now() >= next_halving)
+            {
+                uint32_t remaining = num_passes - (i + 1);
+                num_passes -= remaining / 2;
+                next_halving += halving_interval;
+                spdlog::debug("slow render: {} passes remaining", num_passes - (i + 1));
+            }
         }
-        spdlog::info("rendering done (#spp: {} - {})", m_settings.num_samples, sw.elapsed());
+        spdlog::info("rendering done (#spp: ~{} - {})", num_passes * m_settings.max_samples_per_frame, sw.elapsed());
     }
 
     {
@@ -107,6 +120,13 @@ void PBRThumbnailer::update(double /*time_delta*/)
 void PBRThumbnailer::teardown()
 {
     m_context.device->wait_idle();
+
+    // PBRDeferred retains Object3DPtr/SceneConstPtr in its per-frame cull_result.
+    // Reset these before the scene's ObjectStore is destroyed (m_scene outlives m_context
+    // in the member-destruction order), otherwise the free-list destructor would assert.
+    m_context.scene_renderer.reset();
+    m_camera.reset();
+
     spdlog::info("total: {}s", application_time());
 }
 
@@ -158,10 +178,11 @@ bool PBRThumbnailer::create_graphics_context()
     // print vulkan-/driver-/vierkant-version
     spdlog::debug(vierkant::device_info(physical_device));
 
-    // check raytracing-pipeline support
+    // check raytracing-pipeline + ray-query support (path-tracer shaders require both)
     m_settings.use_pathtracer =
             m_settings.use_pathtracer &&
-            vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions());
+            vierkant::check_device_extension_support(physical_device, vierkant::RayTracer::required_extensions()) &&
+            vierkant::check_device_extension_support(physical_device, {VK_KHR_RAY_QUERY_EXTENSION_NAME});
 
     // create device
     vierkant::Device::create_info_t device_info = {};
@@ -175,6 +196,7 @@ bool PBRThumbnailer::create_graphics_context()
     {
         device_info.extensions = crocore::concat_containers<const char *>(vierkant::RayTracer::required_extensions(),
                                                                           vierkant::RayBuilder::required_extensions());
+        device_info.extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
         if(!vierkant::check_device_extension_support(physical_device, device_info.extensions))
         {
             spdlog::warn("using fallback rasterizer: path-tracer was requested, but required extensions are not "

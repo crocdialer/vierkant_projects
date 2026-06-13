@@ -58,7 +58,7 @@ public:
         uint32_t num_samples = 1024;
 
         //! maximum number of samples-per-pixel (spp), per frame (applies only to path-tracer)
-        uint32_t max_samples_per_frame = 32;
+        uint32_t max_samples_per_frame = 2;
 
         //! maximum path-length (applies only to path-tracer)
         uint32_t max_path_length = 8;
@@ -77,10 +77,9 @@ public:
     };
 
     explicit PBRThumbnailer(const crocore::Application::create_info_t &create_info, settings_t settings)
-        : crocore::Application(create_info), m_settings(std::move(settings)){};
+        : crocore::Application(create_info), m_context(), m_settings(std::move(settings)) {};
 
 private:
-
     struct graphics_context_t
     {
         // instance
@@ -97,7 +96,7 @@ private:
     };
 
     static std::optional<vierkant::model::model_assets_t> load_model_file(const std::filesystem::path &path,
-                                                                         crocore::ThreadPoolClassic &pool);
+                                                                          crocore::ThreadPoolClassic &pool);
 
     void setup() override;
 
@@ -105,7 +104,7 @@ private:
 
     void teardown() override;
 
-    void poll_events() override{};
+    void poll_events() override {};
 
     bool create_graphics_context();
 
