@@ -141,6 +141,7 @@ void serialize(Archive &archive, vierkant::material_t &material)
             cereal::make_nvp("roughness", material.roughness), cereal::make_nvp("metalness", material.metalness),
             cereal::make_nvp("occlusion", material.occlusion), cereal::make_nvp("null_surface", material.null_surface),
             cereal::make_nvp("twosided", material.twosided), cereal::make_nvp("ior", material.ior),
+            cereal::make_nvp("dispersion", material.dispersion),
             cereal::make_nvp("attenuation_color", material.attenuation_color),
             cereal::make_nvp("transmission", material.transmission),
             cereal::make_nvp("attenuation_distance", material.attenuation_distance),
