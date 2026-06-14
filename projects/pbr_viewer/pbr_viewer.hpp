@@ -71,7 +71,7 @@ public:
         bool texture_compression = false;
 
         //! bake opacity-micromaps (OMM) for alpha-masked geometry and feed them to the path-tracer
-        bool opacity_micromaps = true;
+        bool opacity_micromaps = false;
 
         bool cache_mesh_bundles = false;
 
