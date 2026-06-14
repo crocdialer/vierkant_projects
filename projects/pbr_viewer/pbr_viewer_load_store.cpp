@@ -832,10 +832,15 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
     {
         spdlog::debug("loading model '{}'", path.string());
 
+        // opt-in to CPU opacity-micromap baking (alpha-masked geometry only)
+        std::optional<vierkant::model::omm_gen_params_t> omm_params;
+        if(m_settings.opacity_micromaps) { omm_params = vierkant::model::omm_gen_params_t{}; }
+
         // canonical cache-path for filename+params, search existing bundle
         std::filesystem::path bundle_path = std::filesystem::path(g_cache_path) / g_model_store_path /
                                             vierkant_cereal::model_bundle_filename(path, m_settings.mesh_buffer_params,
-                                                                                   m_settings.texture_compression);
+                                                                                   m_settings.texture_compression,
+                                                                                   omm_params);
 
         auto mesh_id = vierkant::MeshId::from_name(path.string());
         bool bundle_created = false;
@@ -846,6 +851,7 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
             // load model-file and bake a self-contained asset-bundle (lods/meshlets/texture-compression)
             vierkant_cereal::bundle_params_t bundle_params = {.mesh_buffer_params = m_settings.mesh_buffer_params,
                                                               .compress_textures = m_settings.texture_compression,
+                                                              .omm_params = omm_params,
                                                               .pool = &background_queue()};
             model_assets = vierkant_cereal::create_model_bundle(path, bundle_params);
 
@@ -859,8 +865,18 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
         load_params.mesh_buffers_params = m_settings.mesh_buffer_params;
         load_params.buffer_flags = m_mesh_buffer_flags;
 
+        // forward OMM params; load_mesh adopts pre-baked bundle data if present, else live-bakes
+        load_params.omm_params = omm_params;
+
         result = vierkant::model::load_mesh(load_params, *model_assets);
         result.mesh->id = mesh_id;
+
+        // load_mesh keyed the OMM-cache on the mesh-id it assigned internally; re-stamp with the
+        // final scene mesh-id so RayBuilder lookups (which use the scene mesh) hit, then accumulate
+        for(auto &[key, omm_entry]: result.omm_cache)
+        {
+            m_scene_omm_cache[{mesh_id, key.entry_index, key.color_texture_id}] = std::move(omm_entry);
+        }
 
         // TODO: this needs to pass down the materials/textures
         for(auto &mat: result.materials | std::views::values) { m_scene->add_material(mat); }

@@ -70,6 +70,9 @@ public:
 
         bool texture_compression = false;
 
+        //! bake opacity-micromaps (OMM) for alpha-masked geometry and feed them to the path-tracer
+        bool opacity_micromaps = true;
+
         bool cache_mesh_bundles = false;
 
         bool cache_zip_archive = false;
@@ -292,6 +295,10 @@ private:
 
     scene_data_t m_scene_data;
 
+    //! scene-level CPU opacity-micromap cache; accumulated across loaded meshes and
+    //! handed (non-owning) to the path-tracer via settings.omm_cache
+    vierkant::model::mesh_omm_cache_t m_scene_omm_cache;
+
     // track of scene/model-paths
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<vierkant::SceneId, std::filesystem::path> m_scene_paths;
@@ -317,6 +324,7 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("draw_node_hierarchy", settings.draw_node_hierarchy),
        cereal::make_nvp("path_tracing", settings.path_tracing),
        cereal::make_nvp("texture_compression", settings.texture_compression),
+       cereal::make_optional_nvp("opacity_micromaps", settings.opacity_micromaps),
        cereal::make_nvp("mesh_buffer_params", settings.mesh_buffer_params),
        cereal::make_nvp("cache_mesh_bundles", settings.cache_mesh_bundles),
        cereal::make_nvp("cache_zip_archive", settings.cache_zip_archive),

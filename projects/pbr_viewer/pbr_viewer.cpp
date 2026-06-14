@@ -300,6 +300,9 @@ void PBRViewer::create_graphics_pipeline()
         path_tracer_info.queue = m_queue_render;
 
         m_path_tracer = vierkant::PBRPathTracer::create(m_device, path_tracer_info);
+
+        // hand the scene-level OMM cache (non-owning) to the path-tracer/RayBuilder
+        m_path_tracer->settings.omm_cache = &m_scene_omm_cache;
     }
 
     if(use_raytracer && m_path_tracer) { m_scene_renderer = m_path_tracer; }

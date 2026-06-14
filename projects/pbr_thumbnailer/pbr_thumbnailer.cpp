@@ -284,12 +284,12 @@ vierkant::AABB PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t
     load_params.mesh_buffers_params.pack_vertices = true;
 
     // attach mesh to an object, insert into scene
-    auto [mesh, materials, textures, samplers] = vierkant::model::load_mesh(load_params, mesh_assets);
-    auto object = m_scene->create_mesh_object({mesh});
+    auto load_mesh_result = vierkant::model::load_mesh(load_params, mesh_assets);
+    auto object = m_scene->create_mesh_object({load_mesh_result.mesh});
     assert(object->transform);
 
-    for(auto &mat: materials | std::views::values) { m_scene->add_material(std::move(mat)); }
-    for(auto &[tex_id, tex]: textures) { m_scene->add_texture(tex_id, tex); }
+    for(auto &mat: load_mesh_result.materials | std::views::values) { m_scene->add_material(std::move(mat)); }
+    for(auto &[tex_id, tex]: load_mesh_result.textures) { m_scene->add_texture(tex_id, tex); }
 
     // keep native scale — only center the AABB at the origin
     auto local_aabb = object->aabb();
@@ -306,8 +306,8 @@ void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_a
     if(m_settings.use_model_camera && !mesh_assets.cameras.empty()) { model_camera = mesh_assets.cameras.front(); }
     else
     {
-        const float aspect = static_cast<float>(m_settings.result_image_size.x) /
-                             static_cast<float>(m_settings.result_image_size.y);
+        const float aspect =
+                static_cast<float>(m_settings.result_image_size.x) / static_cast<float>(m_settings.result_image_size.y);
         model_camera.params.aspect = aspect;
 
         // bounding-sphere radius of the (unscaled) model

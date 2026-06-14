@@ -135,11 +135,21 @@ std::optional<scene_data_t> load_scene_data(std::istream &is)
 }
 
 std::string model_bundle_filename(const std::filesystem::path &model_path,
-                                  const vierkant::mesh_buffer_params_t &mesh_buffer_params, bool compress_textures)
+                                  const vierkant::mesh_buffer_params_t &mesh_buffer_params, bool compress_textures,
+                                  const std::optional<vierkant::model::omm_gen_params_t> &omm_params)
 {
     size_t hash_val = std::hash<std::string>()(model_path.filename().string());
     vierkant::hash_combine(hash_val, mesh_buffer_params);
     vierkant::hash_combine(hash_val, compress_textures);
+
+    // fold OMM settings into the cache-key so toggling/retuning OMM re-bakes the bundle
+    vierkant::hash_combine(hash_val, omm_params.has_value());
+    if(omm_params)
+    {
+        vierkant::hash_combine(hash_val, omm_params->max_level);
+        vierkant::hash_combine(hash_val, omm_params->target_edge);
+        vierkant::hash_combine(hash_val, omm_params->states);
+    }
     return std::format("{}_{}.{}", model_path.filename().string(), hash_val, bundle_file_suffix);
 }
 
@@ -164,6 +174,16 @@ std::optional<vierkant::model::model_assets_t> create_model_bundle(const std::fi
     model_assets->geometry_data = vierkant::create_mesh_buffers(
             std::get<std::vector<vierkant::Mesh::entry_create_info_t>>(model_assets->geometry_data),
             params.mesh_buffer_params);
+
+    // bake opacity-micromaps now: the packed bundle AND CPU alpha coexist only here, before
+    // the block-compression below destroys CPU alpha. baked data is cached into the bundle.
+    if(params.omm_params)
+    {
+        const auto &bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data);
+        model_assets->omm_data = vierkant::model::generate_omm_data(*model_assets, bundle, *params.omm_params);
+        spdlog::debug("baked opacity-micromaps for '{}': {} entry(ies)", model_path.string(),
+                      model_assets->omm_data.size());
+    }
 
     // run in-place block-compression on all textures, store compressed textures in bundle
     if(params.compress_textures) { vierkant::model::compress_textures(*model_assets, params.pool); }

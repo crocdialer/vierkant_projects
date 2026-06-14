@@ -31,6 +31,9 @@ struct bundle_params_t
     //! run in-place block-compression (BC7/BC5) on all textures.
     bool compress_textures = false;
 
+    //! optional opacity-micromap baking; when set, baked OMM data is cached into the bundle.
+    std::optional<vierkant::model::omm_gen_params_t> omm_params;
+
     //! optional thread-pool used to parallelize loading/compression.
     crocore::ThreadPoolClassic *pool = nullptr;
 };
@@ -41,7 +44,8 @@ constexpr char bundle_file_suffix[] = "4km";
 //! compute the canonical bundle-filename for a model (e.g. "model.glb_<hash>.4km"). the hash
 //! covers the filename + bake-parameters, so identical inputs map to the same cache-entry.
 std::string model_bundle_filename(const std::filesystem::path &model_path,
-                                  const vierkant::mesh_buffer_params_t &mesh_buffer_params, bool compress_textures);
+                                  const vierkant::mesh_buffer_params_t &mesh_buffer_params, bool compress_textures,
+                                  const std::optional<vierkant::model::omm_gen_params_t> &omm_params = {});
 
 //! load a model-file and bake a self-contained asset-bundle (CPU-only, no Vulkan device required).
 std::optional<vierkant::model::model_assets_t> create_model_bundle(const std::filesystem::path &model_path,

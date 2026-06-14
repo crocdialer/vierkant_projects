@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
         ("meshlets", "generate meshlets")
         ("no-pack-vertices", "disable vertex-packing")
         ("c,compress", "block-compress (BC7/BC5) all textures")
+        ("omm", "bake opacity-micromaps for alpha-masked geometry")
         ("z,zip", "store bundles zstd-compressed into the given zip-archive", cxxopts::value<std::string>())
         ("j,threads", "number of worker-threads", cxxopts::value<uint32_t>())
         ("v,verbose", "verbose logging")
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
     bundle_params.mesh_buffer_params.generate_lods = result.count("lods") > 0;
     bundle_params.mesh_buffer_params.generate_meshlets = result.count("meshlets") > 0;
     bundle_params.compress_textures = result.count("compress") > 0;
+    if(result.count("omm")) { bundle_params.omm_params = vierkant::model::omm_gen_params_t{}; }
 
     uint32_t num_threads =
             result.count("threads") ? result["threads"].as<uint32_t>() : std::thread::hardware_concurrency();
@@ -85,7 +87,8 @@ int main(int argc, char *argv[])
             continue;
         }
         auto bundle_path = output_dir / vierkant_cereal::model_bundle_filename(file, bundle_params.mesh_buffer_params,
-                                                                               bundle_params.compress_textures);
+                                                                               bundle_params.compress_textures,
+                                                                               bundle_params.omm_params);
         vierkant_cereal::save_bundle_file(*assets, bundle_path, zip_archive);
         spdlog::info("baked '{}' -> '{}' ({})", file, bundle_path.string(), sw.elapsed());
     }
