@@ -139,6 +139,7 @@ std::string model_bundle_filename(const std::filesystem::path &model_path,
                                   const std::optional<vierkant::model::omm_gen_params_t> &omm_params)
 {
     size_t hash_val = std::hash<std::string>()(model_path.filename().string());
+    vierkant::hash_combine(hash_val, bundle_schema_version);
     vierkant::hash_combine(hash_val, mesh_buffer_params);
     vierkant::hash_combine(hash_val, compress_textures);
 

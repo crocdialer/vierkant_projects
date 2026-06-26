@@ -41,8 +41,12 @@ struct bundle_params_t
 //! canonical suffix for baked asset-bundles.
 constexpr char bundle_file_suffix[] = "4km";
 
+//! schema-version folded into the bundle cache-key; bump on any parsing/serialization change that
+//! would make existing bundles decode wrong, so stale bundles re-bake instead of being mis-read.
+constexpr uint32_t bundle_schema_version = 1;
+
 //! compute the canonical bundle-filename for a model (e.g. "model.glb_<hash>.4km"). the hash
-//! covers the filename + bake-parameters, so identical inputs map to the same cache-entry.
+//! covers the filename + bake-parameters + schema-version.
 std::string model_bundle_filename(const std::filesystem::path &model_path,
                                   const vierkant::mesh_buffer_params_t &mesh_buffer_params, bool compress_textures,
                                   const std::optional<vierkant::model::omm_gen_params_t> &omm_params = {});
