@@ -156,6 +156,8 @@ void serialize(Archive &archive, vierkant::material_t &material)
             cereal::make_nvp("phase_asymmetry_g", material.phase_asymmetry_g),
             cereal::make_nvp("scatter_factor", material.scatter_factor),
             cereal::make_nvp("scatter_color", material.scatter_color),
+            cereal::make_nvp("diffuse_transmission", material.diffuse_transmission),
+            cereal::make_nvp("diffuse_transmission_color", material.diffuse_transmission_color),
             cereal::make_nvp("thickness", material.thickness), cereal::make_nvp("blend_mode", material.blend_mode),
             cereal::make_nvp("alpha_cutoff", material.alpha_cutoff),
             cereal::make_nvp("specular_factor", material.specular_factor),
