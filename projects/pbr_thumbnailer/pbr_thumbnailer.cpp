@@ -288,8 +288,7 @@ vierkant::AABB PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t
     auto object = m_scene->create_mesh_object({load_mesh_result.mesh});
     assert(object->transform);
 
-    for(auto &mat: load_mesh_result.materials | std::views::values) { m_scene->add_material(std::move(mat)); }
-    for(auto &[tex_id, tex]: load_mesh_result.textures) { m_scene->add_texture(tex_id, tex); }
+    m_scene->asset_provider()->populate(load_mesh_result);
 
     // keep native scale — only center the AABB at the origin
     auto local_aabb = object->aabb();

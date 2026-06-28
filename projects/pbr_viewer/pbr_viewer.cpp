@@ -63,7 +63,7 @@ PBRViewer::PBRViewer(const crocore::Application::create_info_t &create_info) : c
     this->loop_throttling = !m_settings.window_info.vsync;
     this->target_loop_frequency = m_settings.target_fps;
 
-    m_scene->physics_context().mesh_provider = [this](const auto &mesh_id) { return m_scene->mesh_asset(mesh_id); };
+    m_scene->physics_context().mesh_provider = m_scene->asset_provider()->mesh_provider();
 #ifndef NDEBUG
     m_settings.use_validation = true;
 #endif
@@ -363,7 +363,7 @@ void PBRViewer::create_texture_image()
     m_primitive_texture = vierkant::Image::create(m_device, img->data(), fmt);
     m_environment_texture = vierkant::cubemap_neutral_environment(m_device, 256, m_device->queue(), true, m_hdr_format);
     m_scene->set_environment(m_environment_texture);
-    m_scene->add_texture(m_primitive_texture_id, m_primitive_texture);
+    m_scene->asset_provider()->add_texture({m_primitive_texture_id, vierkant::SamplerId::nil()}, m_primitive_texture);
 
     m_primitive_material.name = "primitive_material";
     m_primitive_material.id = vierkant::MaterialId::from_name(m_primitive_material.name);
@@ -387,7 +387,7 @@ void PBRViewer::create_texture_image()
     cmd_buf.begin();
     m_noise_texture = noisegen->generate(cmd_buf.handle(), glm::vec2(2.f), 0.f);
     cmd_buf.submit(m_queue_image_loading, true);
-    m_scene->add_texture(m_noise_texture_id, m_noise_texture);
+    m_scene->asset_provider()->add_texture({m_noise_texture_id, vierkant::SamplerId::nil()}, m_noise_texture);
 }
 
 void PBRViewer::update(double time_delta)

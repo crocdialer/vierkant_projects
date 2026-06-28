@@ -242,6 +242,10 @@ private:
     const vierkant::TextureId m_noise_texture_id = vierkant::TextureId::from_name("noise_texture");
     vierkant::ImagePtr m_primitive_texture, m_environment_texture, m_noise_texture;
 
+    //! host-side asset store (textures/materials/samplers) kept for bundle-serialization;
+    //! the GPU-side runtime store lives in m_scene->asset_provider()
+    vierkant::material_data_t m_material_data;
+
     // window handle
     vierkant::WindowPtr m_window;
 

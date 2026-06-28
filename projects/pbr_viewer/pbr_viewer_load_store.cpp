@@ -127,7 +127,7 @@ void PBRViewer::load_texture(const std::string &path)
         vierkant::TextureId texture_id;
 
         // TODO: check when/if this makes sense
-        m_scene->m_material_data.textures[texture_id] = img;
+        m_material_data.textures[texture_id] = img;
 
         vierkant::ImagePtr texture;
         vierkant::Image::Format fmt;
@@ -144,7 +144,7 @@ void PBRViewer::load_texture(const std::string &path)
             texture = vierkant::model::create_compressed_texture(m_device, compressed_img, fmt, m_queue_image_loading);
 
             // TODO: check when/if this makes sense
-            m_scene->m_material_data.textures[texture_id] = std::move(compressed_img);
+            m_material_data.textures[texture_id] = std::move(compressed_img);
         }
         else
         {
@@ -152,7 +152,7 @@ void PBRViewer::load_texture(const std::string &path)
         }
 
         // store gpu-texture
-        m_scene->m_texture_store[texture_id] = texture;
+        m_scene->asset_provider()->add_texture({texture_id, vierkant::SamplerId::nil()}, texture);
     };
     background_queue().post(load_img_fn);
 }
@@ -466,7 +466,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
     } catch(std::exception &e) { spdlog::error(e.what()); }
 
     // store all scene-materials
-    save_material_bundle(m_scene->m_material_data, material_path);
+    vierkant::material_data_t material_data = m_material_data;
+    material_data.materials = m_scene->asset_provider()->materials();
+    save_material_bundle(material_data, material_path);
 }
 
 void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene,
@@ -483,7 +485,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             scene_data_t scene_data;
             vierkant::SceneId scene_id;
             vierkant::material_data_t material_data;
-            std::unordered_map<vierkant::TextureId, vierkant::ImagePtr> gpu_textures;
+            std::unordered_map<vierkant::texture_key_t, vierkant::ImagePtr> gpu_textures;
             std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
             std::vector<vierkant::Object3DPtr> objects;
         };
@@ -547,15 +549,17 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                 [this, &asset, tex_id, fmt](auto &&img) {
                                     using T = std::decay_t<decltype(img)>;
 
+                                    const vierkant::texture_key_t tex_key = {tex_id, vierkant::SamplerId::nil()};
+
                                     if constexpr(std::is_same_v<T, crocore::ImagePtr>)
                                     {
-                                        asset.gpu_textures[tex_id] = vierkant::model::create_texture(
+                                        asset.gpu_textures[tex_key] = vierkant::model::create_texture(
                                                 m_device, img, fmt, m_queue_image_loading);
                                     }
 
                                     if constexpr(std::is_same_v<T, vierkant::bcn::compress_result_t>)
                                     {
-                                        asset.gpu_textures[tex_id] = vierkant::model::create_compressed_texture(
+                                        asset.gpu_textures[tex_key] = vierkant::model::create_compressed_texture(
                                                 m_device, img, fmt, m_queue_image_loading);
                                     }
                                 },
@@ -583,7 +587,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         {
                             // TODO: test if this makes sense
                             spdlog::trace("material found in cache: {}", it->second.name);
-                            m_scene->add_material(it->second);
+                            m_scene->asset_provider()->add_material(it->second);
                         }
                     }
                     asset.meshes[mesh_id] = load_mesh_result.mesh;
@@ -717,29 +721,42 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     m_scene_id = scene_assets[0].scene_id;
                     m_scene->root()->name = root_objects[0]->name;
 
-                    m_scene->m_material_data = {};
-                    m_scene->m_texture_store.clear();
-
-                    // hack primitive data back
-                    m_scene->add_material(m_primitive_material);
-                    m_scene->add_texture(m_primitive_texture_id, m_primitive_texture);
-                    m_scene->add_texture(m_noise_texture_id, m_noise_texture);
+                    // reset host-side store; the GPU store is pruned below once the new scene is assembled
+                    m_material_data = {};
                 }
                 else
                 {
                     m_scene->add_object(root_objects[0]);
                 }
 
+                const auto &provider = m_scene->asset_provider();
+
                 for(const auto &scene_asset: scene_assets)
                 {
-                    // manually add material-data here
-                    m_scene->m_material_data.materials.insert(scene_asset.material_data.materials.begin(),
-                                                              scene_asset.material_data.materials.end());
-                    m_scene->m_material_data.textures.insert(scene_asset.material_data.textures.begin(),
-                                                             scene_asset.material_data.textures.end());
-                    m_scene->m_material_data.texture_samplers.insert(scene_asset.material_data.texture_samplers.begin(),
-                                                                     scene_asset.material_data.texture_samplers.end());
-                    m_scene->m_texture_store.insert(scene_asset.gpu_textures.begin(), scene_asset.gpu_textures.end());
+                    // host-side store (kept for serialization)
+                    m_material_data.materials.insert(scene_asset.material_data.materials.begin(),
+                                                     scene_asset.material_data.materials.end());
+                    m_material_data.textures.insert(scene_asset.material_data.textures.begin(),
+                                                    scene_asset.material_data.textures.end());
+                    m_material_data.texture_samplers.insert(scene_asset.material_data.texture_samplers.begin(),
+                                                            scene_asset.material_data.texture_samplers.end());
+
+                    // GPU runtime store
+                    for(const auto &mat: scene_asset.material_data.materials | std::views::values)
+                    {
+                        provider->add_material(mat);
+                    }
+                    for(const auto &[key, tex]: scene_asset.gpu_textures) { provider->add_texture(key, tex); }
+                }
+
+                if(clear_scene)
+                {
+                    // drop assets from the previous scene, then re-assert the always-present primitives
+                    m_scene->prune_assets();
+                    m_material_data.materials[m_primitive_material.id] = m_primitive_material;
+                    provider->add_material(m_primitive_material);
+                    provider->add_texture({m_primitive_texture_id, vierkant::SamplerId::nil()}, m_primitive_texture);
+                    provider->add_texture({m_noise_texture_id, vierkant::SamplerId::nil()}, m_noise_texture);
                 }
             }
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
@@ -878,16 +895,15 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
             m_scene_omm_cache[{mesh_id, key.entry_index, key.color_texture_id}] = std::move(omm_entry);
         }
 
-        // TODO: this needs to pass down the materials/textures
-        for(auto &mat: result.materials | std::views::values) { m_scene->add_material(mat); }
-        for(auto &[tex_id, tex]: result.textures) { m_scene->add_texture(tex_id, tex); }
+        // merge loaded materials/textures/samplers into the GPU runtime store
+        m_scene->asset_provider()->populate(result);
 
         m_num_loading--;
 
-        // store in application mesh-lut
-        m_scene->m_mesh_map[mesh_id] = {.mesh = result.mesh,
-                                        .bundle =
-                                                std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)};
+        // populate stores the gpu-mesh only; attach the persist-able bundle for physics
+        m_scene->asset_provider()->add_mesh(
+                mesh_id, {.mesh = result.mesh,
+                          .bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)});
 
         if(bundle_created && m_settings.cache_mesh_bundles)
         {
