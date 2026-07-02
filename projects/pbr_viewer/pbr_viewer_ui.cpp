@@ -589,15 +589,6 @@ void PBRViewer::create_ui()
                             cubes->name = spdlog::fmt_lib::format("cubes ({})", cubes->children.size());
                         }
                     }
-
-                    if(ImGui::Button("material"))
-                    {
-                        // add new default-material with random Id
-                        vierkant::material_t new_material{};
-                        new_material.name = "blank material";
-                        m_material_data.materials[new_material.id] = new_material;
-                        m_scene->asset_provider()->add_material(new_material);
-                    }
                     ImGui::EndMenu();
                 }
 

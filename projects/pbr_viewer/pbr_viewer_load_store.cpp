@@ -731,29 +731,32 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
                 const auto &provider = m_scene->asset_provider();
 
+                // material-library roots: everything loaded from the scene's material-bundle(s), so
+                // deliberately-authored materials survive the prune even when no mesh references them
+                std::unordered_set<vierkant::MaterialId> library_materials;
+
                 for(const auto &scene_asset: scene_assets)
                 {
-                    // host-side store (kept for serialization)
-                    m_material_data.materials.insert(scene_asset.material_data.materials.begin(),
-                                                     scene_asset.material_data.materials.end());
+                    // host-side texture/sampler store (kept for serialization)
                     m_material_data.textures.insert(scene_asset.material_data.textures.begin(),
                                                     scene_asset.material_data.textures.end());
                     m_material_data.texture_samplers.insert(scene_asset.material_data.texture_samplers.begin(),
                                                             scene_asset.material_data.texture_samplers.end());
 
-                    // GPU runtime store
+                    // GPU runtime store (the AssetProvider owns the materials)
                     for(const auto &mat: scene_asset.material_data.materials | std::views::values)
                     {
                         provider->add_material(mat);
+                        library_materials.insert(mat.id);
                     }
                     for(const auto &[key, tex]: scene_asset.gpu_textures) { provider->add_texture(key, tex); }
                 }
 
                 if(clear_scene)
                 {
-                    // drop assets from the previous scene, then re-assert the always-present primitives
-                    m_scene->prune_assets();
-                    m_material_data.materials[m_primitive_material.id] = m_primitive_material;
+                    // drop assets from the previous scene (keeping the material-library roots), then
+                    // re-assert the always-present primitives
+                    m_scene->prune_assets(library_materials);
                     provider->add_material(m_primitive_material);
                     provider->add_texture({m_primitive_texture_id, vierkant::SamplerId::nil()}, m_primitive_texture);
                     provider->add_texture({m_noise_texture_id, vierkant::SamplerId::nil()}, m_noise_texture);

@@ -242,8 +242,8 @@ private:
     const vierkant::TextureId m_noise_texture_id = vierkant::TextureId::from_name("noise_texture");
     vierkant::ImagePtr m_primitive_texture, m_environment_texture, m_noise_texture;
 
-    //! host-side asset store (textures/materials/samplers) kept for bundle-serialization;
-    //! the GPU-side runtime store lives in m_scene->asset_provider()
+    //! host-side texture/sampler store kept for bundle-serialization;
+    //! materials + the GPU-side runtime store are owned by the AssetProvider (m_asset_provider)
     vierkant::material_data_t m_material_data;
 
     // window handle
@@ -251,7 +251,10 @@ private:
 
     // init a scene with physics-support on application-threadpool
     std::shared_ptr<vierkant::ObjectStore> m_object_store = vierkant::create_object_store(1 << 20);
-    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store);
+
+    //! owns the material-library + GPU runtime asset store; handed to the scene below
+    vierkant::AssetProviderPtr m_asset_provider = vierkant::AssetProvider::create();
+    std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store, m_asset_provider);
     vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
     vierkant::Object3DPtr m_camera;
