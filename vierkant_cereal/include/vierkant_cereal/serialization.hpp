@@ -312,6 +312,16 @@ void serialize(Archive &archive, vierkant::PBRDeferred::settings_t &render_setti
 }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::medium_params_t &medium)
+{
+    archive(cereal::make_nvp("attenuation_color", medium.attenuation_color),
+            cereal::make_nvp("attenuation_distance", medium.attenuation_distance),
+            cereal::make_nvp("scatter_factor", medium.scatter_factor),
+            cereal::make_nvp("scatter_color", medium.scatter_color),
+            cereal::make_nvp("phase_asymmetry_g", medium.phase_asymmetry_g), cereal::make_nvp("ior", medium.ior));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_settings)
 {
     archive(cereal::make_nvp("resolution", render_settings.resolution),
@@ -328,7 +338,8 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("environment_factor", render_settings.environment_factor),
             cereal::make_nvp("gamma", render_settings.gamma), cereal::make_nvp("exposure", render_settings.exposure),
             cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
-            cereal::make_optional_nvp("suppress_reset", render_settings.suppress_reset));
+            cereal::make_optional_nvp("suppress_reset", render_settings.suppress_reset),
+            cereal::make_optional_nvp("camera_medium", render_settings.camera_medium));
 }
 
 template<class Archive>
