@@ -6,6 +6,7 @@
 #include <vierkant/animation.hpp>
 #include <vierkant/model/model_loading.hpp>
 #include <vierkant/physics_context.hpp>
+#include <vierkant/punctual_light.hpp>
 
 // TODO: this should simply be vierkant::mesh_component, once that uses IDs
 struct mesh_state_t
@@ -47,6 +48,9 @@ struct scene_node_t
 
     //! optional camera-state
     std::optional<vierkant::camera_component_t> camera_state = {};
+
+    //! optional lightsource-state
+    std::optional<vierkant::lightsource_component_t> light_state = {};
 };
 
 struct scene_data_t
@@ -62,6 +66,9 @@ struct scene_data_t
 
     //! optional filepath for a material-bundle (.4km)
     std::string material_bundle_path;
+
+    //! lightsource-assets, referenced by scene_node_t::light_state
+    std::unordered_map<vierkant::LightId, vierkant::lightsource_t> lights;
 
     std::string environment_path;
     std::vector<scene_node_t> nodes;

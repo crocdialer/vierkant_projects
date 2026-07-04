@@ -373,6 +373,22 @@ void serialize(Archive &archive, vierkant::camera_component_t &c)
 { archive(cereal::make_nvp("params", c.params)); }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::lightsource_t &light)
+{
+    archive(cereal::make_nvp("id", light.id), cereal::make_nvp("name", light.name),
+            cereal::make_nvp("type", light.type), cereal::make_nvp("color", light.color),
+            cereal::make_nvp("intensity", light.intensity), cereal::make_nvp("range", light.range),
+            cereal::make_nvp("inner_cone_angle", light.inner_cone_angle),
+            cereal::make_nvp("outer_cone_angle", light.outer_cone_angle));
+}
+
+template<class Archive>
+void serialize(Archive &archive, vierkant::lightsource_component_t &light_cmp)
+{
+    archive(cereal::make_nvp("light_id", light_cmp.light_id));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::CameraControl &camera_control)
 {
     archive(cereal::make_nvp("enabled", camera_control.enabled),
@@ -419,19 +435,26 @@ void serialize(Archive &archive, vierkant::model::mesh_omm_data_t &omm_data)
 }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::model::lightsource_instance_t &light_instance)
+{
+    archive(cereal::make_nvp("transform", light_instance.transform),
+            cereal::make_nvp("light_id", light_instance.light_id));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::model::model_assets_t &mesh_assets)
 {
     archive(cereal::make_nvp("geometry_data", mesh_assets.geometry_data),
             cereal::make_nvp("materials", mesh_assets.materials), cereal::make_nvp("textures", mesh_assets.textures),
             cereal::make_nvp("texture_samplers", mesh_assets.texture_samplers),
-            //            cereal::make_nvp("lights", mesh_assets.lights),
             //            cereal::make_nvp("cameras", mesh_assets.cameras),
             cereal::make_nvp("root_node", mesh_assets.root_node), cereal::make_nvp("root_bone", mesh_assets.root_bone),
             cereal::make_nvp("node_animations", mesh_assets.node_animations),
-            // appended field: bundles are stored via BinaryArchive (positional), so this is read back
+            // appended fields: bundles are stored via BinaryArchive (positional), so these are read back
             // only for bundles written by this or a newer version; older bundles get a different
             // cache-filename (see model_bundle_filename) and are re-baked rather than mis-read.
-            cereal::make_nvp("omm_data", mesh_assets.omm_data));
+            cereal::make_nvp("omm_data", mesh_assets.omm_data), cereal::make_nvp("lights", mesh_assets.lights),
+            cereal::make_nvp("light_instances", mesh_assets.light_instances));
 }
 
 }// namespace vierkant::model

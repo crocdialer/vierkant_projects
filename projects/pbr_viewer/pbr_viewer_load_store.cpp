@@ -94,6 +94,17 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
             object->name = std::filesystem::path(params.path).filename().string();
 
+            // create child-objects for placed lightsource-instances (assets already registered via populate)
+            for(const auto &li: load_mesh_result.light_instances)
+            {
+                auto light_obj = m_scene->create_object();
+                const auto *light_asset = m_scene->asset_provider()->light(li.light_id);
+                light_obj->name = light_asset && !light_asset->name.empty() ? light_asset->name : "light";
+                light_obj->transform = li.transform;
+                light_obj->add_component<vierkant::lightsource_component_t>({li.light_id});
+                object->add_child(light_obj);
+            }
+
             if(params.normalize_size)
             {
                 vierkant::transform_t transform = {};
@@ -370,6 +381,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
     auto material_path = material_bundle_path(path.string());
     data.material_bundle_path = material_path;
 
+    // lightsource-assets
+    data.lights = m_scene->asset_provider()->lights();
+
     // set of mesh-ids
     std::unordered_set<vierkant::MeshId> mesh_ids;
     std::map<vierkant::Object3D *, size_t> obj_to_node_index;
@@ -417,6 +431,11 @@ void PBRViewer::save_scene(std::filesystem::path path)
         if(obj.has_component<vierkant::camera_component_t>())
         {
             node.camera_state = obj.get_component<vierkant::camera_component_t>();
+        }
+
+        if(obj.has_component<vierkant::lightsource_component_t>())
+        {
+            node.light_state = obj.get_component<vierkant::lightsource_component_t>();
         }
 
         if(obj.has_component<vierkant::mesh_component_t>())
@@ -642,6 +661,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 if(node.physics_state) { obj->add_component(*node.physics_state); }
                 if(node.constraints) { obj->add_component(*node.constraints); }
                 if(node.camera_state) { obj->add_component(*node.camera_state); }
+                if(node.light_state) { obj->add_component(*node.light_state); }
 
                 out_objects.push_back(obj);
             }
@@ -735,6 +755,9 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 // deliberately-authored materials survive the prune even when no mesh references them
                 std::unordered_set<vierkant::MaterialId> library_materials;
 
+                // same for lightsource-assets from the scene-file(s)
+                std::unordered_set<vierkant::LightId> library_lights;
+
                 for(const auto &scene_asset: scene_assets)
                 {
                     // host-side texture/sampler store (kept for serialization)
@@ -750,13 +773,19 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         library_materials.insert(mat.id);
                     }
                     for(const auto &[key, tex]: scene_asset.gpu_textures) { provider->add_texture(key, tex); }
+
+                    for(const auto &l: scene_asset.scene_data.lights | std::views::values)
+                    {
+                        provider->add_light(l);
+                        library_lights.insert(l.id);
+                    }
                 }
 
                 if(clear_scene)
                 {
                     // drop assets from the previous scene (keeping the material-library roots), then
                     // re-assert the always-present primitives
-                    m_scene->prune_assets(library_materials);
+                    m_scene->prune_assets(library_materials, library_lights);
                     provider->add_material(m_primitive_material);
                     provider->add_texture({m_primitive_texture_id, vierkant::SamplerId::nil()}, m_primitive_texture);
                     provider->add_texture({m_noise_texture_id, vierkant::SamplerId::nil()}, m_noise_texture);

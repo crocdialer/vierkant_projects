@@ -43,7 +43,7 @@ constexpr char bundle_file_suffix[] = "4km";
 
 //! schema-version folded into the bundle cache-key; bump on any parsing/serialization change that
 //! would make existing bundles decode wrong, so stale bundles re-bake instead of being mis-read.
-constexpr uint32_t bundle_schema_version = 1;
+constexpr uint32_t bundle_schema_version = 2;
 
 //! compute the canonical bundle-filename for a model (e.g. "model.glb_<hash>.4km"). the hash
 //! covers the filename + bake-parameters + schema-version.
