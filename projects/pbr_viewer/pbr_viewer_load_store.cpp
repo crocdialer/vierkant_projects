@@ -704,8 +704,14 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 cmp.scene_id = scene_assets[i].scene_id;
             }
 
-            for(auto &scene_asset: scene_assets)
+            for(uint32_t i = 0; i < scene_assets.size(); ++i)
             {
+                auto &scene_asset = scene_assets[i];
+
+                // stable key for the containing scene: the top-scene's SceneId is random per load, so
+                // anchor its instances to a fixed sentinel; sub-scenes use their (stable) file SceneId.
+                const std::string containing_key = (i == 0) ? std::string("root") : scene_asset.scene_id.str();
+
                 // connect sub-scenes to nodes
                 for(uint32_t j = 0; j < scene_asset.scene_data.nodes.size(); ++j)
                 {
@@ -716,8 +722,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         assert(scene_root_map.contains(*node.scene_id));
                         const auto &children = scene_root_map[*node.scene_id]->children;
 
-                        // sanitize potentially duplicated body-ids
-                        for(auto clones = clone_objects({children.begin(), children.end()}); const auto &child: clones)
+                        // clone into this instance-slot. deriving new body-ids from a stable per-slot seed
+                        // keeps them constant across reloads, so constraints referencing this sub-scene's
+                        // bodies (incl. from the enclosing scene) keep resolving after save/load.
+                        const std::string instance_seed = containing_key + "/" + std::to_string(j);
+                        for(auto clones = clone_objects({children.begin(), children.end()}, instance_seed);
+                            const auto &child: clones)
                         {
                             scene_asset.objects[j]->add_child(child);
                         }
@@ -805,10 +815,18 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
     background_queue().post(load_task);
 }
 
-std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierkant::Object3DPtr> &objects) const
+std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierkant::Object3DPtr> &objects,
+                                                            const std::optional<std::string> &instance_seed) const
 {
     std::unordered_map<vierkant::BodyId, vierkant::BodyId> body_id_map = {
             {vierkant::BodyId::nil(), vierkant::BodyId::nil()}};
+
+    // derive a new body-id for a cloned body. with an instance-seed the result is deterministic
+    // (stable across reloads), so persisted constraints referencing sub-scene bodies keep resolving;
+    // without a seed a fresh random id is used (a genuinely new object, e.g. copy/paste).
+    auto make_body_id = [&instance_seed](const vierkant::BodyId &orig) {
+        return instance_seed ? vierkant::BodyId::from_name(*instance_seed + orig.str()) : vierkant::BodyId::random();
+    };
 
     auto remap_id = [&body_id_map](vierkant::BodyId &body_id) {
         if(auto it = body_id_map.find(body_id); it != body_id_map.end()) { body_id = it->second; }
@@ -824,13 +842,13 @@ std::vector<vierkant::Object3DPtr> PBRViewer::clone_objects(const std::set<vierk
         clones.push_back(cloned_obj);
 
         vierkant::LambdaVisitor visitor;
-        visitor.traverse(*cloned_obj, [&body_id_map](auto &obj) -> bool {
+        visitor.traverse(*cloned_obj, [&body_id_map, &make_body_id](auto &obj) -> bool {
             if(auto *phy_cmp_ptr = obj.template get_component_ptr<vierkant::physics_component_t>())
             {
                 phy_cmp_ptr->mode = vierkant::physics_component_t::INACTIVE;
 
                 // assign new body id
-                auto new_body_id = vierkant::BodyId::random();
+                auto new_body_id = make_body_id(phy_cmp_ptr->body_id);
                 body_id_map[phy_cmp_ptr->body_id] = new_body_id;
                 phy_cmp_ptr->body_id = new_body_id;
             }
@@ -886,10 +904,10 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
         if(m_settings.opacity_micromaps) { omm_params = vierkant::model::omm_gen_params_t{}; }
 
         // canonical cache-path for filename+params, search existing bundle
-        std::filesystem::path bundle_path = std::filesystem::path(g_cache_path) / g_model_store_path /
-                                            vierkant_cereal::model_bundle_filename(path, m_settings.mesh_buffer_params,
-                                                                                   m_settings.texture_compression,
-                                                                                   omm_params);
+        std::filesystem::path bundle_path =
+                std::filesystem::path(g_cache_path) / g_model_store_path /
+                vierkant_cereal::model_bundle_filename(path, m_settings.mesh_buffer_params,
+                                                       m_settings.texture_compression, omm_params);
 
         auto mesh_id = vierkant::MeshId::from_name(path.string());
         bool bundle_created = false;
@@ -934,8 +952,8 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
 
         // populate stores the gpu-mesh only; attach the persist-able bundle for physics
         m_scene->asset_provider()->add_mesh(
-                mesh_id, {.mesh = result.mesh,
-                          .bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)});
+                mesh_id,
+                {.mesh = result.mesh, .bundle = std::get<vierkant::mesh_buffer_bundle_t>(model_assets->geometry_data)});
 
         if(bundle_created && m_settings.cache_mesh_bundles)
         {
