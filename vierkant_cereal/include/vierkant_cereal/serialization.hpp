@@ -322,6 +322,14 @@ void serialize(Archive &archive, vierkant::medium_params_t &medium)
 }
 
 template<class Archive>
+void serialize(Archive &archive, vierkant::sunlight_params_t &sunlight)
+{
+    archive(cereal::make_nvp("color", sunlight.color), cereal::make_nvp("intensity", sunlight.intensity),
+            cereal::make_nvp("direction", sunlight.direction),
+            cereal::make_nvp("angular_size", sunlight.angular_size));
+}
+
+template<class Archive>
 void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_settings)
 {
     archive(cereal::make_nvp("resolution", render_settings.resolution),
@@ -339,7 +347,8 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("gamma", render_settings.gamma), cereal::make_nvp("exposure", render_settings.exposure),
             cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
             cereal::make_optional_nvp("suppress_reset", render_settings.suppress_reset),
-            cereal::make_optional_nvp("camera_medium", render_settings.camera_medium));
+            cereal::make_optional_nvp("camera_medium", render_settings.camera_medium),
+            cereal::make_optional_nvp("sunlight_params", render_settings.sunlight_params));
 }
 
 template<class Archive>
