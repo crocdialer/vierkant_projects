@@ -348,7 +348,8 @@ void serialize(Archive &archive, vierkant::PBRPathTracer::settings_t &render_set
             cereal::make_nvp("depth_of_field", render_settings.depth_of_field),
             cereal::make_optional_nvp("suppress_reset", render_settings.suppress_reset),
             cereal::make_optional_nvp("camera_medium", render_settings.camera_medium),
-            cereal::make_optional_nvp("sunlight_params", render_settings.sunlight_params));
+            cereal::make_optional_nvp("sunlight_params", render_settings.sunlight_params),
+            cereal::make_optional_nvp("mis_mode", render_settings.mis_mode));
 }
 
 template<class Archive>
