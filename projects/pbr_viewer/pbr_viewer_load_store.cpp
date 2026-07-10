@@ -19,12 +19,49 @@ constexpr char g_material_store_path[] = "materials";
 constexpr char g_zip_path[] = "cache.zip";
 constexpr char g_file_suffix_model[] = "4km";
 
-std::string material_bundle_path(const std::string &scene_path)
+std::filesystem::path PBRViewer::material_bundle_path(const std::string &scene_path) const
 {
     auto file_name = std::format(
             "{}.{}", crocore::filesystem::remove_extension(crocore::filesystem::get_filename_part(scene_path)),
             g_file_suffix_model);
-    return (std::filesystem::path(g_cache_path) / g_material_store_path / file_name).string();
+    return m_project_root / g_cache_path / g_material_store_path / file_name;
+}
+
+void PBRViewer::establish_project_root(const std::filesystem::path &top_scene_path)
+{
+    // an explicit --project-root always wins and is never overridden by a scene-open.
+    if(m_project_root_explicit) { return; }
+
+    if(!top_scene_path.empty())
+    {
+        auto abs = std::filesystem::weakly_canonical(std::filesystem::absolute(top_scene_path));
+        m_project_root = abs.parent_path();
+    }
+    else
+    {
+        m_project_root = std::filesystem::current_path();
+    }
+    spdlog::debug("project root: {}", m_project_root.string());
+}
+
+std::string PBRViewer::project_key(const std::filesystem::path &p) const
+{
+    if(p.empty()) { return {}; }
+
+    auto abs = std::filesystem::weakly_canonical(std::filesystem::absolute(p));
+
+    // lexically under the root? -> portable, root-relative key. else keep absolute + warn.
+    auto rel = abs.lexically_relative(m_project_root);
+    if(!rel.empty() && *rel.begin() != "..") { return rel.generic_string(); }
+
+    spdlog::warn("asset outside project-root, not portable: {}", abs.string());
+    return abs.generic_string();
+}
+
+std::filesystem::path PBRViewer::resolve(const std::string &key) const
+{
+    std::filesystem::path k(key);
+    return k.is_absolute() ? k : (m_project_root / k);
 }
 
 void PBRViewer::add_to_recent_files(const std::filesystem::path &f)
@@ -134,7 +171,7 @@ void PBRViewer::load_texture(const std::string &path)
 {
     auto load_img_fn = [this, path] {
         spdlog::debug("load image: {}", path);
-        auto img = crocore::create_image_from_file(path, m_settings.texture_compression ? 0 : 4);
+        auto img = crocore::create_image_from_file(resolve(path).string(), m_settings.texture_compression ? 0 : 4);
         vierkant::TextureId texture_id;
 
         // TODO: check when/if this makes sense
@@ -176,7 +213,7 @@ void PBRViewer::load_environment(const std::string &path)
         auto start_time = std::chrono::steady_clock::now();
 
         vierkant::ImagePtr skybox, conv_lambert, conv_ggx;
-        auto img = crocore::create_image_from_file(path, 4);
+        auto img = crocore::create_image_from_file(resolve(path).string(), 4);
 
         if(img)
         {
@@ -246,7 +283,7 @@ void PBRViewer::load_environment(const std::string &path)
 
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
-            m_scene_data.environment_path = path;
+            m_scene_data.environment_path = project_key(path);
             auto dur = double_second(std::chrono::steady_clock::now() - start_time);
             spdlog::debug("loaded '{}' -- ({:03.2f})", path, dur.count());
             --m_num_loading;
@@ -334,7 +371,7 @@ void PBRViewer::load_file(const std::string &path, bool clear)
         case crocore::filesystem::FileType::MODEL:
         {
             add_to_recent_files(path);
-            load_model_params_t load_params = {path};
+            load_model_params_t load_params = {project_key(path)};
             load_params.clear_scene = clear;
             load_model(load_params);
             break;
@@ -348,7 +385,7 @@ void PBRViewer::load_file(const std::string &path, bool clear)
                     if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
                     vierkant::SceneId scene_id;
-                    m_scene_paths[scene_id] = path;
+                    m_scene_paths[scene_id] = project_key(path);
                     build_scene(loaded_scene, clear, scene_id);
                 }
             }
@@ -359,10 +396,10 @@ void PBRViewer::load_file(const std::string &path, bool clear)
 
 void PBRViewer::save_scene(std::filesystem::path path)
 {
-    // handle empty path
+    // handle empty path: fall back to the current scene-key, resolved to an openable path.
     if(path.empty())
     {
-        if(auto it = m_scene_paths.find(m_scene_id); it != m_scene_paths.end()) { path = it->second; }
+        if(auto it = m_scene_paths.find(m_scene_id); it != m_scene_paths.end()) { path = resolve(it->second.string()); }
         else
         {
             spdlog::warn("{}: unable to figure out save-path", __func__);
@@ -370,16 +407,16 @@ void PBRViewer::save_scene(std::filesystem::path path)
         }
     }
     spdlog::debug("save scene: {}", path.string());
-    m_scene_paths[m_scene_id] = path;
+    m_scene_paths[m_scene_id] = project_key(path);
 
     // scene traversal
     scene_data_t data;
     data.name = m_scene->root()->name;
     data.environment_path = m_scene_data.environment_path;
 
-    // material-bundle savepath
+    // derived (texture-)bundle savepath under the project-root cache. no longer stored in the
+    // scene-JSON (recomputed on load from the scene-filename) -> removes a persisted path (W4).
     auto material_path = material_bundle_path(path.string());
-    data.material_bundle_path = material_path;
 
     // lightsource-assets
     data.lights = m_scene->asset_provider()->lights();
@@ -410,7 +447,10 @@ void PBRViewer::save_scene(std::filesystem::path path)
                 node.scene_id = flags_cmp->scene_id;
 
                 auto path_it = m_scene_paths.find(flags_cmp->scene_id);
-                if(path_it != m_scene_paths.end()) { data.scene_paths[flags_cmp->scene_id] = path_it->second.string(); }
+                if(path_it != m_scene_paths.end())
+                {
+                    data.scene_paths[flags_cmp->scene_id] = path_it->second.generic_string();
+                }
 
                 // handled as subscene, bail out
                 return false;
@@ -451,7 +491,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
             {
                 if(const auto path_it = m_model_paths.find(mesh->id); path_it != m_model_paths.end())
                 {
-                    data.model_paths[mesh->id] = path_it->second.string();
+                    data.model_paths[mesh->id] = path_it->second.generic_string();
                     mesh_ids.insert(mesh->id);
                 }
             }
@@ -500,13 +540,18 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
     auto start_time = std::chrono::high_resolution_clock::now();
 
     auto load_task = [this, scene_data_in, scene_id, clear_scene, start_time]() {
-        // load background
-        if(scene_data_in && clear_scene) { load_file(scene_data_in->environment_path, false); }
+        // load background (resolve the stored env-key to an openable path)
+        if(scene_data_in && clear_scene && !scene_data_in->environment_path.empty())
+        {
+            load_file(resolve(scene_data_in->environment_path).string(), false);
+        }
 
         struct scene_data_assets_t
         {
             scene_data_t scene_data;
             vierkant::SceneId scene_id;
+            //! root-relative key of this scene's file; seeds the derived texture-bundle path.
+            std::string scene_key;
             vierkant::material_data_t material_data;
             std::unordered_map<vierkant::texture_key_t, vierkant::ImagePtr> gpu_textures;
             std::unordered_map<vierkant::MeshId, vierkant::MeshPtr> meshes;
@@ -518,6 +563,10 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
         {
             scene_assets[0].scene_data = *scene_data_in;
             scene_assets[0].scene_id = scene_id;
+            if(auto it = m_scene_paths.find(scene_id); it != m_scene_paths.end())
+            {
+                scene_assets[0].scene_key = it->second.generic_string();
+            }
 
             // sub-scenes
             std::deque<std::pair<vierkant::SceneId, std::string>> sub_scene_paths = {
@@ -531,11 +580,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
                 m_scene_paths[id] = p;
 
-                if(auto sub_scene_data = load_scene_data(p))
+                if(auto sub_scene_data = load_scene_data(resolve(p)))
                 {
                     auto &new_scene_asset = scene_assets.emplace_back();
                     new_scene_asset.scene_data = std::move(*sub_scene_data);
                     new_scene_asset.scene_id = id;
+                    new_scene_asset.scene_key = p;
 
                     for(const auto &[sub_scene_id, sub_scene_path]: new_scene_asset.scene_data.scene_paths)
                     {
@@ -557,8 +607,12 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     }
                 }
 
-                // load material-bundles for scene and sub-scenes
-                if(auto material_data = load_material_bundle(asset.scene_data.material_bundle_path))
+                // load the derived texture-bundle for scene and sub-scenes. its path is no longer
+                // stored in the scene-JSON (W4) -> recompute from the scene-key. fall back to any
+                // legacy stored path for pre-P1 scenes.
+                auto bundle_key = !asset.scene_key.empty() ? material_bundle_path(asset.scene_key).string()
+                                                           : asset.scene_data.material_bundle_path;
+                if(auto material_data = load_material_bundle(bundle_key))
                 {
                     assert(asset.material_data.materials.empty());
                     asset.material_data = std::move(*material_data);
@@ -911,30 +965,37 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
 
     if(!is_primitive && !path.empty())
     {
-        spdlog::debug("loading model '{}'", path.string());
+        // 'path' is a project-key (root-relative, portable). identity is seeded from that key,
+        // while all file-I/O happens against the key resolved to an absolute path.
+        const std::string key = path.generic_string();
+        const std::filesystem::path abs = resolve(key);
+        spdlog::debug("loading model '{}'", abs.string());
 
         // opt-in to CPU opacity-micromap baking (alpha-masked geometry only)
         std::optional<vierkant::model::omm_gen_params_t> omm_params;
         if(m_settings.opacity_micromaps) { omm_params = vierkant::model::omm_gen_params_t{}; }
 
-        // canonical cache-path for filename+params, search existing bundle
+        // canonical cache-path for filename+params (hash uses filename() only), search existing bundle
         std::filesystem::path bundle_path =
-                std::filesystem::path(g_cache_path) / g_model_store_path /
-                vierkant_cereal::model_bundle_filename(path, m_settings.mesh_buffer_params,
+                m_project_root / g_cache_path / g_model_store_path /
+                vierkant_cereal::model_bundle_filename(abs, m_settings.mesh_buffer_params,
                                                        m_settings.texture_compression, omm_params);
 
-        auto mesh_id = vierkant::MeshId::from_name(path.string());
+        auto mesh_id = vierkant::MeshId::from_name(key);
         bool bundle_created = false;
         auto model_assets = load_asset_bundle(bundle_path);
 
         if(!model_assets)
         {
             // load model-file and bake a self-contained asset-bundle (lods/meshlets/texture-compression)
+            // seed asset-ids from the stable project-key (not the machine-local absolute path), so
+            // baked texture/material/sampler-ids survive project relocation
             vierkant_cereal::bundle_params_t bundle_params = {.mesh_buffer_params = m_settings.mesh_buffer_params,
                                                               .compress_textures = m_settings.texture_compression,
                                                               .omm_params = omm_params,
+                                                              .id_seed = key,
                                                               .pool = &background_queue()};
-            model_assets = vierkant_cereal::create_model_bundle(path, bundle_params);
+            model_assets = vierkant_cereal::create_model_bundle(abs, bundle_params);
 
             if(!model_assets) { return {}; }
             bundle_created = true;
@@ -954,15 +1015,15 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
 
         // load_mesh keyed the OMM-cache on the mesh-id it assigned internally; re-stamp with the
         // final scene mesh-id so RayBuilder lookups (which use the scene mesh) hit, then accumulate
-        for(auto &[key, omm_entry]: result.omm_cache)
+        for(auto &[omm_key, omm_entry]: result.omm_cache)
         {
-            m_scene_omm_cache[{mesh_id, key.entry_index, key.color_texture_id}] = std::move(omm_entry);
+            m_scene_omm_cache[{mesh_id, omm_key.entry_index, omm_key.color_texture_id}] = std::move(omm_entry);
         }
 
         // merge loaded materials/textures/samplers into the GPU runtime store
         m_scene->asset_provider()->populate(result);
 
-        m_num_loading--;
+        --m_num_loading;
 
         // populate stores the gpu-mesh only; attach the persist-able bundle for physics
         m_scene->asset_provider()->add_mesh(
@@ -995,26 +1056,25 @@ std::optional<scene_data_t> PBRViewer::load_scene_data(const std::filesystem::pa
     return {};
 }
 
-//! optional zip-archive path, depending on the cache_zip_archive setting.
-static std::optional<std::filesystem::path> zip_archive_path(bool cache_zip_archive)
+std::optional<std::filesystem::path> PBRViewer::zip_archive_path() const
 {
-    if(cache_zip_archive) { return std::filesystem::path(g_zip_path); }
+    if(m_settings.cache_zip_archive) { return m_project_root / g_zip_path; }
     return {};
 }
 
 void PBRViewer::save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets,
                                   const std::filesystem::path &path) const
-{ vierkant_cereal::save_bundle_file(mesh_assets, path, zip_archive_path(m_settings.cache_zip_archive)); }
+{ vierkant_cereal::save_bundle_file(mesh_assets, path, zip_archive_path()); }
 
-std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path)
-{ return vierkant_cereal::load_model_bundle_file(path, std::filesystem::path(g_zip_path)); }
+std::optional<vierkant::model::model_assets_t> PBRViewer::load_asset_bundle(const std::filesystem::path &path) const
+{ return vierkant_cereal::load_model_bundle_file(path, m_project_root / g_zip_path); }
 
 void PBRViewer::save_material_bundle(const vierkant::material_data_t &material_data,
                                      const std::filesystem::path &path) const
-{ vierkant_cereal::save_bundle_file(material_data, path, zip_archive_path(m_settings.cache_zip_archive)); }
+{ vierkant_cereal::save_bundle_file(material_data, path, zip_archive_path()); }
 
-std::optional<vierkant::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path)
-{ return vierkant_cereal::load_material_bundle_file(path, std::filesystem::path(g_zip_path)); }
+std::optional<vierkant::material_data_t> PBRViewer::load_material_bundle(const std::filesystem::path &path) const
+{ return vierkant_cereal::load_material_bundle_file(path, m_project_root / g_zip_path); }
 
 bool PBRViewer::parse_override_settings(int argc, char *argv[])
 {
@@ -1043,6 +1103,8 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
     options.add_options()("no-raytracing", "disable vulkan raytracing extensions");
     options.add_options()("mesh-shader", "enable vulkan mesh-shader extensions");
     options.add_options()("no-mesh-shader", "disable vulkan mesh-shader extensions");
+    options.add_options()("project-root", "asset/project root all scene-paths resolve against",
+                          cxxopts::value<std::string>());
     options.add_options()("files", "provided input files", cxxopts::value<std::vector<std::string>>());
     options.parse_positional("files");
 
@@ -1057,20 +1119,43 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
         return false;
     }
 
+    // establish the project-root: an explicit --project-root wins; otherwise the first opened
+    // scene-file's parent dir becomes the root; else it stays CWD (default). set once per session.
+    if(result.count("project-root"))
+    {
+        m_project_root =
+                std::filesystem::weakly_canonical(std::filesystem::absolute(result["project-root"].as<std::string>()));
+        m_project_root_explicit = true;
+        spdlog::debug("project root (explicit): {}", m_project_root.string());
+    }
+
     if(result.count("files"))
     {
         const auto &files = result["files"].as<std::vector<std::string>>();
+
+        // root = parent-dir of the first opened scene-file (unless --project-root was given)
+        if(!m_project_root_explicit)
+        {
+            for(const auto &f: files)
+            {
+                if(std::filesystem::path(f).extension() == ".json")
+                {
+                    establish_project_root(f);
+                    break;
+                }
+            }
+        }
 
         for(const auto &f: files)
         {
             switch(crocore::filesystem::get_file_type(f))
             {
-                case crocore::filesystem::FileType::IMAGE: m_scene_data.environment_path = f; break;
+                case crocore::filesystem::FileType::IMAGE: m_scene_data.environment_path = project_key(f); break;
 
                 case crocore::filesystem::FileType::MODEL:
                 {
                     vierkant::MeshId mesh_id;
-                    m_scene_data.model_paths = {{mesh_id, f}};
+                    m_scene_data.model_paths = {{mesh_id, project_key(f)}};
                     scene_node_t node = {};
                     node.name = std::filesystem::path(f).filename().string();
                     node.mesh_state = {mesh_id};
@@ -1081,7 +1166,13 @@ bool PBRViewer::parse_override_settings(int argc, char *argv[])
 
                 default:
                 {
-                    if(auto scene_data = load_scene_data(f)) { m_scene_data = *scene_data; }
+                    if(auto scene_data = load_scene_data(f))
+                    {
+                        m_scene_data = *scene_data;
+                        // remember the real top-scene key so the derived bundle-path resolves (setup()
+                        // otherwise defaults this to s_default_scene_path).
+                        m_scene_paths[m_scene_id] = project_key(f);
+                    }
                 }
                 break;
             }
