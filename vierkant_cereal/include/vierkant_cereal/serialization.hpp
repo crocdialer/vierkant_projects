@@ -325,7 +325,7 @@ template<class Archive>
 void serialize(Archive &archive, vierkant::sunlight_params_t &sunlight)
 {
     archive(cereal::make_nvp("color", sunlight.color), cereal::make_nvp("intensity", sunlight.intensity),
-            cereal::make_nvp("direction", sunlight.direction),
+            cereal::make_nvp("spherical_coords", sunlight.spherical_coords),
             cereal::make_nvp("angular_size", sunlight.angular_size));
 }
 
