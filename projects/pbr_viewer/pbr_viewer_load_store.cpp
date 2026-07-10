@@ -384,6 +384,10 @@ void PBRViewer::save_scene(std::filesystem::path path)
     // lightsource-assets
     data.lights = m_scene->asset_provider()->lights();
 
+    // material- and sampler-assets stored in scene-JSON (like lights).
+    data.materials = m_scene->asset_provider()->materials();
+    data.texture_samplers = m_material_data.texture_samplers;
+
     // set of mesh-ids
     std::unordered_set<vierkant::MeshId> mesh_ids;
     std::map<vierkant::Object3D *, size_t> obj_to_node_index;
@@ -484,10 +488,10 @@ void PBRViewer::save_scene(std::filesystem::path path)
         vierkant_cereal::save_scene_data(ofs, data);
     } catch(std::exception &e) { spdlog::error(e.what()); }
 
-    // store all scene-materials
-    vierkant::material_data_t material_data = m_material_data;
-    material_data.materials = m_scene->asset_provider()->materials();
-    save_material_bundle(material_data, material_path);
+    // store scene-textures only (materials/samplers now live inline in the scene-JSON above)
+    vierkant::material_data_t texture_bundle;
+    texture_bundle.textures = m_material_data.textures;
+    save_material_bundle(texture_bundle, material_path);
 }
 
 void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bool clear_scene,
@@ -775,9 +779,19 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                                                     scene_asset.material_data.textures.end());
                     m_material_data.texture_samplers.insert(scene_asset.material_data.texture_samplers.begin(),
                                                             scene_asset.material_data.texture_samplers.end());
+                    // ...and inline authored samplers from the scene-JSON
+                    m_material_data.texture_samplers.insert(scene_asset.scene_data.texture_samplers.begin(),
+                                                            scene_asset.scene_data.texture_samplers.end());
 
                     // GPU runtime store (the AssetProvider owns the materials)
                     for(const auto &mat: scene_asset.material_data.materials | std::views::values)
+                    {
+                        provider->add_material(mat);
+                        library_materials.insert(mat.id);
+                    }
+                    // inline authored materials from scene-JSON.
+                    // bundle-materials loop above is a no-op for freshly-saved scenes
+                    for(const auto &mat: scene_asset.scene_data.materials | std::views::values)
                     {
                         provider->add_material(mat);
                         library_materials.insert(mat.id);

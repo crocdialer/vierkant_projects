@@ -70,6 +70,12 @@ struct scene_data_t
     //! lightsource-assets, referenced by scene_node_t::light_state
     std::unordered_map<vierkant::LightId, vierkant::lightsource_t> lights;
 
+    //! material-assets, referenced by mesh material_ids
+    std::unordered_map<vierkant::MaterialId, vierkant::material_t> materials;
+
+    //! sampler-descriptions, referenced by material_t::texture_data
+    std::unordered_map<vierkant::SamplerId, vierkant::texture_sampler_t> texture_samplers;
+
     std::string environment_path;
     std::vector<scene_node_t> nodes;
 
