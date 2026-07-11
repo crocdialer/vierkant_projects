@@ -5,7 +5,7 @@
 #pragma once
 
 #include <filesystem>
-#include <istream>
+#include <vector>
 
 struct zip;
 typedef struct zip zip_t;
@@ -16,12 +16,12 @@ namespace vierkant
 class ziparchive
 {
 public:
-
     class istream : public std::istream
     {
     public:
         istream(std::shared_ptr<zip_t> _archive, const std::filesystem::path &file_path);
         ~istream() override;
+
     private:
         std::shared_ptr<zip_t> m_archive;
     };
@@ -47,8 +47,10 @@ public:
      * @brief   'add_file' will add an external file to the ziparchive
      *
      * @param   file_path   a provided path to an existing file
+     * @param   entry_path  an optional relative path, used as entry-name within the ziparchive.
+     *                      if empty, file_path is used as-is.
      */
-    void add_file(const std::filesystem::path &file_path);
+    void add_file(const std::filesystem::path &file_path, const std::filesystem::path &entry_path = {});
 
     /**
      * @brief   'open_file' will open a contained file within the ziparchive, referenced by it's relative file_path.
@@ -62,4 +64,4 @@ private:
     std::shared_ptr<zip_t> m_archive;
 };
 
-}
+}// namespace vierkant

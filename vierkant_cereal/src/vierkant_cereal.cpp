@@ -19,6 +19,15 @@ namespace vierkant_cereal
 //! guards concurrent access to the shared zip-archive(s) used for bundle storage.
 static std::shared_mutex g_bundle_rw_mutex;
 
+//! archive-relative entry-name for a bundle-path, keeping machine-local absolute paths out of archives.
+static std::filesystem::path zip_entry_path(const std::filesystem::path &path,
+                                            const std::filesystem::path &zip_archive)
+{
+    auto rel = path.lexically_relative(zip_archive.parent_path());
+    if(rel.empty() || *rel.begin() == "..") { return path.generic_string(); }
+    return rel.generic_string();
+}
+
 template<typename T, typename Reader>
 static std::optional<T> load_from_stream(const std::filesystem::path &path,
                                          const std::optional<std::filesystem::path> &zip_archive, Reader &&reader)
@@ -38,13 +47,14 @@ static std::optional<T> load_from_stream(const std::filesystem::path &path,
     if(zip_archive)
     {
         vierkant::ziparchive zip(*zip_archive);
-        if(zip.has_file(path))
+        auto entry_path = zip_entry_path(path, *zip_archive);
+        if(zip.has_file(entry_path))
         {
             try
             {
-                spdlog::debug("loading bundle '{}' from archive '{}'", path.string(), zip_archive->string());
+                spdlog::debug("loading bundle '{}' from archive '{}'", entry_path.string(), zip_archive->string());
                 std::shared_lock lock(g_bundle_rw_mutex);
-                auto zipstream = zip.open_file(path);
+                auto zipstream = zip.open_file(entry_path);
                 return reader(zipstream);
             } catch(std::exception &e) { spdlog::error(e.what()); }
         }
@@ -74,7 +84,7 @@ static void save_to_stream(const std::filesystem::path &path, const std::optiona
                 std::unique_lock lock(g_bundle_rw_mutex);
                 spdlog::debug("adding bundle to compressed archive: {} -> {}", path.string(), zip_archive->string());
                 vierkant::ziparchive zipstream(*zip_archive);
-                zipstream.add_file(path);
+                zipstream.add_file(path, zip_entry_path(path, *zip_archive));
             }
             spdlog::debug("done compressing bundle: {} -> {} ({})", path.string(), zip_archive->string(), sw.elapsed());
             std::filesystem::remove(path);
