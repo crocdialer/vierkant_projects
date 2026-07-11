@@ -34,6 +34,10 @@ struct bundle_params_t
     //! optional opacity-micromap baking; when set, baked OMM data is cached into the bundle.
     std::optional<vierkant::model::omm_gen_params_t> omm_params;
 
+    //! optional stable string seeding deterministic asset-ids (default: the model-path).
+    //! pass a location-independent key (e.g. project-root-relative) to make baked ids portable.
+    std::string id_seed;
+
     //! optional thread-pool used to parallelize loading/compression.
     crocore::ThreadPoolClassic *pool = nullptr;
 };
@@ -43,7 +47,7 @@ constexpr char bundle_file_suffix[] = "4km";
 
 //! schema-version folded into the bundle cache-key; bump on any parsing/serialization change that
 //! would make existing bundles decode wrong, so stale bundles re-bake instead of being mis-read.
-constexpr uint32_t bundle_schema_version = 2;
+constexpr uint32_t bundle_schema_version = 3;
 
 //! compute the canonical bundle-filename for a model (e.g. "model.glb_<hash>.4km"). the hash
 //! covers the filename + bake-parameters + schema-version.

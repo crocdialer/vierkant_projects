@@ -164,11 +164,28 @@ private:
 
     void save_asset_bundle(const vierkant::model::model_assets_t &mesh_assets, const std::filesystem::path &path) const;
 
-    static std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path);
+    std::optional<vierkant::model::model_assets_t> load_asset_bundle(const std::filesystem::path &path) const;
 
     void save_material_bundle(const vierkant::material_data_t &material_data, const std::filesystem::path &path) const;
 
-    static std::optional<vierkant::material_data_t> load_material_bundle(const std::filesystem::path &path);
+    std::optional<vierkant::material_data_t> load_material_bundle(const std::filesystem::path &path) const;
+
+    //! project-root helpers (P1). establish the root once from the top-scene (or --project-root).
+    void establish_project_root(const std::filesystem::path &top_scene_path);
+
+    //! convert an on-disk path into a portable, root-relative asset-key (forward-slashes). paths
+    //! outside the project-root are kept absolute and a warning is logged. this is the single string
+    //! persisted in scene-data and fed to `from_name`. only apply to freshly-ingested filesystem paths.
+    std::string project_key(const std::filesystem::path &p) const;
+
+    //! resolve an asset-key back to an openable path (relative keys join the project-root).
+    std::filesystem::path resolve(const std::string &key) const;
+
+    //! derived (texture-)bundle path for a scene, under the project-root cache.
+    std::filesystem::path material_bundle_path(const std::string &scene_path) const;
+
+    //! optional zip-archive path under the project-root, depending on the cache_zip_archive setting.
+    std::optional<std::filesystem::path> zip_archive_path() const;
 
     vierkant::model::load_mesh_result_t load_mesh(const std::filesystem::path &path);
 
@@ -310,7 +327,12 @@ private:
     //! handed (non-owning) to the path-tracer via settings.omm_cache
     vierkant::model::mesh_omm_cache_t m_scene_omm_cache;
 
-    // track of scene/model-paths
+    //! project-root all scene-data asset-paths are stored relative to and resolved against (P1).
+    //! established once per session from the top-scene dir, CWD, or an explicit --project-root.
+    std::filesystem::path m_project_root = std::filesystem::current_path();
+    bool m_project_root_explicit = false;
+
+    // track of scene/model-paths (stored as root-relative asset-keys, see project_key/resolve)
     std::map<vierkant::MeshId, std::filesystem::path> m_model_paths;
     std::map<vierkant::SceneId, std::filesystem::path> m_scene_paths;
     vierkant::SceneId m_scene_id;

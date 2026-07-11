@@ -158,7 +158,7 @@ std::optional<vierkant::model::model_assets_t> create_model_bundle(const std::fi
                                                                    const bundle_params_t &params)
 {
     spdlog::stopwatch sw;
-    auto model_assets = vierkant::model::load_model(model_path, params.pool);
+    auto model_assets = vierkant::model::load_model(model_path, params.pool, params.id_seed);
 
     if(!model_assets)
     {
