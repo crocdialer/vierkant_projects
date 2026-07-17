@@ -236,28 +236,6 @@ private:
 
     VkBufferUsageFlags m_mesh_buffer_flags = 0;
 
-    enum class primitive_type
-    {
-        PLANE,
-        BOX,
-        SPHERE,
-        CYLINDER,
-        CAPSULE
-    };
-
-    struct primitive_t
-    {
-        std::string name;
-        vierkant::GeometryPtr geom;
-    };
-
-    const std::unordered_map<primitive_type, primitive_t> m_primitives = {
-            {primitive_type::PLANE, {"plane", vierkant::Geometry::Plane(1.f, 1.f, 4, 4)}},
-            {primitive_type::BOX, {"cube", vierkant::Geometry::Box()}},
-            {primitive_type::SPHERE, {"sphere", vierkant::Geometry::UVSphere()}},
-            {primitive_type::CYLINDER, {"cylinder", vierkant::Geometry::Cylinder()}},
-            {primitive_type::CAPSULE, {"capsule", vierkant::Geometry::Capsule()}}};
-    std::unordered_map<primitive_type, vierkant::MeshPtr> m_primitive_meshes;
     vierkant::material_t m_primitive_material;
     const vierkant::TextureId m_primitive_texture_id = vierkant::TextureId::from_name("primitive_texture");
     const vierkant::TextureId m_noise_texture_id = vierkant::TextureId::from_name("noise_texture");

@@ -950,13 +950,12 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
     vierkant::model::load_mesh_result_t result;
 
     bool is_primitive = false;
-    for(const auto &[prim_type, geom_prim]: m_primitives)
+    for(const auto &[prim_type, prim_name]: vierkant::AssetProvider::primitive_names())
     {
-        if(path == geom_prim.name)
+        if(path == prim_name)
         {
             is_primitive = true;
-            result.mesh = m_primitive_meshes[prim_type];
-            result.mesh->id = vierkant::MeshId::from_name(geom_prim.name);
+            result.mesh = m_scene->asset_provider()->primitive_mesh(prim_type);
             result.materials = {{m_primitive_material.id, m_primitive_material}};
             break;
         }

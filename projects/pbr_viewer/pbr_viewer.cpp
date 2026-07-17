@@ -369,16 +369,17 @@ void PBRViewer::create_texture_image()
     m_primitive_material.id = vierkant::MaterialId::from_name(m_primitive_material.name);
     m_primitive_material.texture_data[vierkant::TextureType::Color].texture_id = m_primitive_texture_id;
 
-    vierkant::Mesh::create_info_t mesh_create_info = {};
-    mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
-    mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+    // primitive-meshes are created lazily by the asset-provider, using our device + canonical buffer-params
+    m_scene->asset_provider()->set_mesh_factory([this](const vierkant::GeometryConstPtr &geom) {
+        vierkant::Mesh::create_info_t mesh_create_info = {};
+        mesh_create_info.mesh_buffer_params = m_settings.mesh_buffer_params;
+        mesh_create_info.buffer_usage_flags = m_mesh_buffer_flags;
+        return vierkant::Mesh::create_from_geometry(m_device, geom, mesh_create_info);
+    });
 
-    for(const auto &[prim_type, prim]: m_primitives)
+    for(const auto &prim_name: vierkant::AssetProvider::primitive_names() | std::views::values)
     {
-        auto &mesh = m_primitive_meshes[prim_type];
-        mesh = vierkant::Mesh::create_from_geometry(m_device, prim.geom, mesh_create_info);
-        mesh->material_ids = {m_primitive_material.id};
-        m_model_paths[mesh->id] = prim.name;
+        m_model_paths[vierkant::MeshId::from_name(prim_name)] = prim_name;
     }
 
     // test noise-gen
