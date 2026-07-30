@@ -425,6 +425,7 @@ void PBRViewer::create_ui()
                     ImGui::Checkbox("physics debug-draw", &m_settings.draw_physics);
                     ImGui::Checkbox("draw node hierarchy", &m_settings.draw_node_hierarchy);
                     ImGui::Checkbox("texture compression", &m_settings.texture_compression);
+                    ImGui::Checkbox("opacity micromaps", &m_settings.opacity_micromaps);
                     ImGui::Checkbox("remap indices", &m_settings.mesh_buffer_params.remap_indices);
                     ImGui::Checkbox("optimize vertex cache", &m_settings.mesh_buffer_params.optimize_vertex_cache);
                     ImGui::Checkbox("generate mesh-LODs", &m_settings.mesh_buffer_params.generate_lods);
