@@ -391,13 +391,56 @@ void PBRViewer::create_texture_image()
     m_scene->asset_provider()->add_texture({m_noise_texture_id, vierkant::SamplerId::nil()}, m_noise_texture);
 }
 
+void PBRViewer::update_player_input()
+{
+    vierkant::SelectVisitor<vierkant::Object3D> visitor({}, false);
+    m_scene->root()->accept(visitor);
+
+    for(auto *obj: visitor.objects)
+    {
+        auto *phys_cmp = obj->get_component_ptr<vierkant::physics_component_t>();
+        if(phys_cmp && phys_cmp->character)
+        {
+            auto &character = *phys_cmp->character;
+            m_camera_control.player->apply(character);
+
+            // parent the camera to the character, so the physics->object readback carries it along.
+            // the body itself never rotates, all view-orientation lives here.
+            if(m_camera->parent() != obj) { obj->add_child(m_camera); }
+            m_camera->transform = {.translation = {0.f, character.eye_height, 0.f},
+                                   .rotation = m_camera_control.player->transform().rotation};
+            if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+            break;
+        }
+    }
+}
+
+void PBRViewer::detach_player_camera()
+{
+    if(auto *parent = m_camera->parent())
+    {
+        // keep the pose the camera had while parented
+        auto transform = m_camera->global_transform();
+        parent->remove_child(m_camera);
+        m_camera->transform = transform;
+    }
+}
+
 void PBRViewer::update(double time_delta)
 {
-    // update animated objects, clear flags
-    m_scene->update(m_settings.animation_playback ? m_settings.playback_speed * time_delta : 0.0);
+    // camera-controls run before the scene-update: the player-controller's input is turned into
+    // forces there, applying it afterwards would be one frame late
+    m_camera_control.current->update(time_delta);
+    if(m_camera_control.current == m_camera_control.player) { update_player_input(); }
+
+    // animations and the simulation are paced independently, both off the real frame-time
+    m_scene->animation_speed = m_settings.animation_playback ? m_settings.playback_speed : 0.0;
+    m_scene->simulation_playback = m_settings.physics_playback;
+
+    // update animated objects, step the simulation, clear flags
+    m_scene->update(time_delta);
 
     if(m_settings.draw_ui) { m_gui_context.update(time_delta, m_window->size(), m_window->framebuffer_size()); }
-    m_camera_control.current->update(time_delta);
 
     update_js(time_delta);
 

@@ -98,6 +98,7 @@ public:
 
         float playback_speed = 1.f;
         bool animation_playback = true;
+        bool physics_playback = true;
     };
 
     static constexpr char s_default_scene_path[] = "scene.json";
@@ -128,6 +129,12 @@ private:
     void create_ui();
 
     void create_camera_controls();
+
+    //! feed the player-control's input into the first object carrying a vierkant::character_t
+    void update_player_input();
+
+    //! unparent the camera from a character, keeping its current pose
+    void detach_player_camera();
 
     void update_js(double time_delta);
 
@@ -262,6 +269,7 @@ private:
     {
         vierkant::OrbitCameraPtr orbit = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly = vierkant::FlyCamera::create();
+        vierkant::PlayerControlPtr player = vierkant::PlayerControl::create();
         vierkant::CameraControlPtr current = orbit;
     } m_camera_control;
 
@@ -350,5 +358,6 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("object_overlay_mode", settings.object_overlay_mode),
        cereal::make_nvp("target_fps", settings.target_fps),
        cereal::make_optional_nvp("playback_speed", settings.playback_speed, 1.f),
-       cereal::make_optional_nvp("animation_playback", settings.animation_playback, true));
+       cereal::make_optional_nvp("animation_playback", settings.animation_playback, true),
+       cereal::make_optional_nvp("physics_playback", settings.physics_playback, true));
 }

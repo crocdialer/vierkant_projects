@@ -154,7 +154,11 @@ void PBRViewer::load_model(const load_model_params_t &params)
                 object->transform = transform;
             }
 
-            if(params.clear_scene) { m_scene->clear(); }
+            if(params.clear_scene)
+            {
+                detach_player_camera();
+                m_scene->clear();
+            }
             m_scene->add_object(object);
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
@@ -382,7 +386,11 @@ void PBRViewer::load_file(const std::string &path, bool clear)
             {
                 if(auto loaded_scene = load_scene_data(path))
                 {
-                    if(clear) { m_scene->clear(); }
+                    if(clear)
+                    {
+                        detach_player_camera();
+                        m_scene->clear();
+                    }
                     add_to_recent_files(path);
                     vierkant::SceneId scene_id;
                     m_scene_paths[scene_id] = project_key(path);
@@ -801,6 +809,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             {
                 if(clear_scene)
                 {
+                    detach_player_camera();
                     m_scene->clear();
                     for(const auto children = root_objects[0]->children; const auto &child: children)
                     {

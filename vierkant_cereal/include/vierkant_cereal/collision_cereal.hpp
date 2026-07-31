@@ -5,6 +5,7 @@
 #include <cereal/types/list.hpp>
 #include <cereal/types/memory.hpp>
 #include <vierkant/physics_context.hpp>
+#include <vierkant/character.hpp>
 
 namespace vierkant::collision
 {
@@ -138,6 +139,18 @@ void serialize(Archive &archive, vierkant::constraint::swing_twist_t &c)
 
 namespace vierkant
 {
+//! configuration and tuning only: move/jump/yaw/pitch are per-frame input, ground_state a simulation-result
+template<class Archive>
+void serialize(Archive &archive, vierkant::character_t &c)
+{
+    archive(cereal::make_nvp("max_slope_angle", c.max_slope_angle), cereal::make_nvp("max_speed", c.max_speed),
+            cereal::make_nvp("t_accel_ground", c.t_accel_ground), cereal::make_nvp("t_accel_air", c.t_accel_air),
+            cereal::make_nvp("max_accel_ground", c.max_accel_ground),
+            cereal::make_nvp("max_accel_air", c.max_accel_air), cereal::make_nvp("jump_height", c.jump_height),
+            cereal::make_optional_nvp("coyote_time", c.coyote_time, vierkant::character_t{}.coyote_time),
+            cereal::make_nvp("eye_height", c.eye_height));
+}
+
 template<class Archive>
 void serialize(Archive &archive, vierkant::physics_component_t &c)
 {
@@ -146,7 +159,7 @@ void serialize(Archive &archive, vierkant::physics_component_t &c)
             cereal::make_nvp("friction", c.friction), cereal::make_nvp("restitution", c.restitution),
             cereal::make_nvp("linear_damping", c.linear_damping),
             cereal::make_nvp("angular_damping", c.angular_damping), cereal::make_nvp("kinematic", c.kinematic),
-            cereal::make_nvp("sensor", c.sensor));
+            cereal::make_nvp("sensor", c.sensor), cereal::make_optional_nvp("character_state", c.character));
 }
 
 template<class Archive>

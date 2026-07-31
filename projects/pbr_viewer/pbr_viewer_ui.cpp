@@ -130,7 +130,7 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_ESCAPE: running = false; break;
 
-                case vierkant::Key::_SPACEBAR: m_settings.draw_ui = !m_settings.draw_ui; break;
+                case vierkant::Key::_TAB: m_settings.draw_ui = !m_settings.draw_ui; break;
 
                 case vierkant::Key::_F:
                 {
@@ -153,6 +153,7 @@ void PBRViewer::create_ui()
                     {
                         m_camera_control.current = m_camera_control.orbit;
                     }
+                    detach_player_camera();
                     m_camera->transform = m_camera_control.current->transform();
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
@@ -266,6 +267,7 @@ void PBRViewer::create_ui()
                             {
                                 m_camera_control.current = m_camera_control.orbit;
                             }
+                            detach_player_camera();
                             m_camera->transform = m_camera_control.current->transform();
                             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
@@ -474,18 +476,25 @@ void PBRViewer::create_ui()
                     ImGui::Spacing();
 
                     // camera control select
-                    bool orbit_cam = m_camera_control.current == m_camera_control.orbit, refresh = false;
+                    bool refresh = false;
 
-                    if(ImGui::RadioButton("orbit", orbit_cam))
+                    if(ImGui::RadioButton("orbit", m_camera_control.current == m_camera_control.orbit))
                     {
                         m_camera_control.current = m_camera_control.orbit;
                         refresh = true;
                     }
                     ImGui::SameLine();
 
-                    if(ImGui::RadioButton("fly", !orbit_cam))
+                    if(ImGui::RadioButton("fly", m_camera_control.current == m_camera_control.fly))
                     {
                         m_camera_control.current = m_camera_control.fly;
+                        refresh = true;
+                    }
+                    ImGui::SameLine();
+
+                    if(ImGui::RadioButton("player", m_camera_control.current == m_camera_control.player))
+                    {
+                        m_camera_control.current = m_camera_control.player;
                         refresh = true;
                     }
                     ImGui::SameLine();
@@ -499,6 +508,7 @@ void PBRViewer::create_ui()
                     ImGui::SliderFloat("move speed", &m_camera_control.fly->move_speed, 0.1f, 100.f);
                     if(refresh)
                     {
+                        if(m_camera_control.current != m_camera_control.player) { detach_player_camera(); }
                         m_camera->transform = m_camera_control.current->transform();
                         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     }
@@ -675,6 +685,8 @@ void PBRViewer::create_ui()
             }
             ImGui::SameLine();
             ImGui::Checkbox("playing", &m_settings.animation_playback);
+            ImGui::SameLine();
+            ImGui::Checkbox("simulate", &m_settings.physics_playback);
             ImGui::BulletText("%s", std::format("frame: {}", m_scene->current_frame()).c_str());
             ImGui::Spacing();
 
@@ -894,6 +906,27 @@ void PBRViewer::create_camera_controls()
         m_window->joystick_delegates["flycamera"] = std::move(custom_fly_js);
     }
 
+    {
+        auto player_mouse_delegate = m_camera_control.player->mouse_delegate();
+        player_mouse_delegate.enabled = [this]() {
+            bool is_active = m_camera_control.current == m_camera_control.player;
+            bool ui_captured =
+                    m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
+            return is_active && !ui_captured;
+        };
+        m_window->mouse_delegates["player"] = std::move(player_mouse_delegate);
+
+        auto player_key_delegate = m_camera_control.player->key_delegate();
+        player_key_delegate.enabled = [this]() {
+            bool is_active = m_camera_control.current == m_camera_control.player;
+            bool ui_captured =
+                    m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureKeyboard;
+            return is_active && !ui_captured;
+        };
+        m_window->key_delegates["player"] = std::move(player_key_delegate);
+        m_window->joystick_delegates["player"] = m_camera_control.player->joystick_delegate();
+    }
+
     // update camera with arcball
     auto transform_cb = [this](const vierkant::transform_t &transform) {
         m_camera->set_global_transform(transform);
@@ -921,6 +954,7 @@ void PBRViewer::create_camera_controls()
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
+    m_camera_control.player->transform_cb = transform_cb;
 
     // toggle ortho
     if(m_settings.ortho_camera) { toggle_ortho_camera(); }
