@@ -316,7 +316,9 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.target_fps = static_cast<float>(target_loop_frequency);
 
     // camera-control settings
-    settings.use_fly_camera = m_camera_control.current == m_camera_control.fly;
+    settings.camera_control = m_camera_control.current == m_camera_control.fly    ? CameraControlMode::Fly
+                              : m_camera_control.current == m_camera_control.player ? CameraControlMode::Player
+                                                                                    : CameraControlMode::Orbit;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
 
@@ -414,6 +416,10 @@ void PBRViewer::save_scene(std::filesystem::path path)
             return;
         }
     }
+    // the camera is parented to a character while player-control is active. it belongs to the
+    // app, not the scene, and would otherwise be traversed into the scene-graph below.
+    detach_player_camera();
+
     spdlog::debug("save scene: {}", path.string());
     m_scene_paths[m_scene_id] = project_key(path);
 

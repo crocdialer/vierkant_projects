@@ -816,7 +816,9 @@ void PBRViewer::create_ui()
         }
     };
 
-    simple_mouse.mouse_move = [this](const vierkant::MouseEvent &) { m_window->set_cursor_visible(true); };
+    simple_mouse.mouse_move = [this](const vierkant::MouseEvent &) {
+        if(m_window->cursor_mode() != vierkant::Window::CursorMode::Captured) { m_window->set_cursor_visible(true); }
+    };
 
     simple_mouse.mouse_drag = [this](const vierkant::MouseEvent &e) {
         if(!m_settings.draw_ui || !(m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse))
@@ -856,10 +858,11 @@ void PBRViewer::create_camera_controls()
 
     m_camera_control.fly = m_settings.fly_camera;
 
-    if(m_settings.use_fly_camera) { m_camera_control.current = m_camera_control.fly; }
-    else
+    switch(m_settings.camera_control)
     {
-        m_camera_control.current = m_camera_control.orbit;
+        case CameraControlMode::Fly: m_camera_control.current = m_camera_control.fly; break;
+        case CameraControlMode::Player: m_camera_control.current = m_camera_control.player; break;
+        case CameraControlMode::Orbit: m_camera_control.current = m_camera_control.orbit; break;
     }
 
     // camera
@@ -877,7 +880,11 @@ void PBRViewer::create_camera_controls()
         return is_active && !ui_captured;
     };
     m_window->mouse_delegates["orbit"] = std::move(arcball_delegeate);
-    m_window->joystick_delegates["orbit"] = m_camera_control.orbit->joystick_delegate();
+    {
+        auto orbit_js = m_camera_control.orbit->joystick_delegate();
+        orbit_js.enabled = [this]() { return m_camera_control.current == m_camera_control.orbit; };
+        m_window->joystick_delegates["orbit"] = std::move(orbit_js);
+    }
 
     auto flycamera_delegeate = m_camera_control.fly->mouse_delegate();
     flycamera_delegeate.enabled = [this]() {
@@ -899,6 +906,7 @@ void PBRViewer::create_camera_controls()
     {
         auto fly_js = m_camera_control.fly->joystick_delegate();
         vierkant::joystick_delegate_t custom_fly_js = {};
+        custom_fly_js.enabled = [this]() { return m_camera_control.current == m_camera_control.fly; };
         custom_fly_js.joystick_cb = [this, fly_cb = fly_js.joystick_cb](const auto &joysticks) {
             m_fly_joystick_states = joysticks;
             if(fly_cb) { fly_cb(joysticks); }
@@ -924,7 +932,10 @@ void PBRViewer::create_camera_controls()
             return is_active && !ui_captured;
         };
         m_window->key_delegates["player"] = std::move(player_key_delegate);
-        m_window->joystick_delegates["player"] = m_camera_control.player->joystick_delegate();
+
+        auto player_js = m_camera_control.player->joystick_delegate();
+        player_js.enabled = [this]() { return m_camera_control.current == m_camera_control.player; };
+        m_window->joystick_delegates["player"] = std::move(player_js);
     }
 
     // update camera with arcball

@@ -21,6 +21,14 @@ class PBRViewer : public crocore::Application
 {
 
 public:
+    //! which of the camera-controls is active
+    enum class CameraControlMode : uint32_t
+    {
+        Orbit = 0,
+        Fly,
+        Player
+    };
+
     struct settings_t
     {
         spdlog::level::level_enum log_level = spdlog::level::info;
@@ -85,7 +93,7 @@ public:
 
         vierkant::OrbitCameraPtr orbit_camera = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly_camera = vierkant::FlyCamera::create();
-        bool use_fly_camera = false;
+        CameraControlMode camera_control = CameraControlMode::Orbit;
         bool ortho_camera = false;
 
         vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
@@ -273,6 +281,9 @@ private:
         vierkant::CameraControlPtr current = orbit;
     } m_camera_control;
 
+    //! true while the cursor is captured for mouse-look
+    bool m_cursor_captured = false;
+
     std::vector<vierkant::Joystick> m_fly_joystick_states;
 
     // object-selection / copy/paste
@@ -351,7 +362,8 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_nvp("enable_ray_query_features", settings.enable_ray_query_features),
        cereal::make_nvp("enable_mesh_shader_device_features", settings.enable_mesh_shader_device_features),
        cereal::make_nvp("orbit_camera", settings.orbit_camera), cereal::make_nvp("fly_camera", settings.fly_camera),
-       cereal::make_nvp("use_fly_camera", settings.use_fly_camera),
+       cereal::make_optional_nvp("camera_control", settings.camera_control,
+                                 PBRViewer::CameraControlMode::Orbit),
        cereal::make_nvp("ortho_camera", settings.ortho_camera),
        cereal::make_nvp("current_guizmo", settings.current_guizmo),
        cereal::make_optional_nvp("guizmo_space", settings.guizmo_space, vierkant::gui::GuizmoSpace::WORLD),

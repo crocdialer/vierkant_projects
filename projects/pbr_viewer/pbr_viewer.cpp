@@ -433,6 +433,17 @@ void PBRViewer::update(double time_delta)
     m_camera_control.current->update(time_delta);
     if(m_camera_control.current == m_camera_control.player) { update_player_input(); }
 
+    // mouse-look needs the cursor captured, not merely hidden, or it leaves the window.
+    // edge-triggered, so the cursor-visibility toggle and the gamepad keep working elsewhere.
+    bool ui_captured = m_settings.draw_ui && (m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse);
+    if(bool capture_cursor = m_camera_control.current == m_camera_control.player && !ui_captured;
+       capture_cursor != m_cursor_captured)
+    {
+        m_cursor_captured = capture_cursor;
+        m_window->set_cursor_mode(capture_cursor ? vierkant::Window::CursorMode::Captured
+                                                 : vierkant::Window::CursorMode::Normal);
+    }
+
     // animations and the simulation are paced independently, both off the real frame-time
     m_scene->animation_speed = m_settings.animation_playback ? m_settings.playback_speed : 0.0;
     m_scene->simulation_playback = m_settings.physics_playback;
