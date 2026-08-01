@@ -31,6 +31,7 @@ void serialize(Archive &ar, scene_data_t &scene_data)
 {
     ar(cereal::make_optional_nvp("name", scene_data.name),
        cereal::make_optional_nvp("environment_path", scene_data.environment_path),
+       cereal::make_optional_nvp("environment_factor", scene_data.environment_factor, 1.f),
        cereal::make_optional_nvp("scene_paths", scene_data.scene_paths),
        cereal::make_nvp("model_paths", scene_data.model_paths), cereal::make_nvp("nodes", scene_data.nodes),
        cereal::make_nvp("scene_roots", scene_data.scene_roots),

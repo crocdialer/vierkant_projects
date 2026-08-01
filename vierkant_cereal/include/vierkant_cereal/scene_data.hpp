@@ -76,7 +76,12 @@ struct scene_data_t
     //! sampler-descriptions, referenced by material_t::texture_data
     std::unordered_map<vierkant::SamplerId, vierkant::texture_sampler_t> texture_samplers;
 
+    //! optional filepath for an equirectangular HDR environment
     std::string environment_path;
+
+    //! factor multiplied with environment-light
+    float environment_factor = 1.f;
+
     std::vector<scene_node_t> nodes;
 
     //! indices into scene_data_t::nodes

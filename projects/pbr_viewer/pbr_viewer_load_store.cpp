@@ -316,7 +316,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.target_fps = static_cast<float>(target_loop_frequency);
 
     // camera-control settings
-    settings.camera_control = m_camera_control.current == m_camera_control.fly    ? CameraControlMode::Fly
+    settings.camera_control = m_camera_control.current == m_camera_control.fly      ? CameraControlMode::Fly
                               : m_camera_control.current == m_camera_control.player ? CameraControlMode::Player
                                                                                     : CameraControlMode::Orbit;
     settings.orbit_camera = m_camera_control.orbit;
@@ -427,6 +427,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
     scene_data_t data;
     data.name = m_scene->root()->name;
     data.environment_path = m_scene_data.environment_path;
+    data.environment_factor = m_scene->environment_factor;
 
     // derived (texture-)bundle savepath under the project-root cache. no longer stored in the
     // scene-JSON (recomputed on load from the scene-filename) -> removes a persisted path (W4).
@@ -822,7 +823,8 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         m_scene->add_object(child);
                     }
                     m_scene_id = scene_assets[0].scene_id;
-                    m_scene->root()->name = root_objects[0]->name;
+                    m_scene->root()->name = root_objects[0]->name.empty() ? "scene" : root_objects[0]->name;
+                    m_scene->environment_factor = scene_assets[0].scene_data.environment_factor;
 
                     // reset host-side store; the GPU store is pruned below once the new scene is assembled
                     m_material_data = {};
