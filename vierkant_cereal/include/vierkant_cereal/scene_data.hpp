@@ -28,6 +28,9 @@ struct scene_node_t
     //! optional rigid transformation. absent means identity, and stays absent through a round-trip.
     std::optional<vierkant::transform_t> transform = {};
 
+    //! bitmask of vierkant::transform_component_t::space_flags_t, marking world-space channels
+    uint8_t transform_space = 0;
+
     //! list of child-nodes (indices into scene_data_t::nodes)
     std::vector<uint32_t> children = {};
 

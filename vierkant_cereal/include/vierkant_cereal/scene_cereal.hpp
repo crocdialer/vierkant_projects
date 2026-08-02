@@ -17,6 +17,7 @@ void serialize(Archive &ar, scene_node_t &scene_node)
 {
     ar(cereal::make_nvp("name", scene_node.name), cereal::make_optional_nvp("enabled", scene_node.enabled, true),
        cereal::make_optional_nvp("transform", scene_node.transform),
+       cereal::make_optional_nvp("transform_space", scene_node.transform_space, uint8_t(0)),
        cereal::make_optional_nvp("children", scene_node.children),
        cereal::make_optional_nvp("scene_id", scene_node.scene_id),
        cereal::make_optional_nvp("mesh_state", scene_node.mesh_state),
