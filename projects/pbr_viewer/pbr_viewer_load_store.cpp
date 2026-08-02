@@ -458,7 +458,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
         scene_node_t &node = data.nodes.emplace_back();
         node.name = obj.name;
         node.enabled = obj.enabled;
-        if(obj.transform) { node.transform = *obj.transform; }
+        node.transform = obj.transform;
 
         if(auto *flags_cmp = obj.get_component_ptr<vierkant::subscene_component_t>())
         {

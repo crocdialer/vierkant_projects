@@ -25,8 +25,8 @@ struct scene_node_t
     //! indicating if node is enabled
     bool enabled = true;
 
-    //! rigid transformation
-    vierkant::transform_t transform = {};
+    //! optional rigid transformation. absent means identity, and stays absent through a round-trip.
+    std::optional<vierkant::transform_t> transform = {};
 
     //! list of child-nodes (indices into scene_data_t::nodes)
     std::vector<uint32_t> children = {};
