@@ -407,8 +407,9 @@ void PBRViewer::update_player_input()
             // parent the camera to the character, so the physics->object readback carries it along.
             // the body itself never rotates, all view-orientation lives here.
             if(m_camera->parent() != obj) { obj->add_child(m_camera); }
-            m_camera->transform = {.translation = {0.f, character.eye_height, 0.f},
-                                   .rotation = m_camera_control.player->transform().rotation};
+            m_camera->set_transform(
+                    vierkant::transform_t{.translation = {0.f, character.eye_height, 0.f},
+                                          .rotation = m_camera_control.player->transform().rotation});
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
             break;
         }
@@ -422,7 +423,7 @@ void PBRViewer::detach_player_camera()
         // keep the pose the camera had while parented
         auto transform = m_camera->global_transform();
         parent->remove_child(m_camera);
-        m_camera->transform = transform;
+        m_camera->set_transform(transform);
     }
 }
 

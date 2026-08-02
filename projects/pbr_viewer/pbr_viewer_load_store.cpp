@@ -118,7 +118,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
 
                     // inherit name and transform from entry
                     entry_obj->name = mesh_entry.name;
-                    entry_obj->transform = mesh_entry.transform;
+                    entry_obj->set_transform(mesh_entry.transform);
 
                     // add as child-object
                     object->add_child(entry_obj);
@@ -137,7 +137,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
                 auto light_obj = m_scene->create_object();
                 const auto *light_asset = m_scene->asset_provider()->light(li.light_id);
                 light_obj->name = light_asset && !light_asset->name.empty() ? light_asset->name : "light";
-                light_obj->transform = li.transform;
+                light_obj->set_transform(li.transform);
                 light_obj->add_component<vierkant::lightsource_component_t>({li.light_id});
                 object->add_child(light_obj);
             }
@@ -151,7 +151,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
                 // center aabb
                 auto aabb = object->aabb().transform(transform);
                 transform.translation = -aabb.center() + glm::vec3(0.f, aabb.height() / 2.f, 3.f);
-                object->transform = transform;
+                object->set_transform(transform);
             }
 
             if(params.clear_scene)
@@ -458,7 +458,7 @@ void PBRViewer::save_scene(std::filesystem::path path)
         scene_node_t &node = data.nodes.emplace_back();
         node.name = obj.name;
         node.enabled = obj.enabled;
-        node.transform = obj.transform;
+        if(const auto *obj_transform = obj.transform()) { node.transform = *obj_transform; }
 
         if(auto *flags_cmp = obj.get_component_ptr<vierkant::subscene_component_t>())
         {
@@ -742,7 +742,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 }
                 obj->name = node.name;
                 obj->enabled = node.enabled;
-                obj->transform = node.transform;
+                if(node.transform) { obj->set_transform(*node.transform); }
                 if(node.animation_state) { obj->add_component(*node.animation_state); }
                 if(node.physics_state) { obj->add_component(*node.physics_state); }
                 if(node.constraints) { obj->add_component(*node.constraints); }

@@ -154,7 +154,7 @@ void PBRViewer::create_ui()
                         m_camera_control.current = m_camera_control.orbit;
                     }
                     detach_player_camera();
-                    m_camera->transform = m_camera_control.current->transform();
+                    m_camera->set_transform(m_camera_control.current->transform());
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
                 }
@@ -268,7 +268,7 @@ void PBRViewer::create_ui()
                                 m_camera_control.current = m_camera_control.orbit;
                             }
                             detach_player_camera();
-                            m_camera->transform = m_camera_control.current->transform();
+                            m_camera->set_transform(m_camera_control.current->transform());
                             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
 
@@ -509,7 +509,7 @@ void PBRViewer::create_ui()
                     if(refresh)
                     {
                         if(m_camera_control.current != m_camera_control.player) { detach_player_camera(); }
-                        m_camera->transform = m_camera_control.current->transform();
+                        m_camera->set_transform(m_camera_control.current->transform());
                         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     }
                     ImGui::EndMenu();
@@ -536,9 +536,8 @@ void PBRViewer::create_ui()
                         {
                             auto new_obj = m_scene->create_mesh_object({box_mesh});
                             new_obj->name = spdlog::fmt_lib::format("cube_{}", new_obj->id() % 1000);
-                            new_obj->transform.emplace();
-                            new_obj->transform->translation.y = 10.f;
-                            new_obj->transform->translation += glm::ballRand(1.f);
+                            new_obj->set_transform({
+                                    .translation = glm::vec3(0.f, 10.f, 0.f) + glm::ballRand(1.f)});
                             vierkant::object_component auto &cmp =
                                     new_obj->add_component<vierkant::physics_component_t>();
                             vierkant::collision::box_t box = {
@@ -971,7 +970,7 @@ void PBRViewer::create_camera_controls()
     if(m_settings.ortho_camera) { toggle_ortho_camera(); }
 
     // update camera from current
-    m_camera->transform = m_camera_control.current->transform();
+    m_camera->set_transform(m_camera_control.current->transform());
 }
 
 void PBRViewer::update_js(double time_delta)

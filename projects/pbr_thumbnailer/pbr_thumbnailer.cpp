@@ -286,13 +286,13 @@ vierkant::AABB PBRThumbnailer::create_mesh(const vierkant::model::model_assets_t
     // attach mesh to an object, insert into scene
     auto load_mesh_result = vierkant::model::load_mesh(load_params, mesh_assets);
     auto object = m_scene->create_mesh_object({load_mesh_result.mesh});
-    assert(object->transform);
+    assert(object->transform());
 
     m_scene->asset_provider()->populate(load_mesh_result);
 
     // keep native scale — only center the AABB at the origin
     auto local_aabb = object->aabb();
-    object->transform->translation = -local_aabb.center();
+    object->set_transform({.translation = -local_aabb.center()});
 
     m_scene->add_object(object);
     return local_aabb;
@@ -330,7 +330,7 @@ void PBRThumbnailer::create_camera(const vierkant::model::model_assets_t &mesh_a
             static_cast<float>(m_settings.result_image_size.x) / static_cast<float>(m_settings.result_image_size.y);
 
     m_camera = m_scene->create_camera(model_camera.params);
-    m_camera->transform = model_camera.transform;
+    m_camera->set_transform(model_camera.transform);
 }
 
 std::optional<PBRThumbnailer::settings_t> parse_settings(int argc, char *argv[])
