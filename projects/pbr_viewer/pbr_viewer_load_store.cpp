@@ -167,6 +167,11 @@ void PBRViewer::load_model(const load_model_params_t &params)
             --m_num_loading;
         };
         if(success) { main_queue().post(done_cb); }
+        else
+        {
+            spdlog::warn("could not load model: {}", params.path.string());
+            --m_num_loading;
+        }
     };
     background_queue().post(load_task);
 }
@@ -670,6 +675,14 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                 {
                     // sync and check
                     const auto &load_mesh_result = mesh_cache[path];
+
+                    // model-file missing or unreadable -> skip. nodes referencing this mesh-id will
+                    // find no entry in 'asset.meshes' and become plain (empty) objects instead.
+                    if(!load_mesh_result.mesh)
+                    {
+                        spdlog::warn("skipping missing model: {}", path);
+                        continue;
+                    }
                     const auto &materials = asset.material_data.materials;
 
                     // optional material override(s)
@@ -1013,7 +1026,11 @@ vierkant::model::load_mesh_result_t PBRViewer::load_mesh(const std::filesystem::
                                                               .pool = &background_queue()};
             model_assets = vierkant_cereal::create_model_bundle(abs, bundle_params);
 
-            if(!model_assets) { return {}; }
+            if(!model_assets)
+            {
+                --m_num_loading;
+                return {};
+            }
             bundle_created = true;
         }
 
