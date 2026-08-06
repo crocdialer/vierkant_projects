@@ -25,8 +25,7 @@ public:
     enum class CameraControlMode : uint32_t
     {
         Orbit = 0,
-        Fly,
-        Player
+        Fly
     };
 
     struct settings_t
@@ -96,6 +95,13 @@ public:
         CameraControlMode camera_control = CameraControlMode::Orbit;
         bool ortho_camera = false;
 
+        //! route gamepad-input to the first character in the scene, independent of the camera-control
+        bool character_input = false;
+
+        //! the character-body turns with the view-yaw. pitch is never routed to a body, it would tilt it.
+        //! when unset the eye takes the yaw instead, and the body keeps its orientation
+        bool body_use_view_yaw = true;
+
         vierkant::gui::GuizmoType current_guizmo = vierkant::gui::GuizmoType::INACTIVE;
         vierkant::gui::GuizmoSpace guizmo_space = vierkant::gui::GuizmoSpace::WORLD;
 
@@ -139,10 +145,7 @@ private:
     void create_camera_controls();
 
     //! feed the player-control's input into the first object carrying a vierkant::character_t
-    void update_player_input();
-
-    //! unparent the camera from a character, keeping its current pose
-    void detach_player_camera();
+    void update_player_input(double time_delta);
 
     void update_js(double time_delta);
 
@@ -271,18 +274,21 @@ private:
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store, m_asset_provider);
     vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
-    vierkant::Object3DPtr m_camera;
+    //! app-owned viewport-camera, driven by the camera-controls. never part of the scene-graph
+    vierkant::Object3DPtr m_editor_camera;
+
+    //! camera the scene is drawn through, the editor-camera or one picked from the scene
+    vierkant::Object3DPtr m_render_camera;
 
     struct camera_control_t
     {
         vierkant::OrbitCameraPtr orbit = vierkant::OrbitCamera::create();
         vierkant::FlyCameraPtr fly = vierkant::FlyCamera::create();
-        vierkant::PlayerControlPtr player = vierkant::PlayerControl::create();
         vierkant::CameraControlPtr current = orbit;
     } m_camera_control;
 
-    //! true while the cursor is captured for mouse-look
-    bool m_cursor_captured = false;
+    //! gamepad-input for a character, does not drive the camera
+    vierkant::PlayerControlPtr m_player_control = vierkant::PlayerControl::create();
 
     std::vector<vierkant::Joystick> m_fly_joystick_states;
 
@@ -365,6 +371,8 @@ void serialize(Archive &ar, PBRViewer::settings_t &settings)
        cereal::make_optional_nvp("camera_control", settings.camera_control,
                                  PBRViewer::CameraControlMode::Orbit),
        cereal::make_nvp("ortho_camera", settings.ortho_camera),
+       cereal::make_optional_nvp("character_input", settings.character_input, false),
+       cereal::make_optional_nvp("body_use_view_yaw", settings.body_use_view_yaw, true),
        cereal::make_nvp("current_guizmo", settings.current_guizmo),
        cereal::make_optional_nvp("guizmo_space", settings.guizmo_space, vierkant::gui::GuizmoSpace::WORLD),
        cereal::make_nvp("object_overlay_mode", settings.object_overlay_mode),
