@@ -153,7 +153,6 @@ void PBRViewer::create_ui()
                     {
                         m_camera_control.current = m_camera_control.orbit;
                     }
-                    detach_player_camera();
                     m_camera->set_transform(m_camera_control.current->transform());
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
@@ -208,6 +207,9 @@ void PBRViewer::create_ui()
     m_window->key_delegates[name()] = key_delegate;
 
     vierkant::joystick_delegate_t joystick_delegate = {};
+
+    // the gamepad belongs to the character while it is driven, these bindings would fight it
+    joystick_delegate.enabled = [this]() { return !m_settings.character_input; };
     joystick_delegate.joystick_cb = [this, center_selected_objects](const auto &joysticks) {
         if(!joysticks.empty())
         {
@@ -267,7 +269,6 @@ void PBRViewer::create_ui()
                             {
                                 m_camera_control.current = m_camera_control.orbit;
                             }
-                            detach_player_camera();
                             m_camera->set_transform(m_camera_control.current->transform());
                             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
@@ -492,23 +493,23 @@ void PBRViewer::create_ui()
                     }
                     ImGui::SameLine();
 
-                    if(ImGui::RadioButton("player", m_camera_control.current == m_camera_control.player))
-                    {
-                        m_camera_control.current = m_camera_control.player;
-                        refresh = true;
-                    }
-                    ImGui::SameLine();
-
                     const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
                     assert(cam_cmp);
                     bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
 
                     if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
 
+                    // routes gamepad-input to the first character in the scene, leaves the camera alone
+                    ImGui::Checkbox("character input", &m_settings.character_input);
+
+                    if(m_settings.character_input)
+                    {
+                        ImGui::Checkbox("body follows view-yaw", &m_settings.body_use_view_yaw);
+                    }
+
                     ImGui::SliderFloat("move speed", &m_camera_control.fly->move_speed, 0.1f, 100.f);
                     if(refresh)
                     {
-                        if(m_camera_control.current != m_camera_control.player) { detach_player_camera(); }
                         m_camera->set_transform(m_camera_control.current->transform());
                         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     }
@@ -857,12 +858,8 @@ void PBRViewer::create_camera_controls()
 
     m_camera_control.fly = m_settings.fly_camera;
 
-    switch(m_settings.camera_control)
-    {
-        case CameraControlMode::Fly: m_camera_control.current = m_camera_control.fly; break;
-        case CameraControlMode::Player: m_camera_control.current = m_camera_control.player; break;
-        case CameraControlMode::Orbit: m_camera_control.current = m_camera_control.orbit; break;
-    }
+    if(m_settings.camera_control == CameraControlMode::Fly) { m_camera_control.current = m_camera_control.fly; }
+    else { m_camera_control.current = m_camera_control.orbit; }
 
     // camera
     m_camera = m_object_store->create_object();
@@ -881,7 +878,9 @@ void PBRViewer::create_camera_controls()
     m_window->mouse_delegates["orbit"] = std::move(arcball_delegeate);
     {
         auto orbit_js = m_camera_control.orbit->joystick_delegate();
-        orbit_js.enabled = [this]() { return m_camera_control.current == m_camera_control.orbit; };
+        orbit_js.enabled = [this]() {
+            return m_camera_control.current == m_camera_control.orbit && !m_settings.character_input;
+        };
         m_window->joystick_delegates["orbit"] = std::move(orbit_js);
     }
 
@@ -905,7 +904,9 @@ void PBRViewer::create_camera_controls()
     {
         auto fly_js = m_camera_control.fly->joystick_delegate();
         vierkant::joystick_delegate_t custom_fly_js = {};
-        custom_fly_js.enabled = [this]() { return m_camera_control.current == m_camera_control.fly; };
+        custom_fly_js.enabled = [this]() {
+            return m_camera_control.current == m_camera_control.fly && !m_settings.character_input;
+        };
         custom_fly_js.joystick_cb = [this, fly_cb = fly_js.joystick_cb](const auto &joysticks) {
             m_fly_joystick_states = joysticks;
             if(fly_cb) { fly_cb(joysticks); }
@@ -914,26 +915,9 @@ void PBRViewer::create_camera_controls()
     }
 
     {
-        auto player_mouse_delegate = m_camera_control.player->mouse_delegate();
-        player_mouse_delegate.enabled = [this]() {
-            bool is_active = m_camera_control.current == m_camera_control.player;
-            bool ui_captured =
-                    m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
-            return is_active && !ui_captured;
-        };
-        m_window->mouse_delegates["player"] = std::move(player_mouse_delegate);
-
-        auto player_key_delegate = m_camera_control.player->key_delegate();
-        player_key_delegate.enabled = [this]() {
-            bool is_active = m_camera_control.current == m_camera_control.player;
-            bool ui_captured =
-                    m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureKeyboard;
-            return is_active && !ui_captured;
-        };
-        m_window->key_delegates["player"] = std::move(player_key_delegate);
-
-        auto player_js = m_camera_control.player->joystick_delegate();
-        player_js.enabled = [this]() { return m_camera_control.current == m_camera_control.player; };
+        // gamepad-only: mouse/keyboard keep driving the camera-control
+        auto player_js = m_player_control->joystick_delegate();
+        player_js.enabled = [this]() { return m_settings.character_input; };
         m_window->joystick_delegates["player"] = std::move(player_js);
     }
 
@@ -964,7 +948,6 @@ void PBRViewer::create_camera_controls()
     };
     m_camera_control.orbit->transform_cb = transform_cb;
     m_camera_control.fly->transform_cb = transform_cb;
-    m_camera_control.player->transform_cb = transform_cb;
 
     // toggle ortho
     if(m_settings.ortho_camera) { toggle_ortho_camera(); }
@@ -975,7 +958,9 @@ void PBRViewer::create_camera_controls()
 
 void PBRViewer::update_js(double time_delta)
 {
-    if(m_camera_control.current == m_camera_control.fly && !m_fly_joystick_states.empty())
+    // the fly-delegate stops updating the states while the character consumes the gamepad
+    if(m_camera_control.current == m_camera_control.fly && !m_settings.character_input &&
+       !m_fly_joystick_states.empty())
     {
         const auto &js_state = m_fly_joystick_states.front();
         constexpr float deadzone_thresh = 0.008f;

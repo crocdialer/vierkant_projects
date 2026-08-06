@@ -154,11 +154,7 @@ void PBRViewer::load_model(const load_model_params_t &params)
                 object->set_transform(transform);
             }
 
-            if(params.clear_scene)
-            {
-                detach_player_camera();
-                m_scene->clear();
-            }
+            if(params.clear_scene) { m_scene->clear(); }
             m_scene->add_object(object);
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
@@ -321,9 +317,8 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.target_fps = static_cast<float>(target_loop_frequency);
 
     // camera-control settings
-    settings.camera_control = m_camera_control.current == m_camera_control.fly      ? CameraControlMode::Fly
-                              : m_camera_control.current == m_camera_control.player ? CameraControlMode::Player
-                                                                                    : CameraControlMode::Orbit;
+    settings.camera_control =
+            m_camera_control.current == m_camera_control.fly ? CameraControlMode::Fly : CameraControlMode::Orbit;
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
 
@@ -393,11 +388,7 @@ void PBRViewer::load_file(const std::string &path, bool clear)
             {
                 if(auto loaded_scene = load_scene_data(path))
                 {
-                    if(clear)
-                    {
-                        detach_player_camera();
-                        m_scene->clear();
-                    }
+                    if(clear) { m_scene->clear(); }
                     add_to_recent_files(path);
                     vierkant::SceneId scene_id;
                     m_scene_paths[scene_id] = project_key(path);
@@ -421,10 +412,6 @@ void PBRViewer::save_scene(std::filesystem::path path)
             return;
         }
     }
-    // the camera is parented to a character while player-control is active. it belongs to the
-    // app, not the scene, and would otherwise be traversed into the scene-graph below.
-    detach_player_camera();
-
     spdlog::debug("save scene: {}", path.string());
     m_scene_paths[m_scene_id] = project_key(path);
 
@@ -831,7 +818,6 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             {
                 if(clear_scene)
                 {
-                    detach_player_camera();
                     m_scene->clear();
                     for(const auto children = root_objects[0]->children; const auto &child: children)
                     {

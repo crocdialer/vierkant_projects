@@ -391,39 +391,61 @@ void PBRViewer::create_texture_image()
     m_scene->asset_provider()->add_texture({m_noise_texture_id, vierkant::SamplerId::nil()}, m_noise_texture);
 }
 
-void PBRViewer::update_player_input()
+//! first object carrying a camera-component below 'root', excluding 'root' itself
+static vierkant::Object3D *find_eye(vierkant::Object3D *root)
 {
+    vierkant::SelectVisitor<vierkant::Object3D> visitor({}, false);
+    root->accept(visitor);
+
+    for(auto *obj: visitor.objects)
+    {
+        if(obj != root && obj->has_component<vierkant::camera_component_t>()) { return obj; }
+    }
+    return nullptr;
+}
+
+void PBRViewer::update_player_input(double time_delta)
+{
+    m_player_control->update(time_delta);
+
     vierkant::SelectVisitor<vierkant::Object3D> visitor({}, false);
     m_scene->root()->accept(visitor);
 
     for(auto *obj: visitor.objects)
     {
         auto *phys_cmp = obj->get_component_ptr<vierkant::physics_component_t>();
-        if(phys_cmp && phys_cmp->character)
+        if(!phys_cmp || !phys_cmp->character) { continue; }
+
+        auto &character = *phys_cmp->character;
+        m_player_control->apply(character);
+
+        // the view-rotation is authoritative and each axis lands on exactly one transform.
+        // yaw is either taken by the body or by the eye, never both, or a parented eye rotates twice.
+        const glm::quat yaw_rotation(glm::vec3(0.f, character.yaw, 0.f));
+        const glm::quat pitch_rotation(glm::vec3(character.pitch, 0.f, 0.f));
+
+        if(m_settings.body_use_view_yaw)
         {
-            auto &character = *phys_cmp->character;
-            m_camera_control.player->apply(character);
-
-            // parent the camera to the character, so the physics->object readback carries it along.
-            // the body itself never rotates, all view-orientation lives here.
-            if(m_camera->parent() != obj) { obj->add_child(m_camera); }
-            m_camera->set_transform(
-                    vierkant::transform_t{.translation = {0.f, character.eye_height, 0.f},
-                                          .rotation = m_camera_control.player->transform().rotation});
-            if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
-            break;
+            // the physics-readback owns the object-transform, so the body has to be rotated
+            auto &body_interface = m_scene->physics_context().body_interface();
+            if(vierkant::transform_t transform; body_interface.get_transform(obj->id(), transform))
+            {
+                transform.rotation = yaw_rotation;
+                body_interface.set_transform(obj->id(), transform);
+            }
         }
-    }
-}
 
-void PBRViewer::detach_player_camera()
-{
-    if(auto *parent = m_camera->parent())
-    {
-        // keep the pose the camera had while parented
-        auto transform = m_camera->global_transform();
-        parent->remove_child(m_camera);
-        m_camera->set_transform(transform);
+        // the eye is attached manually, keep whatever offset it was given
+        if(auto *eye = find_eye(obj))
+        {
+            const auto *eye_transform = eye->transform();
+            auto transform = eye_transform ? *eye_transform : vierkant::transform_t{};
+            transform.rotation = m_settings.body_use_view_yaw ? pitch_rotation : yaw_rotation * pitch_rotation;
+            eye->set_transform(transform);
+        }
+
+        if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+        break;
     }
 }
 
@@ -432,18 +454,7 @@ void PBRViewer::update(double time_delta)
     // camera-controls run before the scene-update: the player-controller's input is turned into
     // forces there, applying it afterwards would be one frame late
     m_camera_control.current->update(time_delta);
-    if(m_camera_control.current == m_camera_control.player) { update_player_input(); }
-
-    // mouse-look needs the cursor captured, not merely hidden, or it leaves the window.
-    // edge-triggered, so the cursor-visibility toggle and the gamepad keep working elsewhere.
-    bool ui_captured = m_settings.draw_ui && (m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse);
-    if(bool capture_cursor = m_camera_control.current == m_camera_control.player && !ui_captured;
-       capture_cursor != m_cursor_captured)
-    {
-        m_cursor_captured = capture_cursor;
-        m_window->set_cursor_mode(capture_cursor ? vierkant::Window::CursorMode::Captured
-                                                 : vierkant::Window::CursorMode::Normal);
-    }
+    if(m_settings.character_input) { update_player_input(time_delta); }
 
     // animations and the simulation are paced independently, both off the real frame-time
     m_scene->animation_speed = m_settings.animation_playback ? m_settings.playback_speed : 0.0;
