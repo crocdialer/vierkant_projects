@@ -154,7 +154,12 @@ void PBRViewer::load_model(const load_model_params_t &params)
                 object->set_transform(transform);
             }
 
-            if(params.clear_scene) { m_scene->clear(); }
+            if(params.clear_scene)
+            {
+                // a scene-camera does not survive the clear, keep rendering through the editor-camera
+                m_render_camera = m_editor_camera;
+                m_scene->clear();
+            }
             m_scene->add_object(object);
             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
@@ -322,7 +327,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.orbit_camera = m_camera_control.orbit;
     settings.fly_camera = m_camera_control.fly;
 
-    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+    const auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
     settings.ortho_camera = cam_cmp && std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params) != nullptr;
 
     // renderer settings
@@ -388,7 +393,11 @@ void PBRViewer::load_file(const std::string &path, bool clear)
             {
                 if(auto loaded_scene = load_scene_data(path))
                 {
-                    if(clear) { m_scene->clear(); }
+                    if(clear)
+                    {
+                        m_render_camera = m_editor_camera;
+                        m_scene->clear();
+                    }
                     add_to_recent_files(path);
                     vierkant::SceneId scene_id;
                     m_scene_paths[scene_id] = project_key(path);
@@ -818,6 +827,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
             {
                 if(clear_scene)
                 {
+                    m_render_camera = m_editor_camera;
                     m_scene->clear();
                     for(const auto children = root_objects[0]->children; const auto &child: children)
                     {

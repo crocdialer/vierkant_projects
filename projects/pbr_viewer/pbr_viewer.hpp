@@ -274,7 +274,11 @@ private:
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store, m_asset_provider);
     vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
-    vierkant::Object3DPtr m_camera;
+    //! app-owned viewport-camera, driven by the camera-controls. never part of the scene-graph
+    vierkant::Object3DPtr m_editor_camera;
+
+    //! camera the scene is drawn through, the editor-camera or one picked from the scene
+    vierkant::Object3DPtr m_render_camera;
 
     struct camera_control_t
     {

@@ -26,7 +26,7 @@ struct ui_state_t
 
 void PBRViewer::toggle_ortho_camera()
 {
-    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+    const auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
     assert(cam_cmp);
 
     bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
@@ -37,14 +37,14 @@ void PBRViewer::toggle_ortho_camera()
         params.near_ = 0.f;
         params.far_ = 10000.f;
 
-        m_camera->name = "ortho_camera";
-        m_camera->add_component<vierkant::camera_component_t>({params});
+        m_editor_camera->name = "ortho_camera";
+        m_editor_camera->add_component<vierkant::camera_component_t>({params});
     }
     else
     {
         vierkant::physical_camera_params_t params = {};
-        m_camera->add_component<vierkant::camera_component_t>({params});
-        m_camera->name = "default";
+        m_editor_camera->add_component<vierkant::camera_component_t>({params});
+        m_editor_camera->name = "default";
     }
     m_camera_control.current->transform_cb(m_camera_control.current->transform());
 }
@@ -153,7 +153,7 @@ void PBRViewer::create_ui()
                     {
                         m_camera_control.current = m_camera_control.orbit;
                     }
-                    m_camera->set_transform(m_camera_control.current->transform());
+                    m_editor_camera->set_transform(m_camera_control.current->transform());
                     if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     break;
                 }
@@ -197,7 +197,12 @@ void PBRViewer::create_ui()
 
                 case vierkant::Key::_DELETE:
                 case vierkant::Key::_BACKSPACE:
-                    for(const auto &obj: m_selected_objects) { m_scene->remove_object(obj); }
+                    for(const auto &obj: m_selected_objects)
+                    {
+                        // deleting the camera we look through would leave it detached from the graph
+                        if(obj == m_render_camera) { m_render_camera = m_editor_camera; }
+                        m_scene->remove_object(obj);
+                    }
                     m_selected_objects.clear();
                     break;
                 default: break;
@@ -269,7 +274,7 @@ void PBRViewer::create_ui()
                             {
                                 m_camera_control.current = m_camera_control.orbit;
                             }
-                            m_camera->set_transform(m_camera_control.current->transform());
+                            m_editor_camera->set_transform(m_camera_control.current->transform());
                             if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                             break;
 
@@ -476,6 +481,15 @@ void PBRViewer::create_ui()
                     ImGui::Separator();
                     ImGui::Spacing();
 
+                    // the scene-ui's camera-tab can only ever select a scene-camera, this is the way back
+                    if(m_render_camera != m_editor_camera)
+                    {
+                        ImGui::TextUnformatted(m_render_camera->name.c_str());
+                        ImGui::SameLine();
+                        if(ImGui::Button("back to editor-camera")) { m_render_camera = m_editor_camera; }
+                        ImGui::Spacing();
+                    }
+
                     // camera control select
                     bool refresh = false;
 
@@ -493,7 +507,7 @@ void PBRViewer::create_ui()
                     }
                     ImGui::SameLine();
 
-                    const auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+                    const auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
                     assert(cam_cmp);
                     bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
 
@@ -510,7 +524,7 @@ void PBRViewer::create_ui()
                     ImGui::SliderFloat("move speed", &m_camera_control.fly->move_speed, 0.1f, 100.f);
                     if(refresh)
                     {
-                        m_camera->set_transform(m_camera_control.current->transform());
+                        m_editor_camera->set_transform(m_camera_control.current->transform());
                         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
                     }
                     ImGui::EndMenu();
@@ -690,7 +704,7 @@ void PBRViewer::create_ui()
             ImGui::BulletText("%s", std::format("frame: {}", m_scene->current_frame()).c_str());
             ImGui::Spacing();
 
-            vierkant::gui::draw_scene_ui(m_scene, m_camera, &m_selected_objects);
+            vierkant::gui::draw_scene_ui(m_scene, m_render_camera, &m_selected_objects);
             ImGui::End();
         }
     };
@@ -699,13 +713,13 @@ void PBRViewer::create_ui()
     m_gui_context.delegates["guizmo"].fn = [this] {
         if(!m_selected_objects.empty())
         {
-            vierkant::gui::draw_transform_guizmo(m_selected_objects, m_camera, m_settings.current_guizmo,
+            vierkant::gui::draw_transform_guizmo(m_selected_objects, m_render_camera, m_settings.current_guizmo,
                                                  m_settings.guizmo_space);
         }
 
         if(m_settings.ui_draw_view_controls)
         {
-            auto view = vierkant::mat4_cast(vierkant::camera::view_transform(m_camera.get()));
+            auto view = vierkant::mat4_cast(vierkant::camera::view_transform(m_render_camera.get()));
             const glm::vec2 sz = {150, 150};
             glm::vec2 pos = {(static_cast<float>(m_window->size().x) - sz.x) / 2.f, 0.f};
             if(ImGuizmo::ViewManipulate(glm::value_ptr(view), 1.f, {pos.x, pos.y}, {sz.x, sz.y}, 0x00000000))
@@ -862,10 +876,11 @@ void PBRViewer::create_camera_controls()
     else { m_camera_control.current = m_camera_control.orbit; }
 
     // camera
-    m_camera = m_object_store->create_object();
+    m_editor_camera = m_object_store->create_object();
     vierkant::physical_camera_params_t params = {};
-    m_camera->add_component<vierkant::camera_component_t>({params});
-    m_camera->name = "default";
+    m_editor_camera->add_component<vierkant::camera_component_t>({params});
+    m_editor_camera->name = "default";
+    m_render_camera = m_editor_camera;
 
     // attach arcball mouse delegate
     auto arcball_delegeate = m_camera_control.orbit->mouse_delegate();
@@ -923,12 +938,12 @@ void PBRViewer::create_camera_controls()
 
     // update camera with arcball
     auto transform_cb = [this](const vierkant::transform_t &transform) {
-        m_camera->set_global_transform(transform);
+        m_editor_camera->set_global_transform(transform);
         if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
 
         if(m_camera_control.current == m_camera_control.orbit)
         {
-            auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+            auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
             assert(cam_cmp);
 
             if(auto *ortho_params = std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params))
@@ -953,7 +968,7 @@ void PBRViewer::create_camera_controls()
     if(m_settings.ortho_camera) { toggle_ortho_camera(); }
 
     // update camera from current
-    m_camera->set_transform(m_camera_control.current->transform());
+    m_editor_camera->set_transform(m_camera_control.current->transform());
 }
 
 void PBRViewer::update_js(double time_delta)
@@ -968,7 +983,7 @@ void PBRViewer::update_js(double time_delta)
         float throttle = trigger.y - trigger.x;
         if(std::abs(throttle) > deadzone_thresh)
         {
-            auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+            auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
             if(auto *params = std::get_if<vierkant::physical_camera_params_t>(&cam_cmp->params))
             {
                 constexpr float focus_sensitivity = 2.f;

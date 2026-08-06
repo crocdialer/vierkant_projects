@@ -202,7 +202,7 @@ void PBRViewer::create_context_and_window()
                 m_window->swapchain().sample_count();
         m_camera_control.current->screen_size = {w, h};
 
-        auto *cam_cmp = m_camera->get_component_ptr<vierkant::camera_component_t>();
+        auto *cam_cmp = m_render_camera->get_component_ptr<vierkant::camera_component_t>();
         assert(cam_cmp);
 
         if(auto *perspective_params = std::get_if<vierkant::physical_camera_params_t>(&cam_cmp->params))
@@ -480,7 +480,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     auto &overlay_assets = m_overlay_assets[m_renderer_overlay.current_index()];
 
     auto render_scene = [this, &framebuffer, &semaphore_infos, &overlay_assets]() -> VkCommandBuffer {
-        auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_camera, {});
+        auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_render_camera, {});
         auto overlay_submit_info = generate_overlay(overlay_assets, render_result.object_ids);
         {
             std::unique_lock lock(m_mutex_semaphore_submit);
@@ -501,14 +501,14 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         // physics debug overlay
         if(m_settings.draw_physics)
         {
-            auto render_result = m_physics_debug->render_scene(m_renderer_overlay, m_scene, m_camera, {});
+            auto render_result = m_physics_debug->render_scene(m_renderer_overlay, m_scene, m_render_camera, {});
             std::unique_lock lock(m_mutex_semaphore_submit);
             semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
                                    render_result.semaphore_infos.end());
         }
 
-        auto view_transform = vierkant::camera::view_transform(m_camera.get());
-        auto cam_projection = vierkant::camera::projection_matrix(m_camera.get());
+        auto view_transform = vierkant::camera::view_transform(m_render_camera.get());
+        auto cam_projection = vierkant::camera::projection_matrix(m_render_camera.get());
 
         for(const auto &obj: selected_objects)
         {
@@ -546,7 +546,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
 
         if(m_settings.draw_grid)
         {
-            const auto &cam_cmp = m_camera->get_component<vierkant::camera_component_t>();
+            const auto &cam_cmp = m_render_camera->get_component<vierkant::camera_component_t>();
             bool is_ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp.params));
 
             m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8f), 1.f), 1.f, glm::vec2(0.05f),
