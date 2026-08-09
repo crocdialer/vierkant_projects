@@ -444,7 +444,11 @@ void PBRViewer::update_player_input(double time_delta)
             eye->set_transform(transform);
         }
 
-        if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+        // with a drift-budget set, the path-tracer sizes its own window from the camera-motion
+        if(m_path_tracer && m_path_tracer->settings.max_accumulation_drift <= 0.f)
+        {
+            m_path_tracer->reset_accumulator();
+        }
         break;
     }
 }
