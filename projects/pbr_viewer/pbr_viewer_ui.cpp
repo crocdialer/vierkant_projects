@@ -939,7 +939,12 @@ void PBRViewer::create_camera_controls()
     // update camera with arcball
     auto transform_cb = [this](const vierkant::transform_t &transform) {
         m_editor_camera->set_global_transform(transform);
-        if(m_path_tracer) { m_path_tracer->reset_accumulator(); }
+
+        // with a drift-budget set, the path-tracer sizes its own window from the camera-motion
+        if(m_path_tracer && m_path_tracer->settings.max_accumulation_drift <= 0.f)
+        {
+            m_path_tracer->reset_accumulator();
+        }
 
         if(m_camera_control.current == m_camera_control.orbit)
         {
