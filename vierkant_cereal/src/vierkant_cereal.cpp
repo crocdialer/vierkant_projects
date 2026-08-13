@@ -141,7 +141,11 @@ std::optional<scene_data_t> load_scene_data(std::istream &is)
         cereal::JSONInputArchive archive(is);
         archive(scene_data);
         return scene_data;
-    } catch(const std::exception &) { return {}; }
+    } catch(const std::exception &e)
+    {
+        spdlog::error("could not parse scene-data: {}", e.what());
+        return {};
+    }
 }
 
 std::string model_bundle_filename(const std::filesystem::path &model_path,

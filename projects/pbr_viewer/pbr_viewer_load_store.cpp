@@ -609,6 +609,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                         sub_scene_paths.emplace_back(sub_scene_id, sub_scene_path);
                     }
                 }
+                else { spdlog::error("could not load sub-scene: {}", p); }
             }
             std::unordered_map<std::string, std::future<vierkant::model::load_mesh_result_t>> mesh_future_cache;
 
@@ -803,17 +804,25 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
 
                     if(node.scene_id)
                     {
-                        assert(scene_root_map.contains(*node.scene_id));
-                        const auto &children = scene_root_map[*node.scene_id]->children;
-
-                        // clone into this instance-slot. deriving new body-ids from a stable per-slot seed
-                        // keeps them constant across reloads, so constraints referencing this sub-scene's
-                        // bodies (incl. from the enclosing scene) keep resolving after save/load.
-                        const std::string instance_seed = containing_key + "/" + std::to_string(j);
-                        for(auto clones = clone_objects({children.begin(), children.end()}, instance_seed);
-                            const auto &child: clones)
+                        // a sub-scene that failed to load leaves the slot empty, but keep the flag below
+                        // so the reference survives a save-roundtrip instead of being silently dropped.
+                        if(auto root_it = scene_root_map.find(*node.scene_id); root_it != scene_root_map.end())
                         {
-                            scene_asset.objects[j]->add_child(child);
+                            const auto &children = root_it->second->children;
+
+                            // clone into this instance-slot. deriving new body-ids from a stable per-slot seed
+                            // keeps them constant across reloads, so constraints referencing this sub-scene's
+                            // bodies (incl. from the enclosing scene) keep resolving after save/load.
+                            const std::string instance_seed = containing_key + "/" + std::to_string(j);
+                            for(auto clones = clone_objects({children.begin(), children.end()}, instance_seed);
+                                const auto &child: clones)
+                            {
+                                scene_asset.objects[j]->add_child(child);
+                            }
+                        }
+                        else
+                        {
+                            spdlog::error("node '{}': missing sub-scene {}", node.name, node.scene_id->str());
                         }
 
                         // flag object to contain a sub-scene
