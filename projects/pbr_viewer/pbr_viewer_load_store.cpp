@@ -328,7 +328,7 @@ void PBRViewer::save_settings(PBRViewer::settings_t settings, const std::filesys
     settings.fly_camera = m_camera_control.fly;
 
     const auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
-    settings.ortho_camera = cam_cmp && std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params) != nullptr;
+    settings.ortho_camera = cam_cmp && cam_cmp->projection == vierkant::camera_component_t::ORTHO;
 
     // renderer settings
     settings.pbr_settings = m_pbr_renderer->settings;

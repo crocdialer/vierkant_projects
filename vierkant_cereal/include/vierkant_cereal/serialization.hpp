@@ -383,7 +383,10 @@ void serialize(Archive &archive, vierkant::physical_camera_params_t &params)
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::camera_component_t &c)
-{ archive(cereal::make_nvp("params", c.params)); }
+{
+    archive(cereal::make_nvp("projection", c.projection), cereal::make_nvp("physical", c.physical),
+            cereal::make_optional_nvp("ortho", c.ortho));
+}
 
 template<class Archive>
 void serialize(Archive &archive, vierkant::lightsource_t &light)

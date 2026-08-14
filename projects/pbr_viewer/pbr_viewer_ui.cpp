@@ -26,26 +26,19 @@ struct ui_state_t
 
 void PBRViewer::toggle_ortho_camera()
 {
-    const auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
+    auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
     assert(cam_cmp);
 
-    bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
+    const bool ortho = cam_cmp->projection == vierkant::camera_component_t::ORTHO;
+    cam_cmp->projection = ortho ? vierkant::camera_component_t::PERSPECTIVE : vierkant::camera_component_t::ORTHO;
 
     if(!ortho)
     {
-        vierkant::ortho_camera_params_t params = {};
-        params.near_ = 0.f;
-        params.far_ = 10000.f;
+        cam_cmp->ortho.near_ = 0.f;
+        cam_cmp->ortho.far_ = 10000.f;
+    }
 
-        m_editor_camera->name = "editor-camera (ortho)";
-        m_editor_camera->add_component<vierkant::camera_component_t>({params});
-    }
-    else
-    {
-        vierkant::physical_camera_params_t params = {};
-        m_editor_camera->add_component<vierkant::camera_component_t>({params});
-        m_editor_camera->name = "editor-camera";
-    }
+    // the extents are derived from the camera-control, see transform_cb
     m_camera_control.current->transform_cb(m_camera_control.current->transform());
 }
 
@@ -514,7 +507,7 @@ void PBRViewer::create_ui()
 
                     const auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
                     assert(cam_cmp);
-                    bool ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params));
+                    bool ortho = cam_cmp->projection == vierkant::camera_component_t::ORTHO;
 
                     if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
 
@@ -886,8 +879,7 @@ void PBRViewer::create_camera_controls()
     // lists it next to the scene-cameras. its layer keeps it out of rendering, physics and saving.
     if(m_editor_camera) { m_scene->remove_object(m_editor_camera); }
     m_editor_camera = m_object_store->create_object();
-    vierkant::physical_camera_params_t params = {};
-    m_editor_camera->add_component<vierkant::camera_component_t>({params});
+    m_editor_camera->add_component<vierkant::camera_component_t>();
     m_editor_camera->name = "editor-camera";
     m_editor_camera->layers = vierkant::LAYER_EDITOR;
     m_scene->add_object(m_editor_camera);
@@ -964,18 +956,16 @@ void PBRViewer::create_camera_controls()
             auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
             assert(cam_cmp);
 
-            if(auto *ortho_params = std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp->params))
+            if(cam_cmp->projection == vierkant::camera_component_t::ORTHO)
             {
-                // default horizontal fov of perspective-view
-                constexpr float default_hfov = 0.6912f;
+                // frame the ortho-view like the perspective-view would be framed at the orbit-pivot
                 float aspect = m_window->aspect_ratio();
-                float size = m_camera_control.orbit->distance * std::tan(0.5f * default_hfov / aspect);
+                float size = m_camera_control.orbit->distance * std::tan(0.5f * cam_cmp->physical.fovx() / aspect);
 
-                // auto &ortho_params = std::get<vierkant::ortho_camera_params_t>(ortho_cam->params());
-                ortho_params->top = size;
-                ortho_params->bottom = -size;
-                ortho_params->left = -size * aspect;
-                ortho_params->right = size * aspect;
+                cam_cmp->ortho.top = size;
+                cam_cmp->ortho.bottom = -size;
+                cam_cmp->ortho.left = -size * aspect;
+                cam_cmp->ortho.right = size * aspect;
             }
         }
     };
@@ -1002,8 +992,9 @@ void PBRViewer::update_js(double time_delta)
         if(std::abs(throttle) > deadzone_thresh)
         {
             auto *cam_cmp = m_editor_camera->get_component_ptr<vierkant::camera_component_t>();
-            if(auto *params = std::get_if<vierkant::physical_camera_params_t>(&cam_cmp->params))
+            if(cam_cmp->projection == vierkant::camera_component_t::PERSPECTIVE)
             {
+                auto *params = &cam_cmp->physical;
                 constexpr float focus_sensitivity = 2.f;
                 params->focal_distance = std::clamp(
                         params->focal_distance * std::exp(static_cast<float>(time_delta) * focus_sensitivity * throttle),

@@ -205,10 +205,7 @@ void PBRViewer::create_context_and_window()
         auto *cam_cmp = m_render_camera->get_component_ptr<vierkant::camera_component_t>();
         assert(cam_cmp);
 
-        if(auto *perspective_params = std::get_if<vierkant::physical_camera_params_t>(&cam_cmp->params))
-        {
-            perspective_params->aspect = m_window->aspect_ratio();
-        }
+        cam_cmp->physical.aspect = m_window->aspect_ratio();
     };
     window_delegate.close_fn = [this]() { running = false; };
     m_window->window_delegates[name()] = window_delegate;
@@ -553,7 +550,7 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         if(m_settings.draw_grid)
         {
             const auto &cam_cmp = m_render_camera->get_component<vierkant::camera_component_t>();
-            bool is_ortho = static_cast<bool>(std::get_if<vierkant::ortho_camera_params_t>(&cam_cmp.params));
+            bool is_ortho = cam_cmp.projection == vierkant::camera_component_t::ORTHO;
 
             m_draw_context.draw_grid(m_renderer_overlay, glm::vec4(glm::vec3(0.8f), 1.f), 1.f, glm::vec2(0.05f),
                                      is_ortho, true, view_transform, cam_projection);
