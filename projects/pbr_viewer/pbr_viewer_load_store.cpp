@@ -449,6 +449,9 @@ void PBRViewer::save_scene(std::filesystem::path path)
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(&obj == m_scene->root().get()) { return true; }
 
+        // editor-layer objects are tool-state, not scene-content. skip them and their subtrees.
+        if(obj.layers & vierkant::LAYER_EDITOR) { return false; }
+
         obj_to_node_index[&obj] = data.nodes.size();
 
         scene_node_t &node = data.nodes.emplace_back();
@@ -518,6 +521,14 @@ void PBRViewer::save_scene(std::filesystem::path path)
 
     // add top-lvl scenegraph-nodes
     for(const auto &child: m_scene->root()->children) { data.scene_roots.push_back(obj_to_node_index[child.get()]); }
+
+    // the camera we look through, if it is one of this scene's own nodes. the editor-camera has no
+    // node (it is skipped above), and neither has a camera inside a sub-scene instance - both leave
+    // this absent, which loads as 'view through the editor-camera'.
+    if(const auto it = obj_to_node_index.find(m_render_camera.get()); it != obj_to_node_index.end())
+    {
+        data.active_camera = static_cast<uint32_t>(it->second);
+    }
 
     visitor.traverse(*m_scene->root(), [&](vierkant::Object3D &obj) -> bool {
         if(!obj_to_node_index.contains(&obj)) { return true; }
@@ -842,6 +853,22 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     {
                         m_scene->add_object(child);
                     }
+                    // restore the camera the scene was saved with. m_render_camera already points at
+                    // the editor-camera, which is what an absent or unresolvable index means.
+                    if(const auto &active_camera = scene_assets[0].scene_data.active_camera)
+                    {
+                        const auto &objects = scene_assets[0].objects;
+                        vierkant::Object3DPtr cam;
+                        if(*active_camera < objects.size()) { cam = objects[*active_camera]; }
+
+                        if(cam && cam->has_component<vierkant::camera_component_t>()) { m_render_camera = cam; }
+                        else
+                        {
+                            spdlog::warn("scene-data: active_camera ({}) does not resolve to a camera",
+                                         *active_camera);
+                        }
+                    }
+
                     m_scene_id = scene_assets[0].scene_id;
                     m_scene->root()->name = root_objects[0]->name.empty() ? "scene" : root_objects[0]->name;
                     m_scene->environment_factor = scene_assets[0].scene_data.environment_factor;

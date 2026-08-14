@@ -40,5 +40,6 @@ void serialize(Archive &ar, scene_data_t &scene_data)
        cereal::make_optional_nvp("material_bundle_path", scene_data.material_bundle_path),
        cereal::make_optional_nvp("lights", scene_data.lights),
        cereal::make_optional_nvp("materials", scene_data.materials),
-       cereal::make_optional_nvp("texture_samplers", scene_data.texture_samplers));
+       cereal::make_optional_nvp("texture_samplers", scene_data.texture_samplers),
+       cereal::make_optional_nvp("active_camera", scene_data.active_camera));
 }

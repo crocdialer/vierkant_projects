@@ -144,6 +144,10 @@ private:
 
     void create_camera_controls();
 
+    //! the camera-controls drive the editor-camera only. while the scene is rendered through one of
+    //! its own cameras they are inert, rather than silently moving a camera nobody is looking through.
+    [[nodiscard]] inline bool editor_camera_active() const { return m_render_camera == m_editor_camera; }
+
     //! feed the player-control's input into the first object carrying a vierkant::character_t
     void update_player_input(double time_delta);
 
@@ -274,7 +278,8 @@ private:
     std::shared_ptr<vierkant::PhysicsScene> m_scene = vierkant::PhysicsScene::create(m_object_store, m_asset_provider);
     vierkant::PhysicsDebugRendererPtr m_physics_debug;
 
-    //! app-owned viewport-camera, driven by the camera-controls. never part of the scene-graph
+    //! viewport-camera, driven by the camera-controls. lives in the scene-graph on LAYER_EDITOR,
+    //! which keeps it out of rendering, physics and serialization
     vierkant::Object3DPtr m_editor_camera;
 
     //! camera the scene is drawn through, the editor-camera or one picked from the scene

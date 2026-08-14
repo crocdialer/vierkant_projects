@@ -89,4 +89,8 @@ struct scene_data_t
 
     //! indices into scene_data_t::nodes
     std::vector<uint32_t> scene_roots;
+
+    //! optional index into nodes: the camera the scene is viewed through.
+    //! absent means the application's own viewport-camera, which is not part of the scene.
+    std::optional<uint32_t> active_camera;
 };

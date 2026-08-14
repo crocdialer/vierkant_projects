@@ -394,7 +394,7 @@ void PBRViewer::create_texture_image()
 //! first object carrying a camera-component below 'root', excluding 'root' itself
 static vierkant::Object3D *find_eye(vierkant::Object3D *root)
 {
-    vierkant::SelectVisitor<vierkant::Object3D> visitor({}, false);
+    vierkant::SelectVisitor<vierkant::Object3D> visitor(vierkant::LAYER_ALL, false);
     root->accept(visitor);
 
     for(auto *obj: visitor.objects)
@@ -408,7 +408,7 @@ void PBRViewer::update_player_input(double time_delta)
 {
     m_player_control->update(time_delta);
 
-    vierkant::SelectVisitor<vierkant::Object3D> visitor({}, false);
+    vierkant::SelectVisitor<vierkant::Object3D> visitor(vierkant::LAYER_ALL, false);
     m_scene->root()->accept(visitor);
 
     for(auto *obj: visitor.objects)
@@ -484,7 +484,8 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
     auto &overlay_assets = m_overlay_assets[m_renderer_overlay.current_index()];
 
     auto render_scene = [this, &framebuffer, &semaphore_infos, &overlay_assets]() -> VkCommandBuffer {
-        auto render_result = m_scene_renderer->render_scene(m_renderer, m_scene, m_render_camera, {});
+        auto render_result =
+                m_scene_renderer->render_scene(m_renderer, m_scene, m_render_camera, ~vierkant::LAYER_EDITOR);
         auto overlay_submit_info = generate_overlay(overlay_assets, render_result.object_ids);
         {
             std::unique_lock lock(m_mutex_semaphore_submit);
@@ -505,7 +506,8 @@ vierkant::window_delegate_t::draw_result_t PBRViewer::draw(const vierkant::Windo
         // physics debug overlay
         if(m_settings.draw_physics)
         {
-            auto render_result = m_physics_debug->render_scene(m_renderer_overlay, m_scene, m_render_camera, {});
+            auto render_result = m_physics_debug->render_scene(m_renderer_overlay, m_scene, m_render_camera,
+                                                               ~vierkant::LAYER_EDITOR);
             std::unique_lock lock(m_mutex_semaphore_submit);
             semaphore_infos.insert(semaphore_infos.end(), render_result.semaphore_infos.begin(),
                                    render_result.semaphore_infos.end());

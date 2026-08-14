@@ -82,7 +82,8 @@ void PBRThumbnailer::update(double /*time_delta*/)
 
         for(uint32_t i = 0; i < num_passes; ++i)
         {
-            auto render_result = m_context.scene_renderer->render_scene(m_context.renderer, m_scene, m_camera, {});
+            auto render_result =
+                    m_context.scene_renderer->render_scene(m_context.renderer, m_scene, m_camera, vierkant::LAYER_ALL);
             auto cmd_buffer = m_context.renderer.render(m_context.framebuffer);
             m_context.framebuffer.submit({cmd_buffer}, m_context.device->queue(), render_result.semaphore_infos);
             m_context.framebuffer.wait_fence();

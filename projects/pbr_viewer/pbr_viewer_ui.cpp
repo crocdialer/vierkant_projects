@@ -37,14 +37,14 @@ void PBRViewer::toggle_ortho_camera()
         params.near_ = 0.f;
         params.far_ = 10000.f;
 
-        m_editor_camera->name = "ortho_camera";
+        m_editor_camera->name = "editor-camera (ortho)";
         m_editor_camera->add_component<vierkant::camera_component_t>({params});
     }
     else
     {
         vierkant::physical_camera_params_t params = {};
         m_editor_camera->add_component<vierkant::camera_component_t>({params});
-        m_editor_camera->name = "default";
+        m_editor_camera->name = "editor-camera";
     }
     m_camera_control.current->transform_cb(m_camera_control.current->transform());
 }
@@ -54,6 +54,7 @@ void PBRViewer::create_ui()
     m_ui_state = {new ui_state_t, std::default_delete<ui_state_t>()};
 
     auto center_selected_objects = [this] {
+        if(!editor_camera_active()) { return; }
         vierkant::AABB aabb;
         for(const auto &obj: m_selected_objects) { aabb += obj->aabb().transform(obj->global_transform()); }
         m_camera_control.orbit->look_at = aabb.center();
@@ -187,7 +188,9 @@ void PBRViewer::create_ui()
                     }
                     break;
 
-                case vierkant::Key::_O: toggle_ortho_camera(); break;
+                case vierkant::Key::_O:
+                    if(editor_camera_active()) { toggle_ortho_camera(); }
+                    break;
 
                 case vierkant::Key::_PERIOD:
                 {
@@ -481,14 +484,16 @@ void PBRViewer::create_ui()
                     ImGui::Separator();
                     ImGui::Spacing();
 
-                    // the scene-ui's camera-tab can only ever select a scene-camera, this is the way back
-                    if(m_render_camera != m_editor_camera)
+                    // the camera-controls drive the editor-camera, which is not what we render
+                    // while a scene-camera is picked. say so instead of going quietly dead.
+                    if(!editor_camera_active())
                     {
-                        ImGui::TextUnformatted(m_render_camera->name.c_str());
+                        ImGui::TextUnformatted("camera-controls inactive: rendering through");
                         ImGui::SameLine();
-                        if(ImGui::Button("back to editor-camera")) { m_render_camera = m_editor_camera; }
+                        ImGui::TextUnformatted(m_render_camera->name.c_str());
                         ImGui::Spacing();
                     }
+                    ImGui::BeginDisabled(!editor_camera_active());
 
                     // camera control select
                     bool refresh = false;
@@ -513,6 +518,9 @@ void PBRViewer::create_ui()
 
                     if(ImGui::Checkbox("ortho", &ortho)) { toggle_ortho_camera(); }
 
+                    ImGui::SliderFloat("move speed", &m_camera_control.fly->move_speed, 0.1f, 100.f);
+                    ImGui::EndDisabled();
+
                     // routes gamepad-input to the first character in the scene, leaves the camera alone
                     ImGui::Checkbox("character input", &m_settings.character_input);
 
@@ -521,7 +529,6 @@ void PBRViewer::create_ui()
                         ImGui::Checkbox("body follows view-yaw", &m_settings.body_use_view_yaw);
                     }
 
-                    ImGui::SliderFloat("move speed", &m_camera_control.fly->move_speed, 0.1f, 100.f);
                     if(refresh)
                     {
                         m_editor_camera->set_transform(m_camera_control.current->transform());
@@ -875,17 +882,21 @@ void PBRViewer::create_camera_controls()
     if(m_settings.camera_control == CameraControlMode::Fly) { m_camera_control.current = m_camera_control.fly; }
     else { m_camera_control.current = m_camera_control.orbit; }
 
-    // camera
+    // viewport-camera: an editor-layer member of the scene-graph, so the scene-ui's camera-tab
+    // lists it next to the scene-cameras. its layer keeps it out of rendering, physics and saving.
+    if(m_editor_camera) { m_scene->remove_object(m_editor_camera); }
     m_editor_camera = m_object_store->create_object();
     vierkant::physical_camera_params_t params = {};
     m_editor_camera->add_component<vierkant::camera_component_t>({params});
-    m_editor_camera->name = "default";
+    m_editor_camera->name = "editor-camera";
+    m_editor_camera->layers = vierkant::LAYER_EDITOR;
+    m_scene->add_object(m_editor_camera);
     m_render_camera = m_editor_camera;
 
     // attach arcball mouse delegate
     auto arcball_delegeate = m_camera_control.orbit->mouse_delegate();
     arcball_delegeate.enabled = [this]() {
-        bool is_active = m_camera_control.current == m_camera_control.orbit;
+        bool is_active = m_camera_control.current == m_camera_control.orbit && editor_camera_active();
         bool ui_captured =
                 m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
         return is_active && !ui_captured;
@@ -894,14 +905,15 @@ void PBRViewer::create_camera_controls()
     {
         auto orbit_js = m_camera_control.orbit->joystick_delegate();
         orbit_js.enabled = [this]() {
-            return m_camera_control.current == m_camera_control.orbit && !m_settings.character_input;
+            return m_camera_control.current == m_camera_control.orbit && !m_settings.character_input &&
+                   editor_camera_active();
         };
         m_window->joystick_delegates["orbit"] = std::move(orbit_js);
     }
 
     auto flycamera_delegeate = m_camera_control.fly->mouse_delegate();
     flycamera_delegeate.enabled = [this]() {
-        bool is_active = m_camera_control.current == m_camera_control.fly;
+        bool is_active = m_camera_control.current == m_camera_control.fly && editor_camera_active();
         bool ui_captured =
                 m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
         return is_active && !ui_captured;
@@ -910,7 +922,7 @@ void PBRViewer::create_camera_controls()
 
     auto fly_key_delegeate = m_camera_control.fly->key_delegate();
     fly_key_delegeate.enabled = [this]() {
-        bool is_active = m_camera_control.current == m_camera_control.fly;
+        bool is_active = m_camera_control.current == m_camera_control.fly && editor_camera_active();
         bool ui_captured =
                 m_settings.draw_ui && m_gui_context.capture_flags() & vierkant::gui::Context::WantCaptureMouse;
         return is_active && !ui_captured;
@@ -920,7 +932,8 @@ void PBRViewer::create_camera_controls()
         auto fly_js = m_camera_control.fly->joystick_delegate();
         vierkant::joystick_delegate_t custom_fly_js = {};
         custom_fly_js.enabled = [this]() {
-            return m_camera_control.current == m_camera_control.fly && !m_settings.character_input;
+            return m_camera_control.current == m_camera_control.fly && !m_settings.character_input &&
+                   editor_camera_active();
         };
         custom_fly_js.joystick_cb = [this, fly_cb = fly_js.joystick_cb](const auto &joysticks) {
             m_fly_joystick_states = joysticks;
@@ -980,7 +993,7 @@ void PBRViewer::update_js(double time_delta)
 {
     // the fly-delegate stops updating the states while the character consumes the gamepad
     if(m_camera_control.current == m_camera_control.fly && !m_settings.character_input &&
-       !m_fly_joystick_states.empty())
+       editor_camera_active() && !m_fly_joystick_states.empty())
     {
         const auto &js_state = m_fly_joystick_states.front();
         constexpr float deadzone_thresh = 0.008f;
