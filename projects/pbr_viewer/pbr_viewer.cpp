@@ -352,7 +352,7 @@ void PBRViewer::create_texture_image()
                         0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF};
 
         img = crocore::Image_<uint8_t>::create(reinterpret_cast<uint8_t *>(v), 4, 4, 4);
-        fmt.mag_filter = VK_FILTER_NEAREST;
+        fmt.sampler_state.mag_filter = VK_FILTER_NEAREST;
         fmt.format = VK_FORMAT_R8G8B8A8_UNORM;
     }
     fmt.extent = {img->width(), img->height(), 1};

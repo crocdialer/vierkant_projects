@@ -189,7 +189,7 @@ void PBRViewer::load_texture(const std::string &path)
 
         vierkant::ImagePtr texture;
         vierkant::Image::Format fmt;
-        fmt.max_anisotropy = m_device->properties().core.limits.maxSamplerAnisotropy;
+        fmt.sampler_state.max_anisotropy = m_device->properties().core.limits.maxSamplerAnisotropy;
 
         if(m_settings.texture_compression)
         {
@@ -649,7 +649,7 @@ void PBRViewer::build_scene(const std::optional<scene_data_t> &scene_data_in, bo
                     for(const auto &[tex_id, tex_variant]: asset.material_data.textures)
                     {
                         vierkant::Image::Format fmt;
-                        fmt.max_anisotropy = m_device->properties().core.limits.maxSamplerAnisotropy;
+                        fmt.sampler_state.max_anisotropy = m_device->properties().core.limits.maxSamplerAnisotropy;
 
                         std::visit(
                                 [this, &asset, tex_id, fmt](auto &&img) {
