@@ -396,7 +396,8 @@ void serialize(Archive &archive, vierkant::lightsource_t &light)
             cereal::make_nvp("intensity", light.intensity), cereal::make_nvp("range", light.range),
             cereal::make_nvp("inner_cone_angle", light.inner_cone_angle),
             cereal::make_nvp("outer_cone_angle", light.outer_cone_angle),
-            cereal::make_optional_nvp("size", light.size, glm::vec2(1.f)));
+            cereal::make_optional_nvp("size", light.size, glm::vec2(1.f)),
+            cereal::make_optional_nvp("cookie", light.cookie));
 }
 
 template<class Archive>
