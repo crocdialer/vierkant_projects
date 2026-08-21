@@ -582,6 +582,24 @@ void PBRViewer::create_ui()
 
             if(ImGui::BeginMenu("renderer"))
             {
+                if(ImGui::TreeNode("memory-budget"))
+                {
+                    constexpr double mega_bytes = 1 << 20;
+                    const auto budgets = m_device->memory_budgets();
+
+                    for(uint32_t i = 0; i < budgets.size(); ++i)
+                    {
+                        const auto &budget = budgets[i];
+                        if(!budget.block_bytes) { continue; }
+                        ImGui::Text("heap %u: %.0f MB used | %.0f MB reserved | %.0f MB budget", i,
+                                    static_cast<double>(budget.allocation_bytes) / mega_bytes,
+                                    static_cast<double>(budget.block_bytes) / mega_bytes,
+                                    static_cast<double>(budget.budget) / mega_bytes);
+                    }
+                    ImGui::TreePop();
+                }
+                ImGui::Spacing();
+
                 bool is_path_tracer = m_scene_renderer == m_path_tracer;
 
                 if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)) { m_scene_renderer = m_pbr_renderer; }
