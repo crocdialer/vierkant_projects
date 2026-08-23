@@ -582,6 +582,29 @@ void PBRViewer::create_ui()
 
             if(ImGui::BeginMenu("renderer"))
             {
+                const bool is_path_tracer = m_scene_renderer == m_path_tracer;
+
+                if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)) { m_scene_renderer = m_pbr_renderer; }
+                ImGui::SameLine();
+                if(ImGui::RadioButton("pathtracer", is_path_tracer))
+                {
+                    m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
+                }
+                ImGui::Spacing();
+                vierkant::gui::draw_scene_renderer_settings_ui(m_scene_renderer);
+                ImGui::EndMenu();
+            }
+
+            if(ImGui::BeginMenu("stats"))
+            {
+                const auto loop_time = current_loop_time();
+                ImGui::Text("fps: %.1f (%.1f ms)", 1.f / loop_time, loop_time * 1000.f);
+                ImGui::Spacing();
+                ImGui::Text("time: %s | frame: %d",
+                            crocore::secs_to_time_str(static_cast<float>(application_time())).c_str(),
+                            static_cast<uint32_t>(m_window->num_frames()));
+                ImGui::Spacing();
+
                 if(ImGui::TreeNode("memory-budget"))
                 {
                     constexpr double mega_bytes = 1 << 20;
@@ -598,29 +621,6 @@ void PBRViewer::create_ui()
                     }
                     ImGui::TreePop();
                 }
-                ImGui::Spacing();
-
-                bool is_path_tracer = m_scene_renderer == m_path_tracer;
-
-                if(ImGui::RadioButton("pbr-deferred", !is_path_tracer)) { m_scene_renderer = m_pbr_renderer; }
-                ImGui::SameLine();
-                if(ImGui::RadioButton("pathtracer", is_path_tracer))
-                {
-                    m_scene_renderer = m_path_tracer ? m_path_tracer : m_scene_renderer;
-                }
-                ImGui::Spacing();
-                vierkant::gui::draw_scene_renderer_settings_ui(m_scene_renderer);
-                ImGui::EndMenu();
-            }
-
-            if(ImGui::BeginMenu("stats"))
-            {
-                auto loop_time = current_loop_time();
-                ImGui::Text("fps: %.1f (%.1f ms)", 1.f / loop_time, loop_time * 1000.f);
-                ImGui::Spacing();
-                ImGui::Text("time: %s | frame: %d",
-                            crocore::secs_to_time_str(static_cast<float>(application_time())).c_str(),
-                            static_cast<uint32_t>(m_window->num_frames()));
                 ImGui::Spacing();
 
                 vierkant::gui::draw_scene_renderer_statistics_ui(m_scene_renderer);
